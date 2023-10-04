@@ -53,6 +53,28 @@ namespace cuckoo_state_machines {
         clear_statistics();
     }
 
+
+    void State_Machine::set_global_start_flag(volatile bool * flag) {
+        assert(flag != NULL);
+        // printf("cuckoo address global start flag %p\n", flag);
+        _global_start_flag = flag;
+        assert(_global_start_flag != NULL);
+    }
+
+    void State_Machine::set_global_end_flag(volatile bool * flag) {
+        assert(flag != NULL);
+        // printf("cuckoo address global stop flag %p\n", flag);
+        _global_end_flag = flag;
+        assert(_global_end_flag != NULL);
+    }
+
+    void State_Machine::set_global_prime_flag(volatile bool * flag) {
+        assert(flag != NULL);
+        // printf("cuckoo address global stop flag %p\n", flag);
+        _global_prime_flag = flag;
+        assert(_global_prime_flag != NULL);
+    }
+
     void State_Machine::clear_statistics() {
         //clear control state
         _complete = false;

@@ -396,4 +396,16 @@ int stick_this_thread_to_core(int core_id) {
    return pthread_setaffinity_np(current_thread, sizeof(cpu_set_t), &cpuset);
 }
 
+int stick_thread_to_core(pthread_t thread, int core_id) {
+  int num_cores = sysconf(_SC_NPROCESSORS_ONLN);
+  if (core_id < 0 || core_id >= num_cores) {
+        ALERT("CORE_PIN_DEATH","%s: core_id %d invalid total cores %d\n", __func__, core_id,_SC_NPROCESSORS_ONLN);
+        exit(0);
+  }
+  cpu_set_t cpuset;
+  CPU_ZERO(&cpuset);
+  CPU_SET(core_id, &cpuset);
+  return pthread_setaffinity_np(thread, sizeof(pthread_t), &cpuset);
+}
+
 

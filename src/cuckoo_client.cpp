@@ -14,7 +14,6 @@ using namespace cuckoo_rdma_engine;
 using namespace cuckoo_rcuckoo;
 
 
-
 int main(int argc, char **argv){
     if (argc > 2) {
         ALERT("CUCKOO CLIENT", "ERROR Too many arguments Usage: ./rdma_server <config_file>\n");

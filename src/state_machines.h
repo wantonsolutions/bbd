@@ -63,6 +63,10 @@ namespace cuckoo_state_machines {
             vector<VRMessage> fsm(VRMessage messages);
             virtual vector<VRMessage> fsm_logic(VRMessage messages) { printf("fsm_logic not implemented\n"); return vector<VRMessage>(); };
 
+            void set_global_start_flag(volatile bool * flag);
+            void set_global_end_flag(volatile bool * flag);
+            void set_global_prime_flag(volatile bool * flag);
+
 
         protected:
             unordered_map<string, string> _config;
@@ -143,6 +147,12 @@ namespace cuckoo_state_machines {
             uint64_t _sum_read_latency_ns;
             vector<int> _insert_latency_ns;
             vector<int> _read_latency_ns;
+
+            //////////////////////////////
+            /*Control Variables*/
+            volatile bool * _global_start_flag;
+            volatile bool * _global_end_flag;
+            volatile bool * _global_prime_flag;
 
         private:
             void update_message_stats(vector<VRMessage>);

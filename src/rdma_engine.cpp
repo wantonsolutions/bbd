@@ -3,6 +3,7 @@
 #include "state_machines.h"
 #include "rdma_engine.h"
 #include "cuckoo.h"
+#include "state_machines.h"
 #include <vector>
 #include <infiniband/verbs.h>
 #include <atomic>
@@ -36,18 +37,6 @@ const int yeti_control_core = 0;
 int yak_core_order[24]={0,2,4,6,8,10,12,14,16,18,20,22,1,3,5,7,9,11,13,15,17,19,21,23};
 int yak_control_core = 0;
 
-
-int stick_thread_to_core(pthread_t thread, int core_id) {
-  int num_cores = sysconf(_SC_NPROCESSORS_ONLN);
-  if (core_id < 0 || core_id >= num_cores) {
-        ALERT("CORE_PIN_DEATH","%s: core_id %d invalid total cores %d\n", __func__, core_id,_SC_NPROCESSORS_ONLN);
-        exit(0);
-  }
-  cpu_set_t cpuset;
-  CPU_ZERO(&cpuset);
-  CPU_SET(core_id, &cpuset);
-  return pthread_setaffinity_np(thread, sizeof(pthread_t), &cpuset);
-}
 
 typedef struct rcuckoo_init_arg{
     unordered_map <string, string> config;
@@ -236,9 +225,9 @@ namespace cuckoo_rdma_engine {
         for (int i=0;i<_num_clients;i++) {
             INFO("RDMA Engine","Creating Client Thread %d\n", i);
             pthread_create(&thread_ids[i], NULL, &cuckoo_fsm_runner, (rcuckoo_state_machines[i]));
-            stick_thread_to_core(thread_ids[i], yeti_core_order[i]);
+            stick_thread_to_core(thread_ids[i], yak_core_order[i]);
         }
-        stick_this_thread_to_core(yeti_control_core);
+        stick_this_thread_to_core(yak_control_core);
 
         using std::chrono::high_resolution_clock;
         using std::chrono::duration_cast;
@@ -272,10 +261,6 @@ namespace cuckoo_rdma_engine {
                 ALERT("RDMA Engine", "Experiment Priming Complete -- do priming things\n");
                 priming_action_taken = true;
                 global_prime_flag = true;
-                // for(int i=0;i<_num_clients;i++){
-                //     rcuckoo_state_machines[i]->clear_statistics();
-                // }
-                // global_prime_flag = false;
                 t1=high_resolution_clock::now();
             }
             if(global_end_flag == true) {

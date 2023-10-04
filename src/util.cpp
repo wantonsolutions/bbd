@@ -1,6 +1,9 @@
 #include <cassert>
 #include <string>
+#include <linux/kernel.h>
+#include <sched.h>
 #include "util.h"
+#include <chrono>
 
 using namespace std;
 
@@ -31,6 +34,12 @@ string uint64t_to_bin_string(uint64_t num){
         num = num >> 1;
     }
     return s;
+}
+
+chrono::nanoseconds get_current_ns(void)
+{
+  return chrono::duration_cast<chrono::nanoseconds>(
+      chrono::system_clock::now().time_since_epoch());
 }
 
 uint64_t bin_string_to_uint64_t(string s){

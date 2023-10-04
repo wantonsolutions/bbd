@@ -98,17 +98,6 @@ void poll_get_event_from_mailbox(struct rdma_cm_event **event, int qp_id) {
 
 static on_chip_memory_attr device_memory;
 
-int stick_thread_to_core(pthread_t thread, int core_id) {
-  int num_cores = sysconf(_SC_NPROCESSORS_ONLN);
-  if (core_id < 0 || core_id >= num_cores) {
-        ALERT("CORE_PIN_DEATH","%s: core_id %d invalid\n", __func__, core_id);
-        exit(0);
-  }
-  cpu_set_t cpuset;
-  CPU_ZERO(&cpuset);
-  CPU_SET(core_id, &cpuset);
-  return pthread_setaffinity_np(thread, sizeof(pthread_t), &cpuset);
-}
 
 
 // int process_rdma_cm_event(struct rdma_event_channel *echannel, 
@@ -901,6 +890,8 @@ void *connection_setup(void* void_args){
 
 int main(int argc, char **argv) 
 {
+
+    printf("Starting RDMA server\n");
 
     ALERT("Starting server", "Starting server\n");
 

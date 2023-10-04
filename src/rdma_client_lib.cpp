@@ -424,7 +424,7 @@ int RDMAConnectionManager::client_prepare_connection(struct sockaddr_in *s_addr,
     s_addr->sin_port = htons(port_num);
     ret = rdma_resolve_addr(cm_client_qp_id[qp_num], NULL, (struct sockaddr*) s_addr, 2000);
     if (ret) {
-        ALERT("Connection Manager", "Failed to resolve address, errno: %d \n", -errno);
+        ALERT("Connection Manager", "Failed to resolve address, errno: %s \n", strerror(errno));
         return -errno;
     }
     VERBOSE("Connection Manager", "waiting for cm event: RDMA_CM_EVENT_ADDR_RESOLVED\n");
@@ -438,7 +438,7 @@ int RDMAConnectionManager::client_prepare_connection(struct sockaddr_in *s_addr,
     /* we ack the event */
     ret = rdma_ack_cm_event(cm_event);
     if (ret) {
-        ALERT("Connection Manager", "Failed to acknowledge the CM event, errno: %d\n", -errno);
+        ALERT("Connection Manager", "Failed to acknowledge the CM event, errno: %s\n", strerror(errno));
         return -errno;
     }
     VERBOSE("Connection Manager","RDMA address is resolved \n");
@@ -446,7 +446,7 @@ int RDMAConnectionManager::client_prepare_connection(struct sockaddr_in *s_addr,
     * establish a connection */
     ret = rdma_resolve_route(cm_client_qp_id[qp_num], 2000);
     if (ret) {
-        ALERT("Connection Manager", "Failed to resolve route, erno: %d \n", -errno);
+        ALERT("Connection Manager", "Failed to resolve route (qp num %d), erno: %s \n", qp_num, strerror(errno));
         return -errno;
     }
     VERBOSE("Connection Manager","waiting for cm event: RDMA_CM_EVENT_ROUTE_RESOLVED\n");

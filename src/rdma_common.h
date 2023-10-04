@@ -217,6 +217,7 @@ void show_rdma_cmid(struct rdma_cm_id *id);
 
 
 int stick_this_thread_to_core(int core_id);
+int stick_thread_to_core(pthread_t thread, int core_id);
 
 
 struct sockaddr_in server_address_to_socket_addr(string server_address);

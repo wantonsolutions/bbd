@@ -70,8 +70,6 @@ namespace cuckoo_rcuckoo {
             void complete_insert_stats(bool success);
             void complete_insert();
 
-            void pause_for_an_rtt();
-
             //Table and lock table functions
             Entry ** get_table_pointer();
             unsigned int get_table_size_bytes();
@@ -107,9 +105,6 @@ namespace cuckoo_rcuckoo {
             void insert_direct();
             void update_direct(void);
 
-            void set_global_start_flag(volatile bool * flag);
-            void set_global_end_flag(volatile bool * flag);
-            void set_global_prime_flag(volatile bool * flag);
             void set_hash_factor(unordered_map<string, string> config);
 
 
@@ -130,9 +125,6 @@ namespace cuckoo_rcuckoo {
             unsigned int _buckets_per_lock;
             unsigned int _locks_per_message;
 
-            volatile bool * _global_start_flag;
-            volatile bool * _global_end_flag;
-            volatile bool * _global_prime_flag;
             bool _local_prime_flag;
             bool _use_mask;
             float _hash_factor;

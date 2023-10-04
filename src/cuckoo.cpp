@@ -15,6 +15,7 @@
 #include "rdma_helper.h"
 #include "rdma_common.h"
 #include "memcached.h"
+#include "util.h"
 #include <cassert>
 #include <chrono>
 #include <inttypes.h>
@@ -29,32 +30,11 @@ using namespace rdma_helper;
 
 
 
-chrono::nanoseconds get_current_ns(void)
-{
-  return chrono::duration_cast<chrono::nanoseconds>(
-      chrono::system_clock::now().time_since_epoch());
-}
-
-
 namespace cuckoo_rcuckoo {
 
     Entry ** RCuckoo::get_table_pointer() {
         return _table.get_underlying_table();
     }
-
-    void RCuckoo::pause_for_an_rtt(){
-            const int sleep_ticks_min = 12000;
-            // const int sleep_ticks = 4000;
-            int sleep_ticks = _sleep_counter % 5;
-            sleep_ticks += sleep_ticks_min;
-            for(int i = 0; i < sleep_ticks; i++) {
-                _sleep_counter+=i;
-            }
-            if((_sleep_counter % 10000000) == 0) {
-                printf("we did run the sleep function counter = %d\n", _sleep_counter);
-            }
-    }
-
 
     void * RCuckoo::get_lock_table_pointer(){
         return _table.get_underlying_lock_table_address();
@@ -70,28 +50,6 @@ namespace cuckoo_rcuckoo {
 
     void RCuckoo::print_table() {
         _table.print_table();
-    }
-
-    
-    void RCuckoo::set_global_start_flag(volatile bool * flag) {
-        assert(flag != NULL);
-        // printf("cuckoo address global start flag %p\n", flag);
-        _global_start_flag = flag;
-        assert(_global_start_flag != NULL);
-    }
-
-    void RCuckoo::set_global_end_flag(volatile bool * flag) {
-        assert(flag != NULL);
-        // printf("cuckoo address global stop flag %p\n", flag);
-        _global_end_flag = flag;
-        assert(_global_end_flag != NULL);
-    }
-
-    void RCuckoo::set_global_prime_flag(volatile bool * flag) {
-        assert(flag != NULL);
-        // printf("cuckoo address global stop flag %p\n", flag);
-        _global_prime_flag = flag;
-        assert(_global_prime_flag != NULL);
     }
 
     bool RCuckoo::path_valid() {
@@ -1343,7 +1301,6 @@ namespace cuckoo_rcuckoo {
         send_insert_and_unlock_messages(_insert_messages, _lock_list, _wr_id);
         _wr_id += total_messages;
 
-        // pause_for_an_rtt();
 
         //Bulk poll to receive all messages
         int n=0;
@@ -1533,7 +1490,6 @@ namespace cuckoo_rcuckoo {
         send_insert_and_unlock_messages(_insert_messages, _lock_list, _wr_id);
         _wr_id += total_messages;
 
-        // pause_for_an_rtt();
 
         //Bulk poll to receive all messages
         int n=0;
