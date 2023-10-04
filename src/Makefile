@@ -19,15 +19,18 @@ LIBRARIES := -L$(XXHASH_INC) -lxxhash $(RDMA_LIBS) -lmemcached -lssl -lcrypto -l
 SHARED_CPP := config.cpp hash.cpp rdma_client_lib.cpp rdma_helper.cpp state_machines.cpp virtual_rdma.cpp memcached.cpp rdma_common.cpp  tables.cpp cuckoo.cpp rdma_engine.cpp search.cpp util.cpp
 
 SERVER_CPP := $(SHARED_CPP) rdma_memory_server.cpp
-CLIENT_CPP := $(SHARED_CPP) cuckoo_client.cpp
+CUCKOO_CPP := $(SHARED_CPP) cuckoo_client.cpp
+
+SLOGGER_CPP := $(SHARED_CPP) replicated_log.cpp slogger.cpp slogger_client.cpp
 
 SERVER_OBJ := $(patsubst %.cpp, obj/%.o, $(SERVER_CPP))
-CLIENT_OBJ := $(patsubst %.cpp, obj/%.o, $(CLIENT_CPP))
+CUCKOO_OBJ := $(patsubst %.cpp, obj/%.o, $(CUCKOO_CPP))
+SLOGGER_OBJ := $(patsubst %.cpp, obj/%.o, $(SLOGGER_CPP))
 
 # config.o: config.cpp
 # 	$(CC) $(CFLAGS) $(INCLUDES) $(LIBRARIES) -c $< -o $@
 
-all: rdma_memory_server cuckoo_client
+all: rdma_memory_server cuckoo_client slogger_client
 
 obj/%.o: %.cpp
 	$(CC) $(CFLAGS) $(INCLUDES) $(LIBRARIES) -c $< -o $@
@@ -35,8 +38,11 @@ obj/%.o: %.cpp
 rdma_memory_server: $(SERVER_OBJ)
 	$(CC) $(CFLAGS) $(INCLUDES) $(SERVER_OBJ) -o rdma_memory_server $(LIBRARIES) 
 
-cuckoo_client: $(CLIENT_OBJ)
-	$(CC) $(CFLAGS) $(INCLUDES) $(CLIENT_OBJ) -o cuckoo_client $(LIBRARIES) 
+cuckoo_client: $(CUCKOO_OBJ)
+	$(CC) $(CFLAGS) $(INCLUDES) $(CUCKOO_OBJ) -o cuckoo_client $(LIBRARIES) 
+
+slogger_client: $(SLOGGER_OBJ)
+	$(CC) $(CFLAGS) $(INCLUDES) $(SLOGGER_OBJ) -o slogger_client $(LIBRARIES)
 
 
 

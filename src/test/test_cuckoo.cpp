@@ -7,7 +7,7 @@
 
 
 using namespace std;
-using namespace cuckoo_rdma_engine;
+using namespace rdma_engine;
 using namespace cuckoo_rcuckoo;
 
 

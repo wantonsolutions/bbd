@@ -40,7 +40,7 @@ using namespace cuckoo_virtual_rdma;
 #endif
 
 
-namespace cuckoo_state_machines {
+namespace state_machines {
 
 
     class State_Machine {

@@ -10,7 +10,7 @@
 #include <infiniband/verbs.h>
 #include <atomic>
 
-using namespace cuckoo_state_machines;
+using namespace state_machines;
 using namespace cuckoo_search;
 
 #define MAX_CONCURRENT_CUCKOO_MESSAGES 32
@@ -37,35 +37,11 @@ namespace cuckoo_rcuckoo {
             void set_location_function(unordered_map<string, string> config);
 
 
-
-
-            vector<VRMessage> fsm_logic(VRMessage messages);
-            vector<VRMessage> get();
-            vector<VRMessage> aquire_locks();
-            vector<VRMessage> put();
-            vector<VRMessage> search();
-            vector<VRMessage> begin_insert();
-            vector<VRMessage> retry_insert();
-            vector<VRMessage> release_locks_batched();
-            void insert_cas_fsm(VRMessage message);
-            vector<VRMessage> release_locks_fsm(VRMessage message);
-            vector <VRMessage> insert_and_release_fsm(VRMessage message);
-            vector<VRMessage> get_current_locking_message_with_covering_read();
             void clear_statistics();
             string get_state_machine_name();
-            vector<VRMessage> idle_fsm(VRMessage message);
-            vector<VRMessage> read_fsm(VRMessage message);
-            vector<VRMessage> aquire_locks_with_reads_fsm(VRMessage message);
 
-            void receive_successful_locking_message(VRMessage message);
-            void receive_successful_unlocking_message(VRMessage message);
             void receive_successful_unlocking_message(unsigned int message_index);
-
-
-            void receive_successful_locking_message(VRMaskedCasData message);
-            void receive_successful_unlocking_message(VRMaskedCasData message);
             void receive_successful_locking_message(unsigned int message_index);
-
 
             void complete_insert_stats(bool success);
             void complete_insert();
@@ -86,11 +62,8 @@ namespace cuckoo_rcuckoo {
 
             /* RDMA specific functions */
             uint64_t local_to_remote_table_address(uint64_t local_address);
-            void send_virtual_read_message(VRMessage message, uint64_t wr_id);
             void send_virtual_read_message(VRReadData message, uint64_t wr_id);
-            void send_virtual_cas_message(VRMessage message, uint64_t wr_id);
             void send_virtual_cas_message(VRCasData message, uint64_t wr_id);
-            void send_virtual_masked_cas_message(VRMessage message, uint64_t wr_id);
             void send_virtual_masked_cas_message(VRMaskedCasData message, uint64_t wr_id);
 
             void send_lock_and_cover_message(VRMaskedCasData lock_message, VRReadData read_message, uint64_t wr_id);

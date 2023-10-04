@@ -40,7 +40,7 @@ string key_array_to_string(vector<Key> array) {
     return result;
 }
 
-namespace cuckoo_state_machines {
+namespace state_machines {
 
 
     State_Machine::State_Machine() {

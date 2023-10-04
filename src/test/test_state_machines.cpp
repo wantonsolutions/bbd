@@ -3,7 +3,7 @@
 #include "../tables.h"
 #include "../virtual_rdma.h"
 
-using namespace cuckoo_state_machines;
+using namespace state_machines;
 using namespace cuckoo_tables;
 
 int main(){

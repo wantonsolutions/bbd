@@ -3,7 +3,12 @@
 #include <linux/kernel.h>
 #include <sched.h>
 #include "util.h"
+#include <iostream>
+#include <sstream>
+#include <vector>
 #include <chrono>
+#include <algorithm>
+#include <iterator>
 
 using namespace std;
 
@@ -40,6 +45,12 @@ chrono::nanoseconds get_current_ns(void)
 {
   return chrono::duration_cast<chrono::nanoseconds>(
       chrono::system_clock::now().time_since_epoch());
+}
+
+string vector_to_string(vector<unsigned int> values) {
+    stringstream ss;
+    copy(values.begin(), values.end(), ostream_iterator<unsigned int>(ss, " "));
+    return ss.str();
 }
 
 uint64_t bin_string_to_uint64_t(string s){

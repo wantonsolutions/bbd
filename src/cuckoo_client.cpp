@@ -1,16 +1,14 @@
-#include "virtual_rdma.h"
 #include "cuckoo.h"
 #include "rdma_common.h"
 #include "rdma_engine.h"
 #include "state_machines.h"
-#include <unordered_map>
 #include "config.h"
 #include "log.h"
 
 
 
 using namespace std;
-using namespace cuckoo_rdma_engine;
+using namespace rdma_engine;
 using namespace cuckoo_rcuckoo;
 
 
@@ -28,7 +26,8 @@ int main(int argc, char **argv){
     }
     INFO("CUCKOO CLIENT", "Starting Cuckoo Client with config file %s\n", config_filename.c_str());
     unordered_map<string, string> config = read_config_from_file(config_filename);
-    RDMA_Engine client_1 = RDMA_Engine(config);
+    RDMA_Engine client_1 = RDMA_Engine(config,rcuckoo_client);
+
     client_1.start();
 
     //now we call the engine

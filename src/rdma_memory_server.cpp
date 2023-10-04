@@ -16,7 +16,7 @@
 #include <mutex>
 
 using namespace std;
-using namespace cuckoo_state_machines;
+using namespace state_machines;
 
 #define TABLE_MR_INDEX 0
 #define LOCK_TABLE_MR_INDEX 1
@@ -918,13 +918,9 @@ int main(int argc, char **argv)
     int num_qps = stoi(config["num_clients"]);
 
     string workload = config["workload"];
-    int runtime = 0;
+    int runtime = stoi(config["runtime"]);
     bool use_runtime = true;
 
-    if (workload == "ycsb-c") {
-        runtime = stoi(config["runtime"]);
-        use_runtime = true;
-    }
 
     int i; 
     int ret = setup_shared_resources();

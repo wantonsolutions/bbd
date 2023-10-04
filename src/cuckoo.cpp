@@ -2,8 +2,6 @@
 #include <string>
 #include <unordered_map>
 #include <algorithm>
-#include <iostream>
-#include <sstream>
 #include <iterator>
 #include <vector>
 #include <set>
@@ -24,7 +22,7 @@
 
 using namespace std;
 using namespace cuckoo_search;
-using namespace cuckoo_state_machines;
+using namespace state_machines;
 using namespace rdma_helper;
 
 
@@ -74,14 +72,6 @@ namespace cuckoo_rcuckoo {
     }
 
 
-    string vector_to_string(vector<unsigned int> buckets) {
-
-        stringstream ss;
-        copy(buckets.begin(), buckets.end(), ostream_iterator<unsigned int>(ss, " "));
-        return ss.str();
-        // return "";
-    }
-
     unsigned int RCuckoo::get_table_size_bytes() {
         return _table.get_table_size_bytes();
     }
@@ -90,11 +80,7 @@ namespace cuckoo_rcuckoo {
         return _table.get_entry_pointer(bucket_id, offset);
     }
 
-    RCuckoo::RCuckoo() : Client_State_Machine() {
-        // _table = Table();
-        // printf("RCUCKOO no args, get outta here\n");
-        // exit(0);
-    }
+    RCuckoo::RCuckoo() : Client_State_Machine() {}
 
     RCuckoo::RCuckoo(unordered_map<string, string> config) : Client_State_Machine(config) {
 
@@ -154,6 +140,7 @@ namespace cuckoo_rcuckoo {
 
     void RCuckoo::clear_statistics(){
         Client_State_Machine::clear_statistics();
+        SUCCESS("RCuckoo", "clearing statistics\n");
         _current_insert_key = Key();
         // _search_path = vector<path_element>();
         _search_path_index = 0;
@@ -226,76 +213,6 @@ namespace cuckoo_rcuckoo {
         return (_search_context.path.size() > 0);
     }
 
-    vector<VRMessage> RCuckoo::get(){
-        _current_read_rtt++;
-        vector<VRMessage> messages = read_threshold_message(_location_function, _current_read_key, _read_threshold_bytes, _table.get_row_count(), _table.row_size_bytes());
-        return Client_State_Machine::begin_read(messages);
-    }
-
-    vector<VRMessage> RCuckoo::get_current_locking_message_with_covering_read() {
-        VRMessage lock_message = _current_locking_messages[_locking_message_index];
-        VRMessage read_message = get_covering_read_from_lock_message(lock_message, _buckets_per_lock, _table.row_size_bytes());
-        _outstanding_read_requests++;
-        vector<VRMessage> lock_and_read_messages = {lock_message, read_message};
-        return lock_and_read_messages;
-
-    }
-
-    vector<VRMessage> RCuckoo::aquire_locks() {
-        ALERT("TODO", "fix this path we should not be returning a path here");
-        exit(0);
-        // _locking_message_index = 0;
-        // vector<unsigned int> buckets = search_path_to_buckets(_search_path);
-        
-        // INFO(log_id(), "[aquire_locks] gathering locks for buckets %s\n", vector_to_string(buckets).c_str());
-
-        // get_lock_list_fast(buckets, _fast_lock_chunks, _lock_list, _buckets_per_lock, _locks_per_message);
-        // vector<VRMessage> masked_cas_messages = create_masked_cas_messages_from_lock_list(_lock_list);
-        // _current_locking_messages = masked_cas_messages;
-        return get_current_locking_message_with_covering_read();
-    }
-
-    vector<VRMessage> RCuckoo::search() {
-        // vector<unsigned int> searchable_buckets;
-        // _search_path = (this->*_table_search_function)(searchable_buckets);
-        // ALERT("Inserting key %s\n", _current_insert_key.to_string().c_str());
-        ALERT("ERROR", "Ibroke this function because now we are using search contexts FIx by using the old version or setting up the context");
-        exit(1);
-        (this->*_table_search_function)();
-        //Search failed
-        // if (_search_path.size() <= 0) {
-        //     ALERT(log_id(), "Search Failed for key %s unable to continue client %d is done\n", _current_insert_key.to_string().c_str(), _id);
-        //     _complete=true;
-        //     _state = IDLE;
-        //     return vector<VRMessage>();
-        // }
-        // VERBOSE("search", "Successful local search for [key %s] -> [path %s]\n", _current_insert_key.to_string().c_str(), path_to_string(_search_path).c_str());
-        // _state = AQUIRE_LOCKS;
-        return aquire_locks();
-    }
-
-    vector<VRMessage> RCuckoo::put() {
-        _current_insert_rtt++;
-        return search();
-    }
-
-    vector<VRMessage> RCuckoo::idle_fsm(VRMessage message) {
-        if (message.get_message_type() != NO_OP_MESSAGE) {
-            ALERT(log_id(),"Message: %s\n", message.to_string().c_str());
-            throw logic_error("ERROR: Client in idle state received message of type");
-        }
-        return Client_State_Machine::general_idle_fsm();
-    }
-
-    vector<VRMessage> RCuckoo::read_fsm(VRMessage message) {
-        read_status rs = wait_for_read_messages_fsm(_table, message, _current_read_key);
-        if (rs.complete) {
-            _state = IDLE;
-            State_Machine::complete_read_stats(rs.success, _current_read_key);
-            _reading=false;
-        }
-        return vector<VRMessage>();
-    }
 
     void RCuckoo::complete_insert_stats(bool success){
         // exit(0);
@@ -348,123 +265,6 @@ namespace cuckoo_rcuckoo {
 
     }
 
-    void RCuckoo::insert_cas_fsm(VRMessage message) {
-        assert(message.get_message_type() == CAS_RESPONSE);
-        //Note: I used to fill the table with my cas response, the issue is that I only get the old value back.
-        // fill_local_table_with_cas_response(_table, message.function_args);
-        assert(message.function_args["success"] == "1" || message.function_args["success"] == "0");
-        bool success = (bool)stoi(message.function_args["success"]);
-        if (!success) [[unlikely]] {
-            ALERT(log_id(), "CAS Failed for key %s\n", _current_insert_key.to_string().c_str());
-            ALERT(log_id(), "failed cas message: %s\n", message.to_string().c_str());
-            throw logic_error("ERROR: CAS Failed");
-        }
-        _search_path_index--;
-        if (_search_path_index == 0) {
-            VERBOSE(log_id(), "Insert Path Complete for key %s all responses collected\n", _current_insert_key.to_string().c_str());
-        } else if (_search_path_index < 0 ) {
-            throw logic_error("Error we have received too many CAS responses");
-        }
-        return;
-    }
-
-    vector<VRMessage> RCuckoo::release_locks_fsm(VRMessage message) {
-        vector<VRMessage> response;
-        if (message.get_message_type() != MASKED_CAS_RESPONSE) {
-            return response;
-        }
-        assert(message.function_args["success"] == "1" || message.function_args["success"] == "0");
-        bool success = (bool)stoi(message.function_args["success"]);
-
-        if (!success) [[unlikely]] {
-            ALERT(log_id(), "Masked CAS Failed for key %s\n", _current_insert_key.to_string().c_str());
-            ALERT(log_id(), "failed masked cas message: %s\n", message.to_string().c_str());
-            exit(1);
-            throw logic_error("ERROR: Masked CAS Failed");
-        }
-        receive_successful_unlocking_message(message);
-        if (all_locks_released()){
-            assert(_state == INSERTING || _state == RELEASE_LOCKS_TRY_AGAIN);
-            switch(_state){
-                case INSERTING:
-                    complete_insert();
-                    return response;
-                
-                case RELEASE_LOCKS_TRY_AGAIN:
-                    return search();
-                    // return put_direct();
-            }
-        }
-        return response;
-    }
-
-    vector<VRMessage> RCuckoo::insert_and_release_fsm(VRMessage message) {
-        switch(message.get_message_type()){
-            case CAS_RESPONSE:
-                insert_cas_fsm(message);
-                //insert_cas_fsm has no response
-                return vector<VRMessage>();
-            case MASKED_CAS_RESPONSE:
-                return release_locks_fsm(message);
-            case NO_OP_MESSAGE:
-                break;
-            default:
-                throw logic_error("ERROR: Client in insert_and_release_fsm received message of type");
-                break;
-        }
-        return vector<VRMessage>();
-    }
-
-    vector<VRMessage> RCuckoo::fsm_logic(VRMessage message){
-
-        if (message.get_message_type() != NO_OP_MESSAGE) {
-            VERBOSE(log_id(), "Received Message: %s\n", message.to_string().c_str());
-        }
-        vector<VRMessage> response = vector<VRMessage>();
-
-
-        //The client is done
-        if (_complete && _state == IDLE) {
-            response = vector<VRMessage>();
-            return response;
-        }
-
-        switch(_state) {
-            case IDLE:
-                response = idle_fsm(message);
-                break;
-            case READING:
-                response = read_fsm(message);
-                break;
-            case AQUIRE_LOCKS:
-                response = aquire_locks_with_reads_fsm(message);
-                break;
-            case RELEASE_LOCKS_TRY_AGAIN:
-                response = release_locks_fsm(message);
-                break;
-            case INSERTING:
-                response = insert_and_release_fsm(message);
-                break;
-            default:
-                throw logic_error("ERROR: Invalid state");
-        }
-
-        for (unsigned int i = 0; i < response.size(); i++) {
-            VERBOSE(log_id(), "Sending Message: %s\n", response[i].to_string().c_str());
-        }
-        return response;
-    }
-
-    void RCuckoo::receive_successful_locking_message(VRMessage message) {
-        vector<unsigned int> lock_indexes = lock_message_to_lock_indexes(message);
-        for (unsigned int i = 0; i < lock_indexes.size(); i++) {
-            _locks_held.push_back(lock_indexes[i]);
-        }
-        //checking that the locks do not have duplicates
-        assert(_locks_held.size() == set<unsigned int>(_locks_held.begin(), _locks_held.end()).size());
-        _locking_message_index++;
-    }
-
     void RCuckoo::receive_successful_locking_message(unsigned int message_index){
         for (unsigned int i =0; i< _locking_context.fast_lock_chunks[message_index].size(); i++){
             // printf("locking chunk %d\n", _locking_context.fast_lock_chunks[message_index][i]);
@@ -473,42 +273,10 @@ namespace cuckoo_rcuckoo {
         _locking_message_index++;
     }
 
-    void RCuckoo::receive_successful_locking_message(VRMaskedCasData message) {
-        unsigned int lock_indexes[BITS_IN_MASKED_CAS];
-        int total_locks = lock_message_to_lock_indexes(message, lock_indexes);
-        for (unsigned int i = 0; i < total_locks; i++) {
-            // printf("locking messg %d\n", lock_indexes[i]);
-            _locks_held.push_back(lock_indexes[i]);
-        }
-        _locking_message_index++;
-    }
-
     void RCuckoo::receive_successful_unlocking_message(unsigned int message_index) {
         for (unsigned int i =0; i< _locking_context.fast_lock_chunks[message_index].size(); i++){
             _locks_held.erase(remove(_locks_held.begin(), _locks_held.end(), _locking_context.fast_lock_chunks[message_index][i]), _locks_held.end());
         }
-        assert(_locks_held.size() == set<unsigned int>(_locks_held.begin(), _locks_held.end()).size());
-        _locking_message_index++;
-    }
-
-
-    void RCuckoo::receive_successful_unlocking_message(VRMessage message) {
-        vector<unsigned int> unlock_indexes = lock_message_to_lock_indexes(message);
-        for (unsigned int i = 0; i < unlock_indexes.size(); i++) {
-            _locks_held.erase(remove(_locks_held.begin(), _locks_held.end(), unlock_indexes[i]), _locks_held.end());
-        }
-        //checking that the locks do not have duplicates
-        assert(_locks_held.size() == set<unsigned int>(_locks_held.begin(), _locks_held.end()).size());
-        _locking_message_index++;
-    }
-
-    void RCuckoo::receive_successful_unlocking_message(VRMaskedCasData message) {
-        unsigned int lock_indexes[BITS_IN_MASKED_CAS];
-        int total_locks = lock_message_to_lock_indexes(message, lock_indexes);
-        for (unsigned int i = 0; i < total_locks; i++) {
-            _locks_held.erase(remove(_locks_held.begin(), _locks_held.end(), lock_indexes[i]), _locks_held.end());
-        }
-        //checking that the locks do not have duplicates
         assert(_locks_held.size() == set<unsigned int>(_locks_held.begin(), _locks_held.end()).size());
         _locking_message_index++;
     }
@@ -533,10 +301,6 @@ namespace cuckoo_rcuckoo {
         return (_outstanding_read_requests == 0);
     }
 
-    vector<VRMessage> RCuckoo::retry_insert() {
-        _state = RELEASE_LOCKS_TRY_AGAIN;
-        return release_locks_batched();
-    }
 
     void RCuckoo::fill_current_unlock_list() {
         lock_indexes_to_buckets(_locking_context.buckets,_locks_held, _buckets_per_lock);
@@ -548,77 +312,9 @@ namespace cuckoo_rcuckoo {
         //_lock_list is now full of locks
     }
 
-    vector<VRMessage> RCuckoo::release_locks_batched(){
-        _locking_message_index=0;
-        fill_current_unlock_list();
-        _current_locking_messages = create_masked_cas_messages_from_lock_list(_lock_list);
-        return _current_locking_messages;
-    }
-
-
-    vector<VRMessage> RCuckoo::begin_insert() {
-        _state = INSERTING;
-        // vector<unsigned int> search_buckets = lock_indexes_to_buckets(_locks_held, _buckets_per_lock);
-        ALERT("failure", "I broke inserts by using contexts, if I need this function again it must be adjusted to use contets");
-        exit(0);
-        // _search_path = (this->*_table_search_function)(search_buckets); ## has to become this 
-        // _search_path = (this->*_table_search_function)();
-
-
-        // if (_search_path.size() <=0 ) {
-        //     INFO(log_id(), "Second Search Failed for key %s retry time\n", _current_insert_key.to_string().c_str(), _id);
-        //     INFO(log_id(), "Hi Stew, I\'m hoping you have a great day", _current_insert_key.to_string().c_str(), _id);
-        //     _current_insert_rtt++;
-        //     return retry_insert();
-        // }
-        // _search_path_index = _search_path.size() -1;
-        // vector<VRMessage> insert_messages = gen_cas_messages(_search_path);
-        // vector<VRMessage> unlock_messages = release_locks_batched();
-
-        // for ( unsigned int i = 0; i < unlock_messages.size(); i++) {
-        //     insert_messages.push_back(unlock_messages[i]);
-        // }
-        // _current_insert_rtt++;
-        // return insert_messages;
-        return vector<VRMessage>();
-    }
 
     const char * RCuckoo::log_id() {
         return _log_identifier;
-    }
-
-    vector<VRMessage> RCuckoo::aquire_locks_with_reads_fsm(VRMessage message) {
-        if (message.get_message_type() == MASKED_CAS_RESPONSE) {
-            VERBOSE(log_id(), "got masked cas response: %s\n", message.to_string().c_str());
-            try {
-                bool success = (bool)stoi(message.function_args["success"]);
-                if (success) {
-                    VRMessage issued_locking_message = get_current_locking_message();
-                    receive_successful_locking_message(issued_locking_message);
-                } else {
-                    INFO(log_id(), "failed to aquire lock %s\n", message.function_args["lock_index"].c_str());
-                }
-
-                if (!all_locks_aquired()) {
-                    _current_insert_rtt++;
-                    return get_current_locking_message_with_covering_read();
-                }
-            } catch (exception e) {
-                printf("ERROR: Client %d received malformed masked cas response %s\n", _id, message.to_string().c_str());
-                throw logic_error("ERROR: Client received malformed masked cas response");
-            }
-        }
-
-        if (message.get_message_type() == READ_RESPONSE) {
-            fill_local_table_with_read_response(_table, message.function_args);
-            VERBOSE(log_id(), "local table after read:\n %s", _table.to_string().c_str());
-            _outstanding_read_requests--;
-            if (all_locks_aquired() && read_complete()) {
-                return begin_insert();
-            }
-        }
-
-        return vector<VRMessage>();
     }
 
     /******* DIRECT RDMA CALLS ********/
@@ -657,36 +353,6 @@ namespace cuckoo_rcuckoo {
         return remote_address;
     }
 
-    void RCuckoo::send_virtual_read_message(VRMessage message, uint64_t wr_id){
-        //translate address locally for bucket id
-        unsigned int bucket_offset = stoi(message.function_args["bucket_offset"]);
-        unsigned int bucket_id = stoi(message.function_args["bucket_id"]);
-        unsigned int size = stoi(message.function_args["size"]);
-
-        uint64_t local_address = (uint64_t) get_entry_pointer(bucket_id, bucket_offset);
-        uint64_t remote_server_address = local_to_remote_table_address(local_address);
-
-        // printf("table size       %d\n", _table_config->table_size_bytes);
-        // printf("table address =  %p\n", _rcuckoo->get_table_pointer());
-        // printf("offset pointer = %p\n", _rcuckoo->get_entry_pointer(bucket_id, bucket_offset));
-        // printf("offset =         %p\n", (void *) (local_address - (uint64_t) _rcuckoo->get_table_pointer()));
-
-        bool success = rdmaRead(
-            _qp,
-            local_address,
-            remote_server_address,
-            size,
-            _table_mr->lkey,
-            _table_config->remote_key,
-            true,
-            wr_id
-        );
-        if (!success) {
-            printf("rdma read failed\n");
-            exit(1);
-        }
-        VERBOSE("State Machine Wrapper", "sent virtual read message (do do do)\n");
-    }
 
     void RCuckoo::send_virtual_read_message(VRReadData message, uint64_t wr_id) {
         //translate address locally for bucket id
@@ -722,39 +388,6 @@ namespace cuckoo_rcuckoo {
 
     }
 
-    void RCuckoo::send_virtual_cas_message(VRMessage message, uint64_t wr_id){
-        uint32_t bucket_id = stoi(message.function_args["bucket_id"]);
-        uint32_t bucket_offset = stoi(message.function_args["bucket_offset"]);
-        uint64_t old = stoull(message.function_args["old"], nullptr, 16);
-        old = __builtin_bswap64(old);
-        old = old >> 32;
-        uint64_t new_val = stoull(message.function_args["new"], nullptr, 16);
-        new_val = __builtin_bswap64(new_val);
-        new_val = new_val >> 32;
-
-        uint64_t local_address = (uint64_t) get_entry_pointer(bucket_id, bucket_offset);
-        uint64_t remote_server_address = local_to_remote_table_address(local_address);
-
-
-
-        bool success = rdmaCompareAndSwapExp(
-            _qp, 
-            local_address, 
-            remote_server_address,
-            old, 
-            new_val, 
-            _table_mr->lkey,
-            _table_config->remote_key, 
-            true, 
-            wr_id);
-
-        if (!success) {
-            printf("rdma cas failed\n");
-            exit(1);
-        }
-
-    }
-
     void RCuckoo::send_virtual_cas_message(VRCasData message, uint64_t wr_id){
 
         // ALERT("sending cas data", "data %s\n", message.to_string().c_str());
@@ -779,70 +412,15 @@ namespace cuckoo_rcuckoo {
 
     }
 
-    void RCuckoo::send_virtual_masked_cas_message(VRMessage message, uint64_t wr_id) {
-        int lock_index = stoi(message.function_args["lock_index"]);
-        uint64_t local_lock_address = (uint64_t) get_lock_pointer(lock_index);
-        // uint64_t remote_lock_address = local_to_remote_lock_table_address(local_lock_address);
-        uint64_t remote_lock_address = (uint64_t) _table_config->lock_table_address + lock_index;
-        // remote_lock_address = 0;
-
-        uint64_t compare = stoull(message.function_args["old"], 0, 2);
-        compare = __builtin_bswap64(compare);
-        uint64_t swap = stoull(message.function_args["new"], 0, 2);
-        swap = __builtin_bswap64(swap);
-        uint64_t mask = stoull(message.function_args["mask"], 0, 2);
-        mask = __builtin_bswap64(mask);
-
-
-        // remote_lock_address = __builtin_bswap64(remote_lock_address);
-
-
-        // VERBOSE(log_id(), "local_lock_address %lu\n", local_lock_address);
-        // VERBOSE(log_id(), "remote_lock_address %lu\n", remote_lock_address);
-        // VERBOSE(log_id(), "compare %lu\n", compare);
-        // VERBOSE(log_id(), "swap %lu\n", swap);
-        // VERBOSE(log_id(), "mask %lu\n", mask);
-        // VERBOSE(log_id(), "_lock_table_mr->lkey %u\n", _lock_table_mr->lkey);
-        // VERBOSE(log_id(), "_table_config->lock_table_key %u\n", _table_config->lock_table_key);
-
-        bool success = rdmaCompareAndSwapMask(
-            _qp,
-            local_lock_address,
-            remote_lock_address,
-            compare,
-            swap,
-            _lock_table_mr->lkey,
-            _table_config->lock_table_key,
-            mask,
-            true,
-            wr_id);
-
-        if (!success) {
-            printf("rdma masked cas failed failed\n");
-            exit(1);
-        }
-    }
 
     void RCuckoo::send_virtual_masked_cas_message(VRMaskedCasData message, uint64_t wr_id) {
         uint64_t local_lock_address = (uint64_t) get_lock_pointer(message.min_lock_index);
         // uint64_t remote_lock_address = local_to_remote_lock_table_address(local_lock_address);
         uint64_t remote_lock_address = (uint64_t) _table_config->lock_table_address + message.min_lock_index;
-        // remote_lock_address = 0;
-
-        // uint64_t compare = stoull(message.function_args["old"], 0, 2);
-        // compare = __builtin_bswap64(compare);
-        // uint64_t swap = stoull(message.function_args["new"], 0, 2);
-        // swap = __builtin_bswap64(swap);
-        // uint64_t mask = stoull(message.function_args["mask"], 0, 2);
-        // mask = __builtin_bswap64(mask);
 
         uint64_t compare = __builtin_bswap64(message.old);
         uint64_t swap = __builtin_bswap64(message.new_value);
         uint64_t mask = __builtin_bswap64(message.mask);
-
-
-        // remote_lock_address = __builtin_bswap64(remote_lock_address);
-
 
         VERBOSE(log_id(), "local_lock_address %lu\n", local_lock_address);
         VERBOSE(log_id(), "remote_lock_address %lu\n", remote_lock_address);
@@ -874,10 +452,6 @@ namespace cuckoo_rcuckoo {
         #define READ_AND_COVER_MESSAGE_COUNT 2
         struct ibv_sge sg [READ_AND_COVER_MESSAGE_COUNT];
         struct ibv_exp_send_wr wr [READ_AND_COVER_MESSAGE_COUNT];
-
-        // memset(sg, 0, sizeof(struct ibv_sge) * READ_AND_COVER_MESSAGE_COUNT);
-        // memset(wr, 0, sizeof(struct ibv_exp_send_wr) * READ_AND_COVER_MESSAGE_COUNT);
-        
 
 
         //Lock
@@ -1135,25 +709,15 @@ namespace cuckoo_rcuckoo {
                 lock.mask = 0xFFFFFFFFFFFFFFFF;
             }
 
-
             _wr_id++;
             int outstanding_cas_wr_id = _wr_id;
             _wr_id++;
             int outstanding_read_wr_id = _wr_id;
 
-
-            // using std::chrono::high_resolution_clock;
-            // using std::chrono::duration_cast;
-            // using std::chrono::duration;
-            // using std::chrono::nanoseconds;
-
             send_lock_and_cover_message(lock, read, outstanding_cas_wr_id);
             // auto t1 = high_resolution_clock::now();
             int outstanding_messages = 1; //It's two because we send the read and CAS
             int n = bulk_poll(_completion_queue, outstanding_messages, _wc);
-            // auto t2 = high_resolution_clock::now();
-            // auto duration_0 = duration_cast<nanoseconds>( t2 - t1 ).count();
-            // printf("1) %6lu ns req %d\n", duration_0,_completed_insert_count);
 
             while (n < outstanding_messages) {
                 VERBOSE(log_id(), "first poll missed the read, polling again\n");
@@ -1247,21 +811,6 @@ namespace cuckoo_rcuckoo {
                 INFO(log_id(), "Insert Direct -- Second Search Failed for key %s \n", _current_insert_key.to_string().c_str());
                 INFO(log_id(), "Unable to find path within buckets %s\n", vector_to_string(_search_context.open_buckets).c_str());
 
-                // if (_search_context.open_buckets.size() != _locks_held.size()) {
-                //     WARNING("PRECRASH", "Client %d is about to crash\n", _id);
-                //     WARNING(log_id(), "search_buckets.size() != _locks_held.size()\n");
-                //     WARNING(log_id(), "search_buckets.size() = %d\n", _search_context.open_buckets.size());
-                //     WARNING(log_id(), "_locks_held.size() = %d\n", _locks_held.size());
-                //     for (int i=0; i < _search_context.open_buckets.size(); i++) {
-                //         WARNING(log_id(), "search_buckets[%d] = %d\n", i, _search_context.open_buckets[i]);
-                
-                //     }
-                //     for (int i=0; i < _locks_held.size(); i++) {
-                //         WARNING(log_id(), "_locks_held[%d] = %d\n", i, _locks_held[i]);
-                
-                //     }
-                // }
-                // assert(_search_context.open_buckets.size() == _locks_held.size());
                 INFO(log_id(), "Hi Stew, I\'m hoping you have a great day", _current_insert_key.to_string().c_str(), _id);
                 _state = RELEASE_LOCKS_TRY_AGAIN;
             } else {
@@ -1290,11 +839,6 @@ namespace cuckoo_rcuckoo {
         }
 
 
-        // using std::chrono::high_resolution_clock;
-        // using std::chrono::duration_cast;
-        // using std::chrono::duration;
-        // using std::chrono::nanoseconds;
-        // auto t1 = high_resolution_clock::now();
         if (_state == INSERTING) {
             insert_cuckoo_path_local(_table, _search_context.path);
         }
@@ -1304,75 +848,11 @@ namespace cuckoo_rcuckoo {
 
         //Bulk poll to receive all messages
         int n=0;
-        #define SIGNAL_MIN
-        #ifdef SIGNAL_MIN 
-            bulk_poll(_completion_queue, 1, _wc + 1);
-            // THIS WORKS
-            // for (unsigned int i = total_messages - _lock_list.size() ; i < total_messages; i++) {
-            //     receive_successful_unlocking_message(_lock_list[i-_insert_messages.size()]);
-            // }
-            //THIS ALSO WORKS
-            // for (unsigned int i = 0; i < _lock_list.size(); i++) {
-            //     receive_successful_unlocking_message(i);
-            // }
-            //Here we are not checking if we actually did the proper unlock. However, if we get the final messsage which was signaled, then we know that all the messages before it were successful
-            //I'm using this for efficiency
-            _locks_held.clear();
-
-
-            //At this point I have set my local table to all of the old values that were in the remote table
-            //Assuming that I got them right, the last value inthe insert train should be 0
-            //If this is true lets assume that we got everything correct and insert our values
-        #else
-            while(n < total_messages) {
-                n += bulk_poll(_completion_queue, total_messages - n, _wc + n);
-            }
-
-            if (_state == INSERTING) {
-                for (unsigned int i = 0; i < insert_messages.size(); i++) {
-                    if (_wc[i].status != IBV_WC_SUCCESS) {
-                        ALERT(log_id(), "insert failed on message %s\n", insert_messages[i].to_string().c_str());
-                        exit(1);
-                    }
-                }
-            }
-
-            for (unsigned int i = total_messages - _lock_list.size() ; i < total_messages; i++) {
-                if (_wc[i].status != IBV_WC_SUCCESS) {
-                    printf("unlock failed\n");
-                    exit(1);
-                }
-                //TODO check if pthe unlock failed
-                receive_successful_unlocking_message(_lock_list[i-insert_messages.size()]);
-            }
-        #endif
-
-        // auto t2 = high_resolution_clock::now();
-        // auto duration_0 = duration_cast<nanoseconds>( t2 - t1 ).count();
-        // printf("2) %6lu ns\n", duration_0);
+        bulk_poll(_completion_queue, 1, _wc + 1);
+        _locks_held.clear();
 
         if (_state == INSERTING) {
             // #define VALIDATE_INSERT
-            #ifdef VALIDATE_INSERT
-            for (int i=0;i<_insert_messages.size();i++){
-                int insert_offset = _insert_messages[i].offset;
-                int insert_row = _insert_messages[i].row;
-                Entry open_entry = _table.get_entry(insert_row, insert_offset);
-                if(open_entry.get_as_uint64_t() != _insert_messages[i].old){
-                    ALERT(log_id(), "open_entry is not empty\n");
-                    ALERT(log_id(), "open_entry = %s\n", open_entry.to_string().c_str());
-                    ALERT(log_id(), "insert_row = %d\n", insert_row);
-                    ALERT(log_id(), "insert_offset = %d\n", insert_offset);
-                    for (int j=0;j<_insert_messages.size();j++){
-                        ALERT("insert direct", "_insert_messages[%d] = %s\n", j, _insert_messages[j].to_string().c_str());
-                    }
-                    // _table.print_table();
-                    exit(1);
-
-                }
-                assert(open_entry.get_as_uint64_t() == _insert_messages[i].old);
-            }
-            #endif
             insert_cuckoo_path_local(_table, _search_context.path);
             //finish the insert by inserting the key into the local table.
             complete_insert();
@@ -1505,7 +985,7 @@ namespace cuckoo_rcuckoo {
 
         //Hold here until the global start flag is set
         while(!*_global_start_flag){
-            // ALERT(log_id(), "not globally started");
+            ALERT(log_id(), "not globally started");
         };
         INFO(log_id(),"Starting RDMA FSM Start Flag Set\n");
 
