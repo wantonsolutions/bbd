@@ -9,11 +9,11 @@
 #include "tables.h"
 #include "search.h"
 #include "hash.h"
-#include "log.h"
-#include "rdma_helper.h"
-#include "rdma_common.h"
-#include "memcached.h"
-#include "util.h"
+#include "../slib/log.h"
+#include "../slib/memcached.h"
+#include "../slib/util.h"
+#include "../rdma/rdma_helper.h"
+#include "../rdma/rdma_common.h"
 #include <cassert>
 #include <chrono>
 #include <inttypes.h>

@@ -2,13 +2,15 @@
 #ifndef CUCKOO_H
 #define CUCKOO_H
 
-#include "state_machines.h"
-#include "tables.h"
-#include "search.h"
-#include "config.h"
 #include <unordered_map>
 #include <infiniband/verbs.h>
 #include <atomic>
+
+#include "tables.h"
+#include "search.h"
+#include "../slib/config.h"
+#include "../slib/state_machines.h"
+
 
 using namespace state_machines;
 using namespace cuckoo_search;

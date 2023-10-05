@@ -7,7 +7,7 @@
 #include <memory>
 #include <stdexcept>
 #include <bitset>
-#include "log.h"
+#include "../slib/log.h"
 // #include "spdlog/spdlog.h" //sudo apt install libspdlog-dev
 
 template<typename ... Args>

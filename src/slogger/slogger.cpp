@@ -1,6 +1,6 @@
 #include "slogger.h"
 #include "replicated_log.h"
-#include "log.h"
+#include "../slib/log.h"
 
 using namespace replicated_log;
 

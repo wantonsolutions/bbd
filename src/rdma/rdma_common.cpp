@@ -10,8 +10,8 @@
 #include <inttypes.h>
 
 #include <string>
-#include "log.h"
 #include <unordered_map>
+#include "../slib/log.h"
 
 using namespace std;
 

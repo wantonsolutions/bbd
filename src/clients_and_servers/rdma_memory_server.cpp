@@ -7,13 +7,14 @@
  * TODO: Cleanup previously allocated resources in case of an error condition
  */
 
-#include "rdma_common.h"
-#include "state_machines.h"
-#include <unordered_map>
-#include "memcached.h"
-#include "config.h"
-#include "log.h"
 #include <mutex>
+#include <unordered_map>
+
+#include "../rdma/rdma_common.h"
+#include "../slib/state_machines.h"
+#include "../slib/memcached.h"
+#include "../slib/config.h"
+#include "../slib/log.h"
 
 using namespace std;
 using namespace state_machines;

@@ -1,8 +1,8 @@
 #ifndef SLOG
 #define SLOG
 
-#include "log.h"
-#include "state_machines.h"
+#include "../slib/log.h"
+#include "../slib/state_machines.h"
 #include "replicated_log.h"
 
 using namespace state_machines;

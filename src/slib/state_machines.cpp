@@ -6,10 +6,11 @@
 #include <any>
 
 #include "state_machines.h"
-#include "tables.h"
-#include "virtual_rdma.h"
 #include "util.h"
 #include "log.h"
+
+#include "../cuckoo/tables.h"
+#include "../cuckoo/virtual_rdma.h"
 
 #include <iostream>
 
@@ -29,6 +30,7 @@ string array_to_string(vector<T> array) {
     return result;
 }
 
+
 string key_array_to_string(vector<Key> array) {
     string result = "";
     for (auto i = 0; i < array.size(); i++) {
@@ -39,7 +41,6 @@ string key_array_to_string(vector<Key> array) {
     }
     return result;
 }
-
 namespace state_machines {
 
 
@@ -654,27 +655,6 @@ namespace state_machines {
             VERBOSE("read success", "Read Success (key: %s) but duplicate found\n", key.to_string().c_str());
         }
         return success;
-    }
-
-    read_status Client_State_Machine::wait_for_read_messages_fsm(Table& table, VRMessage message, const Key& key){
-        VERBOSE("DEBUG wait_for_read_fsm", "message type: %d\n", message.get_message_type());
-        if (message.get_message_type() == READ_RESPONSE) {
-            VERBOSE("DEBUG wait_for_read_fsm", "unpacking read response %s\n", message.to_string().c_str());
-            unordered_map<string,string> args = unpack_read_read_response(message);
-            fill_local_table_with_read_response(table, args);
-
-            vector <Entry> entries = decode_entries_from_string(args["read"]);
-            int keys_found = keys_contained_in_read_response(key, entries);
-            if (keys_found > 0) {
-                _read_values_found += keys_found;
-                _read_values.push_back(key);
-            }
-            _outstanding_read_requests--;
-        }
-        read_status rs;
-        rs.complete = read_complete();
-        rs.success = read_successful(key);
-        return rs;
     }
 
     vector<VRMessage> Client_State_Machine::general_idle_fsm() {

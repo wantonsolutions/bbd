@@ -2,8 +2,8 @@
 #ifndef STATE_MACHINES_H
 #define STATE_MACHINES_H
 
-#include "tables.h"
-#include "virtual_rdma.h"
+#include "../cuckoo/tables.h"
+#include "../cuckoo/virtual_rdma.h"
 #include <string>
 #include <unordered_map>
 #include <vector>

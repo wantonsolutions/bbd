@@ -2,9 +2,10 @@
 #include <string.h>
 #include <algorithm>
 #include <iostream>
-#include "log.h"
 #include "search.h"
-#include "util.h"
+#include "../slib/log.h"
+#include "../slib/util.h"
+
 
 using namespace std;
 using namespace cuckoo_search;

@@ -2,13 +2,13 @@
 #include <string>
 #include <vector>
 #include <set>
-#include "tables.h"
-#include "hash.h"
-#include "log.h"
 #include <unordered_map>
 #include <iostream>
 #include <assert.h>
 #include <algorithm>
+#include "tables.h"
+#include "hash.h"
+#include "../slib/log.h"
 
 namespace cuckoo_search {
     using namespace std;

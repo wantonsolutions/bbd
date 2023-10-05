@@ -29,5 +29,6 @@ perf.data
 perf.data.old
 out.perf-folded
 *.svg
+xxHash
 
 

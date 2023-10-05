@@ -2,11 +2,11 @@
 #ifndef RDMA_ENGINE_H
 #define RDMA_ENGINE_H
 
-#include "virtual_rdma.h"
-#include "state_machines.h"
-#include "cuckoo.h"
+#include "../cuckoo/virtual_rdma.h"
+#include "../cuckoo/cuckoo.h"
+#include "../slib/state_machines.h"
+#include "../slib/config.h"
 #include "rdma_client_lib.h"
-#include "config.h"
 
 using namespace state_machines;
 using namespace cuckoo_rcuckoo;

@@ -1,22 +1,25 @@
 
-#include "virtual_rdma.h"
-#include "state_machines.h"
-#include "rdma_engine.h"
-#include "cuckoo.h"
 #include <vector>
 #include <infiniband/verbs.h>
 #include <atomic>
 
-#include "rdma_common.h"
-#include "rdma_client_lib.h"
-#include "config.h"
-#include "log.h"
-#include "memcached.h"
-#include "rdma_helper.h"
 #include <linux/kernel.h>
 #include <sched.h>
 
 #include <chrono>
+
+#include "rdma_engine.h"
+#include "rdma_common.h"
+#include "rdma_client_lib.h"
+#include "rdma_helper.h"
+
+#include "../cuckoo/virtual_rdma.h"
+#include "../cuckoo/cuckoo.h"
+
+#include "../slib/state_machines.h"
+#include "../slib/config.h"
+#include "../slib/log.h"
+#include "../slib/memcached.h"
 
 
 using namespace std;
@@ -134,13 +137,6 @@ void rcuckoo_stat_collection(State_Machine ** state_machines, unordered_map<stri
 }
 
 
-
-
-
-
-
-
-
 namespace rdma_engine {
 
     
@@ -152,12 +148,12 @@ namespace rdma_engine {
     void RDMA_Engine::Set_State_Machine(state_machine_type sm){
         printf("setting the state machine type\n");
         switch (sm) {
-            case rcuckoo:
+            case rcuckoo_client:
                 collect_stats = rcuckoo_stat_collection;
                 thread_init = rcuckoo_thread_init;
                 thread_runner = cuckoo_fsm_runner;
                 break;
-            case slogger:
+            case slogger_client:
                 ALERT("RDMA Engine", "TODO SLOGGER\n");
 
                 // collect_stats = slogger_stat_collection;

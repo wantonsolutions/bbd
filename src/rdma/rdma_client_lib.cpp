@@ -7,11 +7,11 @@
 #include <sys/time.h>
 #include <assert.h>
 #include <stdexcept>
-#include "rdma_common.h"
-#include "rdma_client_lib.h"
 #include <netinet/in.h>
 #include <inttypes.h>
-#include "log.h"
+#include "rdma_common.h"
+#include "rdma_client_lib.h"
+#include "../slib/log.h"
 
 /* A fast but good enough pseudo-random number generator. Good enough for what? */
 /* Courtesy of https://stackoverflow.com/questions/1640258/need-a-fast-random-generator-for-c */

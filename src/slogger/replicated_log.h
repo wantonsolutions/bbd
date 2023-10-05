@@ -2,7 +2,7 @@
 #define REPLICATED_LOG_H
 
 #include <stdint.h>
-#include "log.h"
+#include "../slib/log.h"
 
 using namespace std;
 
