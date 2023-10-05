@@ -23,6 +23,7 @@ RDMA_DIR := rdma
 CUCKOO_DIR := cuckoo
 SLOGGER_DIR := slogger
 ENTRY_POINT_DIR := clients_and_servers
+TEST_DIR := test
 
 SLIB_CPP := $(wildcard $(SLIB_DIR)/*.cpp)
 RDMA_CPP := $(wildcard $(RDMA_DIR)/*.cpp)
@@ -42,7 +43,7 @@ SLOGGER_CLIENT_OBJ := $(patsubst %.cpp, obj/%.o, $(SLOGGER_CLIENT_CPP))
 # config.o: config.cpp
 # 	$(CC) $(CFLAGS) $(INCLUDES) $(LIBRARIES) -c $< -o $@
 
-all: rdma_memory_server cuckoo_client slogger_client
+all: rdma_memory_server cuckoo_client slogger_client replicated_log_test
 
 obj/%.o: %.cpp
 	$(CC) $(CFLAGS) $(INCLUDES) $(LIBRARIES) -c $< -o $@
@@ -55,6 +56,13 @@ cuckoo_client: $(CUCKOO_CLIENT_OBJ)
 
 slogger_client: $(SLOGGER_CLIENT_OBJ)
 	$(CC) $(CFLAGS) $(INCLUDES) $(SLOGGER_CLIENT_OBJ) -o slogger_client $(LIBRARIES)
+
+
+REPLICATED_LOG_CPP = $(SLIB_CPP) $(RDMA_CPP) $(CUCKOO_CPP) $(SLOGGER_CPP) $(TEST_DIR)/test_replicated_log.cpp
+REPLICATED_LOG_OBJ := $(patsubst %.cpp, obj/%.o, $(REPLICATED_LOG_CPP))
+replicated_log_test: $(REPLICATED_LOG_OBJ)
+	$(CC) $(CFLAGS) $(INCLUDES) $(REPLICATED_LOG_OBJ) -o test_replicated_log $(LIBRARIES)
+	mv test_replicated_log test/
 
 
 
