@@ -578,6 +578,7 @@ on_chip_memory_attr register_device_memory(unsigned int starting_address, unsign
         exit(0);
         // return -ENOMEM;
     }
+    return device_memory;
 }
 
 void copy_device_memory_to_host_object(void * host_object, unsigned int size, on_chip_memory_attr device_memory) {
