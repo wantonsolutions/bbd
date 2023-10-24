@@ -15,6 +15,7 @@ namespace slogger {
             SLogger(){};
             SLogger(unordered_map<string, string> config);
             ~SLogger() {ALERT("SLOG", "deleting slog");}
+            void fsm();
             void clear_statistics();
 
         private:

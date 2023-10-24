@@ -220,9 +220,7 @@ int main(int argc, char **argv)
     send_inital_memory_stats_to_memcached_server();
     send_inital_experiment_control_to_memcached_server();
     send_table_config_to_memcached_server(msm);
-
     multi_threaded_connection_setup(server_sockaddr, base_port, num_qps);
-
     start_distributed_experiment();
 
 

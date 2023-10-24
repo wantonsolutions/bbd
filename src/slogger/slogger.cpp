@@ -19,4 +19,9 @@ namespace slogger {
         ALERT("Slogger", "Done creating SLogger");
     }
 
+    void SLogger::fsm(){
+        ALERT("SLOG", "SLogger Starting FSM");
+        ALERT("SLOG", "SLogger Ending FSM");
+    }
+
 }

@@ -16,6 +16,8 @@
 #include "../cuckoo/virtual_rdma.h"
 #include "../cuckoo/cuckoo.h"
 
+#include "../slogger/slogger.h"
+
 #include "../slib/state_machines.h"
 #include "../slib/config.h"
 #include "../slib/log.h"
@@ -26,6 +28,7 @@ using namespace std;
 using namespace state_machines;
 using namespace rdma_helper;
 using namespace cuckoo_rcuckoo;
+using namespace slogger;
 
 
 volatile bool global_start_flag = false;
@@ -136,6 +139,41 @@ void rcuckoo_stat_collection(State_Machine ** state_machines, unordered_map<stri
     VERBOSE("RDMA Engine", "done running state machine!");
 }
 
+void slogger_stat_collection(State_Machine ** state_machines, unordered_map<string,string> config, int num_clients, auto ms_int) {
+    ALERT("RDMA Engine", "TODO we don't collect slogger statistics at the moment\n");
+}
+
+void * slogger_thread_init(void * arg) {
+    using namespace rdma_engine;
+    using namespace slogger;
+
+    state_machine_init_arg * slogger_arg = (state_machine_init_arg *) arg;
+    unordered_map <string, string> config;
+    std::copy(slogger_arg->config.begin(), slogger_arg->config.end(), std::inserter(config, config.end()));
+    
+
+    ALERT("RDMA Engine", "Slogger instace %i\n", slogger_arg->id);
+    config["id"]=to_string(slogger_arg->id);
+    SLogger * slogger = new SLogger(config);
+
+
+    ALERT("RDMA Engine", "TODO setup RDMA rdma resources within the slogger\n");
+    // struct rcuckoo_rdma_info info;
+    // info.qp = slogger_arg->cm->client_qp[rcuckoo_arg->id];
+    // info.completion_queue = rcuckoo_arg->cm->client_cq_threads[rcuckoo_arg->id];
+    // info.pd = rcuckoo_arg->cm->pd;
+    // rcuckoo->init_rdma_structures(info);
+    state_machine_holder[slogger_arg->id] = slogger;
+    pthread_exit(NULL);
+}
+
+void * slogger_fsm_runner(void * args){
+    ALERT("RDMA Engine","launching threads in a slogger fsm\n");
+    SLogger * slogger = (SLogger *) args;
+    slogger->fsm();
+    pthread_exit(NULL);
+}
+
 
 namespace rdma_engine {
 
@@ -155,11 +193,10 @@ namespace rdma_engine {
                 break;
             case slogger_client:
                 ALERT("RDMA Engine", "TODO SLOGGER\n");
-
-                // collect_stats = slogger_stat_collection;
-                // thread_init = slogger_thread_init;
-                // thread_runner = slogger_fsm_runner;
-                exit(0);
+                collect_stats = slogger_stat_collection;
+                thread_init = slogger_thread_init;
+                thread_runner = slogger_fsm_runner;
+                // exit(0);
                 break;
             default:
                 ALERT("RDMA Engine", "Unknown state machine type\n");
@@ -192,7 +229,7 @@ namespace rdma_engine {
             ALERT("RDMA Engine", "Joinging Thread %d\n",i);
             pthread_join(thread_ids[i], NULL);
         }
-        ALERT("RDMA Engine", "Init Cuckoo Threads Joined\n");
+        ALERT("RDMA Engine", "State Machine Threads Joined\n");
 
     }
 

@@ -31,8 +31,8 @@ CUCKOO_CPP := $(wildcard $(CUCKOO_DIR)/*.cpp)
 SLOGGER_CPP := $(wildcard $(SLOGGER_DIR)/*.cpp)
 
 
-CUCKOO_SERVER_CPP := $(SLIB_CPP) $(RDMA_CPP) $(CUCKOO_CPP) $(ENTRY_POINT_DIR)/rdma_memory_server.cpp
-CUCKOO_CLIENT_CPP := $(SLIB_CPP) $(RDMA_CPP) $(CUCKOO_CPP) $(ENTRY_POINT_DIR)/cuckoo_client.cpp
+CUCKOO_SERVER_CPP := $(SLIB_CPP) $(RDMA_CPP) $(SLOGGER_CPP) $(CUCKOO_CPP) $(ENTRY_POINT_DIR)/rdma_memory_server.cpp
+CUCKOO_CLIENT_CPP := $(SLIB_CPP) $(RDMA_CPP) $(SLOGGER_CPP) $(CUCKOO_CPP) $(ENTRY_POINT_DIR)/cuckoo_client.cpp
 SLOGGER_CLIENT_CPP := $(SLIB_CPP) $(RDMA_CPP) $(SLOGGER_CPP) $(CUCKOO_CPP) $(ENTRY_POINT_DIR)/slogger_client.cpp
 
 CUCKOO_SERVER_OBJ := $(patsubst %.cpp, obj/%.o, $(CUCKOO_SERVER_CPP))
@@ -75,6 +75,10 @@ clean:
 	rm -rf obj/cuckoo/*.o
 	rm -rf obj/rdma/*.o
 	rm -rf obj/slib/*.o
+
+	rm rdma_memory_server
+	rm cuckoo_client
+	rm slogger_client
 
 	rm -rf build
 	rm -rf rcuckoo_wrapper.cpp
