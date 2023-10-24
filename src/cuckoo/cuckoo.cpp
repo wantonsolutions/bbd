@@ -319,7 +319,7 @@ namespace cuckoo_rcuckoo {
 
     /******* DIRECT RDMA CALLS ********/
 
-    void RCuckoo::init_rdma_structures(rcuckoo_rdma_info info){ 
+    void RCuckoo::init_rdma_structures(rdma_info info){ 
 
         assert(info.qp != NULL);
         assert(info.completion_queue != NULL);

@@ -104,6 +104,12 @@ union work_req_id {
     uint64_t val;
 };
 
+typedef struct rdma_info {
+	ibv_qp *qp;
+	ibv_pd *pd;
+	struct ibv_cq * completion_queue;
+} rdma_info;
+
 /* used for tracking on chip memory */
 typedef struct on_chip_memory_attr {
 	void *addr;

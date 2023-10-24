@@ -21,11 +21,6 @@ using namespace cuckoo_search;
 namespace cuckoo_rcuckoo {
 
 
-    typedef struct rcuckoo_rdma_info {
-        ibv_qp *qp;
-        ibv_pd *pd;
-        struct ibv_cq * completion_queue;
-    } rcuckoo_rdma_info;
 
     class RCuckoo : public Client_State_Machine {
         public:
@@ -73,7 +68,7 @@ namespace cuckoo_rcuckoo {
             void send_read(vector <VRReadData> reads, uint64_t wr_id);
 
             void rdma_fsm(void);
-            void init_rdma_structures(rcuckoo_rdma_info info);
+            void init_rdma_structures(rdma_info info);
             void top_level_aquire_locks();
             void put_direct();
             void get_direct(void);
