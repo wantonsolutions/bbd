@@ -76,7 +76,7 @@ table_config * memcached_get_table_config(void) {
     return config;
 }
 
-void memcached_public_slog_config(slog_config *config) {
+void memcached_publish_slog_config(slog_config *config) {
   assert(config != NULL);
   assert(config->slog_address > 0);
   assert(config->slog_key > 0);
@@ -121,68 +121,6 @@ memory_stats *memcached_get_memory_stats(void) {
   return ms;
 }
 
-// void memcached_publish_rcqp(struct ib_inf *inf, int num, const char *qp_name) {
-//   assert(inf != NULL);
-//   assert(num >= 0 && num < inf->num_local_rcqps);
-
-//   assert(qp_name != NULL && strlen(qp_name) < RSEC_MAX_QP_NAME - 1);
-//   assert(strstr(qp_name, RSEC_RESERVED_NAME_PREFIX) == NULL);
-
-//   int len = strlen(qp_name);
-//   int i;
-//   for (i = 0; i < len; i++) {
-//     if (qp_name[i] == ' ') {
-//       fprintf(stderr, "Space not allowed in QP name\n");
-//       exit(-1);
-//     }
-//   }
-//   struct ib_qp_attr qp_attr;
-//   memcpy(qp_attr.name, qp_name, len);
-//   qp_attr.name[len] = 0; /* Add the null terminator */
-//   // qp_attr.buf_addr = (uint64_t)inf->rcqp_buf[num];
-//   // qp_attr.rkey = (uint32_t)inf->rcqp_buf_mr[num]->rkey;
-//   qp_attr.lid = ib_get_local_lid(inf->conn_qp[num]->context, inf->dev_port_id);
-//   qp_attr.qpn = inf->conn_qp[num]->qp_num;
-//   qp_attr.sl = P15_RC_SL;
-
-//   if (RSEC_NETWORK_MODE == RSEC_NETWORK_ROCE) {
-//     qp_attr.remote_gid = inf->local_gid;
-//   }
-//   // printf("rc_publish: %d %s %d %d %lu %lu\n",
-//   //        num, qp_name, qp_attr.lid, qp_attr.qpn, qp_attr.buf_addr,
-//   //        qp_attr.rkey);
-//   memcached_publish(qp_attr.name, &qp_attr, sizeof(struct ib_qp_attr));
-// }
-
-// void memcached_publish_udqp(struct ib_inf *inf, int num, const char *qp_name) {
-//   assert(inf != NULL);
-//   assert(num >= 0 && num < inf->num_local_udqps);
-
-//   assert(qp_name != NULL && strlen(qp_name) < RSEC_MAX_QP_NAME - 1);
-//   assert(strstr(qp_name, RSEC_RESERVED_NAME_PREFIX) == NULL);
-
-//   int len = strlen(qp_name);
-//   int i;
-//   for (i = 0; i < len; i++) {
-//     if (qp_name[i] == ' ') {
-//       fprintf(stderr, "Space not allowed in QP name\n");
-//       exit(-1);
-//     }
-//   }
-//   struct ib_qp_attr qp_attr;
-//   memcpy(qp_attr.name, qp_name, len);
-//   qp_attr.name[len] = 0; /* Add the null terminator */
-//   // qp_attr.buf_addr = (uint64_t) (uintptr_t) cb->conn_buf; //Didn't use buffer
-//   // in P15
-//   // qp_attr.buf_size = cb->conn_buf_size;			//Didn't use buffer in
-//   // P15 qp_attr.rkey = cb->conn_buf_mr->rkey;			//Didn't use
-//   // buffer in P15
-//   qp_attr.lid = ib_get_local_lid(inf->dgram_qp[num]->context, inf->dev_port_id);
-//   qp_attr.qpn = inf->dgram_qp[num]->qp_num;
-//   qp_attr.sl = P15_UD_SL;
-//   memcached_publish(qp_attr.name, &qp_attr, sizeof(struct ib_qp_attr));
-// }
-
 int memcached_get_published(const char *key, void **value) {
   assert(key != NULL);
   if (memc == NULL) {
@@ -211,85 +149,27 @@ int memcached_get_published(const char *key, void **value) {
   assert(false);
 }
 
-// struct ib_qp_attr *memcached_get_published_qp(const char *qp_name) {
-//   struct ib_qp_attr *ret;
-//   assert(qp_name != NULL && strlen(qp_name) < RSEC_MAX_QP_NAME - 1);
-//   assert(strstr(qp_name, RSEC_RESERVED_NAME_PREFIX) == NULL);
+void send_inital_experiment_control_to_memcached_server() {
+    experiment_control ec;
+    ec.experiment_start = false;
+    ec.experiment_stop = false;
+    ec.priming_complete = false;
+    memcached_publish_experiment_control(&ec);
+}
+void start_distributed_experiment(){
+    experiment_control *ec = (experiment_control *)memcached_get_experiment_control();
+    ec->experiment_start = true;
+    memcached_publish_experiment_control(ec);
+}
 
-//   int len = strlen(qp_name);
-//   int i;
-//   int ret_len;
-//   for (i = 0; i < len; i++) {
-//     if (qp_name[i] == ' ') {
-//       fprintf(stderr, "Space not allowed in QP name\n");
-//       exit(-1);
-//     }
-//   }
-//   do {
-//     ret_len = memcached_get_published(qp_name, (void **)&ret);
-//   } while (ret_len <= 0);
-//   /*
-//    * The registry lookup returns only if we get a unique QP for @qp_name, or
-//    * if the memcached lookup succeeds but we don't have an entry for @qp_name.
-//    */
-//   assert(ret_len == sizeof(struct ib_qp_attr) || ret_len == -1);
+void end_experiment_globally(){
+    experiment_control *ec = (experiment_control *)memcached_get_experiment_control();
+    ec->experiment_stop = true;
+    memcached_publish_experiment_control(ec);
+}
 
-//   return ret;
-// }
-
-// struct ib_mr_attr *memcached_get_published_mr(const char *mr_name) {
-//   struct ib_mr_attr *ret;
-//   assert(mr_name != NULL && strlen(mr_name) < RSEC_MAX_QP_NAME - 1);
-//   assert(strstr(mr_name, RSEC_RESERVED_NAME_PREFIX) == NULL);
-
-//   int len = strlen(mr_name);
-//   int i;
-//   int ret_len;
-//   for (i = 0; i < len; i++) {
-//     if (mr_name[i] == ' ') {
-//       fprintf(stderr, "Space not allowed in QP name\n");
-//       exit(-1);
-//     }
-//   }
-//   do {
-//     ret_len = memcached_get_published(mr_name, (void **)&ret);
-//   } while (ret_len <= 0);
-//   /*
-//    * The registry lookup returns only if we get a unique QP for @qp_name, or
-//    * if the memcached lookup succeeds but we don't have an entry for @qp_name.
-//    */
-//   assert(ret_len == sizeof(struct ib_mr_attr) || ret_len == -1);
-
-//   return ret;
-// }
-
-// void *memcached_get_published_size(const char *tar_name, int size) {
-//   void *ret;
-//   assert(tar_name != NULL && strlen(tar_name) < RSEC_MAX_QP_NAME - 1);
-//   assert(strstr(tar_name, RSEC_RESERVED_NAME_PREFIX) == NULL);
-
-//   int len = strlen(tar_name);
-//   int i;
-//   int ret_len;
-//   for (i = 0; i < len; i++) {
-//     if (tar_name[i] == ' ') {
-//       fprintf(stderr, "Space not allowed in QP name\n");
-//       exit(-1);
-//     }
-//   }
-//   do {
-//     ret_len = memcached_get_published(tar_name, (void **)&ret);
-//   } while (ret_len <= 0);
-//   /*
-//    * The registry lookup returns only if we get a unique QP for @qp_name, or
-//    * if the memcached lookup succeeds but we don't have an entry for @qp_name.
-//    */
-//   if (ret_len != size) {
-//     fprintf(stderr, "%llu:%llu size doesn't match\n",
-//             (unsigned long long int)ret_len, (unsigned long long int)size);
-//     assert(ret_len == size || ret_len == -1);
-//   }
-//   assert(ret_len == size || ret_len == -1);
-
-//   return ret;
-// }
+void announce_priming_complete() {
+    experiment_control *ec = (experiment_control *)memcached_get_experiment_control();
+    ec->priming_complete = true;
+    memcached_publish_experiment_control(ec);
+}

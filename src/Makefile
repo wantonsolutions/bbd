@@ -33,9 +33,11 @@ SLOGGER_CPP := $(wildcard $(SLOGGER_DIR)/*.cpp)
 
 CUCKOO_SERVER_CPP := $(SLIB_CPP) $(RDMA_CPP) $(SLOGGER_CPP) $(CUCKOO_CPP) $(ENTRY_POINT_DIR)/rdma_memory_server.cpp
 CUCKOO_CLIENT_CPP := $(SLIB_CPP) $(RDMA_CPP) $(SLOGGER_CPP) $(CUCKOO_CPP) $(ENTRY_POINT_DIR)/cuckoo_client.cpp
+SLOGGER_SERVER_CPP := $(SLIB_CPP) $(RDMA_CPP) $(SLOGGER_CPP) $(CUCKOO_CPP) $(ENTRY_POINT_DIR)/slogger_server.cpp
 SLOGGER_CLIENT_CPP := $(SLIB_CPP) $(RDMA_CPP) $(SLOGGER_CPP) $(CUCKOO_CPP) $(ENTRY_POINT_DIR)/slogger_client.cpp
 
 CUCKOO_SERVER_OBJ := $(patsubst %.cpp, obj/%.o, $(CUCKOO_SERVER_CPP))
+SLOGGER_SERVER_OBJ := $(patsubst %.cpp, obj/%.o, $(SLOGGER_SERVER_CPP))
 CUCKOO_CLIENT_OBJ := $(patsubst %.cpp, obj/%.o, $(CUCKOO_CLIENT_CPP))
 SLOGGER_CLIENT_OBJ := $(patsubst %.cpp, obj/%.o, $(SLOGGER_CLIENT_CPP))
 
@@ -43,13 +45,16 @@ SLOGGER_CLIENT_OBJ := $(patsubst %.cpp, obj/%.o, $(SLOGGER_CLIENT_CPP))
 # config.o: config.cpp
 # 	$(CC) $(CFLAGS) $(INCLUDES) $(LIBRARIES) -c $< -o $@
 
-all: rdma_memory_server cuckoo_client slogger_client replicated_log_test
+all: rdma_memory_server slogger_server cuckoo_client slogger_client replicated_log_test
 
 obj/%.o: %.cpp
 	$(CC) $(CFLAGS) $(INCLUDES) $(LIBRARIES) -c $< -o $@
 
 rdma_memory_server: $(CUCKOO_SERVER_OBJ)
 	$(CC) $(CFLAGS) $(INCLUDES) $(CUCKOO_SERVER_OBJ) -o rdma_memory_server $(LIBRARIES) 
+
+slogger_server: $(SLOGGER_SERVER_OBJ)
+	$(CC) $(CFLAGS) $(INCLUDES) $(SLOGGER_SERVER_OBJ) -o slogger_server $(LIBRARIES)
 
 cuckoo_client: $(CUCKOO_CLIENT_OBJ)
 	$(CC) $(CFLAGS) $(INCLUDES) $(CUCKOO_CLIENT_OBJ) -o cuckoo_client $(LIBRARIES) 

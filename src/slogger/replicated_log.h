@@ -24,6 +24,8 @@ namespace replicated_log {
             void Append_Basic_Entry(Basic_Entry &bs);
             void Print_All_Entries();
 
+            void * get_log_pointer() {return (void*) this->_log;}
+            float get_fill_percentage();
             int get_size_bytes();
 
         private:

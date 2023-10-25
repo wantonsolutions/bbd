@@ -21,6 +21,11 @@ namespace replicated_log {
         this->_tail_pointer = (uint64_t) this->_log;
     }
 
+    float Replicated_Log::get_fill_percentage() {
+        ALERT("Replicated LOG", "TODO calculate the fill percentage");
+        return 0.0;
+    }
+
     int Replicated_Log::get_size_bytes(){
         return this->_memory_size;
     }
