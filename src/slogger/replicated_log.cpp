@@ -57,4 +57,16 @@ namespace replicated_log {
             current_pointer += bs->entry_size + sizeof(Basic_Entry);
         }
     }
+
+    void Replicated_Log::Reset_Tail_Pointer() {
+        this->_tail_pointer = (uint64_t) this->_log;
+    }
+
+    void Replicated_Log::Chase_Tail_Pointer() {
+        Basic_Entry * bs = (Basic_Entry*) this->_tail_pointer;
+        while(bs->is_vaild_entry()) {
+            this->_tail_pointer += bs->entry_size + sizeof(Basic_Entry);
+            bs = (Basic_Entry*) this->_tail_pointer;
+        }
+    }
 }

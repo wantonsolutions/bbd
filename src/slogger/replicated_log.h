@@ -14,6 +14,7 @@ namespace replicated_log {
         uint8_t entry_type;
         uint8_t repeating_value;
         string ToString();
+        bool is_vaild_entry() {return this->entry_size > 0;}
     } Basic_Entry;
 
     class Replicated_Log {
@@ -23,6 +24,10 @@ namespace replicated_log {
             // ~Replicated_Log() {ALERT("REPLICATED_LOG", "deleting replicated log");}
             void Append_Basic_Entry(Basic_Entry &bs);
             void Print_All_Entries();
+
+            void Reset_Tail_Pointer();
+            void Chase_Tail_Pointer();
+
 
             void * get_log_pointer() {return (void*) this->_log;}
             float get_fill_percentage();
