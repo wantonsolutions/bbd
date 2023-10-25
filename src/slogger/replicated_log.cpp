@@ -21,6 +21,10 @@ namespace replicated_log {
         this->_tail_pointer = (uint64_t) this->_log;
     }
 
+    int Replicated_Log::get_size_bytes(){
+        return this->_memory_size;
+    }
+
     void Replicated_Log::Append_Basic_Entry(Basic_Entry &bs) {
         int total_entry_size = bs.entry_size + sizeof(Basic_Entry);
         int fill_size = this->_tail_pointer - (uint64_t) this->_log;

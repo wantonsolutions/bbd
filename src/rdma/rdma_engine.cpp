@@ -68,7 +68,7 @@ void * rcuckoo_thread_init(void * arg) {
     config["id"]=to_string(rcuckoo_arg->id);
     RCuckoo * rcuckoo = new RCuckoo(config);
 
-    struct rcuckoo_rdma_info info;
+    struct rdma_info info;
     info.qp = rcuckoo_arg->cm->client_qp[rcuckoo_arg->id];
     info.completion_queue = rcuckoo_arg->cm->client_cq_threads[rcuckoo_arg->id];
     info.pd = rcuckoo_arg->cm->pd;

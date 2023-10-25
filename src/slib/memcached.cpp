@@ -76,6 +76,23 @@ table_config * memcached_get_table_config(void) {
     return config;
 }
 
+void memcached_public_slog_config(slog_config *config) {
+  assert(config != NULL);
+  assert(config->slog_address > 0);
+  assert(config->slog_key > 0);
+  assert(config->slog_size_bytes > 0);
+  memcached_publish(SERVER_SLOG_CONFIG_KEY.c_str(), (void *)config, sizeof(slog_config));
+}
+
+slog_config * memcached_get_slog_config(void) {
+  slog_config *config;
+  int config_len = memcached_get_published(SERVER_SLOG_CONFIG_KEY.c_str(), (void **)&config);
+  INFO("Memcached", "about to print the fetched slog config of size %d\n",config_len);
+  INFO("Memcached", "slog config: %s\n", config->to_string().c_str());
+  assert(config_len == sizeof(slog_config));
+  return config;
+}
+
 void memcached_publish_experiment_control(experiment_control * ec){
     memcached_publish(EXPERIMENT_CONTROL_KEY.c_str(), (void *)ec, sizeof(table_config));
 }

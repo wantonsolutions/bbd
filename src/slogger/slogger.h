@@ -2,7 +2,9 @@
 #define SLOG
 
 #include "../slib/log.h"
+#include "../slib/config.h"
 #include "../slib/state_machines.h"
+#include "../rdma/rdma_common.h"
 #include "replicated_log.h"
 
 using namespace state_machines;
@@ -26,6 +28,7 @@ namespace slogger {
             ibv_qp * _qp;
             ibv_pd *_protection_domain;
             struct ibv_cq * _completion_queue;
+            slog_config *_slog_config;
 
             Replicated_Log _replicated_log;
 

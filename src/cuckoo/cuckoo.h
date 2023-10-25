@@ -10,6 +10,7 @@
 #include "search.h"
 #include "../slib/config.h"
 #include "../slib/state_machines.h"
+#include "../rdma/rdma_common.h"
 
 
 using namespace state_machines;

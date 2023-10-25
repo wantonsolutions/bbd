@@ -1,6 +1,7 @@
 #include "slogger.h"
 #include "replicated_log.h"
 #include "../slib/log.h"
+#include "../slib/memcached.h"
 #include "../rdma/rdma_common.h"
 
 using namespace replicated_log;
@@ -39,11 +40,13 @@ namespace slogger {
         _completion_queue = info.completion_queue;
         _protection_domain = info.pd;
 
-        ALERT("SLOG", "TODO init rdma structures");
-        // _table_config = memcached_get_table_config();
-        // assert(_table_config != NULL);
-        // assert(_table_config->table_size_bytes == get_table_size_bytes());
-        // INFO(log_id(),"got a table config from the memcached server and it seems to line up\n");
+        _slog_config = memcached_get_slog_config();
+        assert(_slog_config != NULL);
+        assert(_slog_config->slog_size_bytes == _replicated_log.get_size_bytes());
+        INFO(log_id(),"got a slog config from the memcached server and it seems to line up\n");
+
+        ALERT("SLOG", "SLogger Done Initializing RDMA Structures");
+        ALERT("SLOG", "TODO - register local log with a mr");
 
         // INFO(log_id(), "Registering table with RDMA device size %d, location %p\n", get_table_size_bytes(), get_table_pointer()[0]);
         // _table_mr = rdma_buffer_register(_protection_domain, get_table_pointer()[0], _table.get_table_size_bytes(), MEMORY_PERMISSION);

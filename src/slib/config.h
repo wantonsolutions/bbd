@@ -8,6 +8,7 @@ using namespace std;
 #include <vector>
 
 const string SERVER_TABLE_CONFIG_KEY = "server_table_config";
+const string SERVER_SLOG_CONFIG_KEY = "server_slog_config";
 const string EXPERIMENT_CONTROL_KEY = "experiment_control";
 const string MEMORY_STATS_KEY = "memory_stats";
 
@@ -33,6 +34,17 @@ typedef struct table_config {
     int lock_table_key;
     int lock_table_size_bytes;
 } table_config;
+
+typedef struct slog_config {
+    string to_string() {
+        return "slog_address: " + std::to_string(slog_address) + "\n" +
+            "slog_key: " + std::to_string(slog_key) + "\n" +
+            "slog_size_bytes: " + std::to_string(slog_size_bytes) + "\n";
+    }
+    uint64_t slog_address;
+    int slog_key;
+    int slog_size_bytes;
+} slog_config;
 
 typedef struct experiment_control {
     string to_string(){

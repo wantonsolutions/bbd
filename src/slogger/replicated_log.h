@@ -24,6 +24,8 @@ namespace replicated_log {
             void Append_Basic_Entry(Basic_Entry &bs);
             void Print_All_Entries();
 
+            int get_size_bytes();
+
         private:
             unsigned int _memory_size;
             uint8_t* _log;
