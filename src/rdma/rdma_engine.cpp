@@ -192,7 +192,6 @@ namespace rdma_engine {
                 thread_runner = cuckoo_fsm_runner;
                 break;
             case slogger_client:
-                ALERT("RDMA Engine", "TODO SLOGGER\n");
                 collect_stats = slogger_stat_collection;
                 thread_init = slogger_thread_init;
                 thread_runner = slogger_fsm_runner;

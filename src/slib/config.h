@@ -39,11 +39,18 @@ typedef struct slog_config {
     string to_string() {
         return "slog_address: " + std::to_string(slog_address) + "\n" +
             "slog_key: " + std::to_string(slog_key) + "\n" +
-            "slog_size_bytes: " + std::to_string(slog_size_bytes) + "\n";
+            "slog_size_bytes: " + std::to_string(slog_size_bytes) + "\n" +  
+            "tail_pointer_address: " + std::to_string(tail_pointer_address) + "\n" +
+            "tail_pointer_key: " + std::to_string(tail_pointer_key) + "\n" +
+            "tail_pointer_size_bytes: " + std::to_string(tail_pointer_size_bytes) + "\n";
     }
     uint64_t slog_address;
     int slog_key;
     int slog_size_bytes;
+
+    uint64_t tail_pointer_address;
+    int tail_pointer_key;
+    int tail_pointer_size_bytes;
 } slog_config;
 
 typedef struct experiment_control {

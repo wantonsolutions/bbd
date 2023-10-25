@@ -10,13 +10,15 @@
 using namespace state_machines;
 using namespace replicated_log;
 
+#define MAX_CONCURRENT_MESSAGES 32
+
 namespace slogger {
 
     class SLogger : public State_Machine {
         public:
             SLogger(){};
             SLogger(unordered_map<string, string> config);
-            ~SLogger() {ALERT("SLOG", "deleting slog");}
+            // ~SLogger() {ALERT("SLOG", "deleting slog");}
 
             void init_rdma_structures(rdma_info info);
             void fsm();
@@ -31,6 +33,11 @@ namespace slogger {
             slog_config *_slog_config;
 
             Replicated_Log _replicated_log;
+            ibv_mr *_log_mr;
+            ibv_mr *_tail_pointer_mr;
+
+            struct ibv_wc *_wc;
+            uint64_t _wr_id;
 
     };
 }

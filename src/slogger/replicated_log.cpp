@@ -22,7 +22,7 @@ namespace replicated_log {
     }
 
     float Replicated_Log::get_fill_percentage() {
-        ALERT("Replicated LOG", "TODO calculate the fill percentage");
+        // ALERT("Replicated LOG", "TODO calculate the fill percentage");
         return 0.0;
     }
 

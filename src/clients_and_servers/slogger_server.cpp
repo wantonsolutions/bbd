@@ -21,15 +21,15 @@ using namespace replicated_log;
 
 #define LOG_MR_INDEX 0
 // #define LOCK_TABLE_MR_INDEX 1
-// #define LOCK_TABLE_STARTING_ADDRESS 0
+#define TAIL_POINTER_STARTING_ADDRESS 0
 
 
 static on_chip_memory_attr device_memory;
 
 
-// void copy_device_memory_to_host_lock_table(Memory_State_Machine &msm) {
-//     copy_device_memory_to_host_object((void *)msm.get_underlying_lock_table_address(), msm.get_underlying_lock_table_size_bytes(), device_memory);
-// }
+void copy_tail_pointer_from_device_memory(Replicated_Log &rl) {
+    copy_device_memory_to_host_object((void *)rl.get_tail_pointer(), rl.get_tail_pointer_size_bytes(), device_memory);
+}
 
 static void send_slog_config_to_memcached_server(Replicated_Log& rl)
 {
@@ -40,23 +40,19 @@ static void send_slog_config_to_memcached_server(Replicated_Log& rl)
 
     ibv_mr * log_mr = register_server_object_at_mr_index(log_ptr, rl.get_size_bytes(), LOG_MR_INDEX);
 
+    int tail_pointer_size = rl.get_tail_pointer_size_bytes();
+    printf("asking for a tail pointer of size %d\n", tail_pointer_size);
+    device_memory = register_device_memory(TAIL_POINTER_STARTING_ADDRESS, tail_pointer_size);
+
     slog_config config;
     // Table * table = msm.get_table();
     config.slog_address = (uint64_t) log_mr->addr;
     config.slog_key = (uint32_t) log_mr->lkey;
     config.slog_size_bytes = rl.get_size_bytes();
 
-    // config.table_address = (uint64_t) msm.get_table_pointer();
-    // config.table_address = (uint64_t) table_mr->addr;
-    // config.remote_key = (uint32_t) table_mr->lkey;
-    // printf("todo when you get back set up the remote key!!");
-    // config.table_size_bytes = table->get_table_size_bytes();
-    // config.num_rows = table->get_row_count();
-    // config.buckets_per_row = table->get_buckets_per_row();
-    // config.entry_size_bytes = table->get_entry_size_bytes();
-    // config.lock_table_address = (uint64_t) LOCK_TABLE_STARTING_ADDRESS;
-    // config.lock_table_size_bytes = table->get_underlying_lock_table_size_bytes();
-    // config.lock_table_key = (uint32_t) device_memory.mr->lkey;
+    config.tail_pointer_address = (uint64_t) TAIL_POINTER_STARTING_ADDRESS;
+    config.tail_pointer_key = (uint32_t) device_memory.mr->lkey;
+    config.tail_pointer_size_bytes = tail_pointer_size;
     memcached_publish_slog_config(&config);
 }
 
@@ -75,6 +71,7 @@ void moniter_run(int num_qps, int print_frequency, bool prime, int runtime, bool
         time(&now);
         float fill_percentage = rl.get_fill_percentage();
         if(now - last_print >= print_frequency) {
+            ALERT("TODO", "CALCULATE FILL PERCENTAGE");
             last_print = now;
             printf("Printing table after %d seconds\n", print_step * print_frequency);
             print_step++;

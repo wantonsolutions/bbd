@@ -20,13 +20,16 @@ namespace replicated_log {
         public:
             Replicated_Log();
             Replicated_Log(unsigned int memory_size);
-            ~Replicated_Log() {ALERT("REPLICATED_LOG", "deleting replicated log");}
+            // ~Replicated_Log() {ALERT("REPLICATED_LOG", "deleting replicated log");}
             void Append_Basic_Entry(Basic_Entry &bs);
             void Print_All_Entries();
 
             void * get_log_pointer() {return (void*) this->_log;}
             float get_fill_percentage();
             int get_size_bytes();
+
+            void * get_tail_pointer() {return (void*) &(this->_tail_pointer);}
+            int get_tail_pointer_size_bytes() {return sizeof(this->_tail_pointer);}
 
         private:
             unsigned int _memory_size;

@@ -24,6 +24,10 @@ namespace slogger {
     void SLogger::fsm(){
         ALERT("SLOG", "SLogger Starting FSM");
         ALERT("SLOG", "SLogger Ending FSM");
+        for (int i=0;i<5;i++){
+            INFO(log_id(), "SLogger FSM iteration %d\n", i);
+            sleep(1);
+        }
     }
 
 
@@ -49,12 +53,13 @@ namespace slogger {
         ALERT("SLOG", "TODO - register local log with a mr");
 
         // INFO(log_id(), "Registering table with RDMA device size %d, location %p\n", get_table_size_bytes(), get_table_pointer()[0]);
-        // _table_mr = rdma_buffer_register(_protection_domain, get_table_pointer()[0], _table.get_table_size_bytes(), MEMORY_PERMISSION);
+        _log_mr = rdma_buffer_register(_protection_domain, _replicated_log.get_log_pointer(), _replicated_log.get_size_bytes(), MEMORY_PERMISSION);
         // INFO(log_id(), "Registering lock table with RDMA device size %d, location %p\n", get_lock_table_size_bytes(), get_lock_table_pointer());
-        // _lock_table_mr = rdma_buffer_register(_protection_domain, get_lock_table_pointer(), get_lock_table_size_bytes(), MEMORY_PERMISSION);
+        _tail_pointer_mr = rdma_buffer_register(_protection_domain, _replicated_log.get_tail_pointer(), _replicated_log.get_tail_pointer_size_bytes(), MEMORY_PERMISSION);
 
-        // _wr_id = 10000000;
-        // _wc = (struct ibv_wc *) calloc (MAX_CONCURRENT_CUCKOO_MESSAGES, sizeof(struct ibv_wc));
+        _wr_id = 10000000;
+        _wc = (struct ibv_wc *) calloc (MAX_CONCURRENT_MESSAGES, sizeof(struct ibv_wc));
+        ALERT("SLOG", "Done registering memory regions for SLogger");
 
     }
 
