@@ -12,13 +12,13 @@ namespace replicated_log {
     Replicated_Log::Replicated_Log(unsigned int memory_size) {
         this->_memory_size = memory_size;
         this->_log = new uint8_t[memory_size];
-        this->_tail_pointer = (uint64_t) this->_log;
+        this->_tail_pointer = 0;
     }
 
     Replicated_Log::Replicated_Log(){
         this->_memory_size = 0;
         this->_log = NULL;
-        this->_tail_pointer = (uint64_t) this->_log;
+        this->_tail_pointer = 0;
     }
 
     float Replicated_Log::get_fill_percentage() {
@@ -32,12 +32,12 @@ namespace replicated_log {
 
     void Replicated_Log::Append_Basic_Entry(Basic_Entry &bs) {
         int total_entry_size = bs.entry_size + sizeof(Basic_Entry);
-        int fill_size = this->_tail_pointer - (uint64_t) this->_log;
-        if (this->_memory_size - fill_size < total_entry_size) {
+        int remaining_size = this->_memory_size - this->_tail_pointer;
+        if (remaining_size < total_entry_size) {
             ALERT("REPLICATED_LOG", "not enough space in log");
             return;
         }
-        uint64_t old_tail_pointer = this->_tail_pointer;
+        uint64_t old_tail_pointer = (uint64_t) this->_log + this->_tail_pointer;
         this->_tail_pointer += total_entry_size;
         memcpy((void*) old_tail_pointer, (void*) &bs, sizeof(Basic_Entry));
         memset((void*) (old_tail_pointer + sizeof(Basic_Entry)), bs.repeating_value, bs.entry_size);
@@ -45,7 +45,8 @@ namespace replicated_log {
 
     void Replicated_Log::Print_All_Entries() {
         uint64_t current_pointer = (uint64_t) this->_log;
-        while (current_pointer < this->_tail_pointer) {
+        uint64_t tail_pointer_address = this->_tail_pointer + (uint64_t) this->_log;
+        while (current_pointer < tail_pointer_address) {
             Basic_Entry* bs = (Basic_Entry*) current_pointer;
             //Copy repeating values to buffer and print as a string
             char* repeating_values = new char[bs->entry_size + 1];
@@ -59,14 +60,16 @@ namespace replicated_log {
     }
 
     void Replicated_Log::Reset_Tail_Pointer() {
-        this->_tail_pointer = (uint64_t) this->_log;
+        this->_tail_pointer = 0;
     }
 
     void Replicated_Log::Chase_Tail_Pointer() {
-        Basic_Entry * bs = (Basic_Entry*) this->_tail_pointer;
+        uint64_t tail_pointer_address = this->_tail_pointer + (uint64_t) this->_log;
+        Basic_Entry * bs = (Basic_Entry*) tail_pointer_address;
         while(bs->is_vaild_entry()) {
             this->_tail_pointer += bs->entry_size + sizeof(Basic_Entry);
-            bs = (Basic_Entry*) this->_tail_pointer;
+            tail_pointer_address = this->_tail_pointer + (uint64_t) this->_log;
+            bs = (Basic_Entry*) tail_pointer_address;
         }
     }
 }
