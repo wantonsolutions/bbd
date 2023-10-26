@@ -25,6 +25,7 @@ namespace slogger {
             void clear_statistics();
 
         private:
+            void test_insert_log_entry(int i);
 
             //RDMA Variables
             ibv_qp * _qp;

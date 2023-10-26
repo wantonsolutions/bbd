@@ -27,7 +27,17 @@ namespace slogger {
         for (int i=0;i<5;i++){
             INFO(log_id(), "SLogger FSM iteration %d\n", i);
             sleep(1);
+            test_insert_log_entry(i);
         }
+    }
+
+    void SLogger::test_insert_log_entry(int i) {
+
+
+        //Step 1 we are going to allocate some memory for the remote log
+
+        //The assumption is that the local log tail pointer is at the end of the log.
+
     }
 
 
