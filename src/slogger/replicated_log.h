@@ -33,6 +33,7 @@ namespace replicated_log {
             float get_fill_percentage();
             int get_size_bytes();
 
+            void * get_tail_pointer_address();
             void * get_tail_pointer() {return (void*) &(this->_tail_pointer);}
             int get_tail_pointer_size_bytes() {return sizeof(this->_tail_pointer);}
 
