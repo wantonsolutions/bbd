@@ -20,7 +20,7 @@ namespace slogger {
             SLogger(){};
             SLogger(unordered_map<string, string> config);
             // ~SLogger() {ALERT("SLOG", "deleting slog");}
-            void CAS_Allocate_Log_Entry(Basic_Entry &bs);
+            bool CAS_Allocate_Log_Entry(Basic_Entry &bs);
             void Write_Log_Entry(Basic_Entry &bs);
             uint64_t local_to_remote_log_address(uint64_t local_address);
 
@@ -30,7 +30,7 @@ namespace slogger {
             const char * log_id();
 
         private:
-            void test_insert_log_entry(int i);
+            bool test_insert_log_entry(int i);
             char _log_identifier[ID_SIZE];
 
             //RDMA Variables

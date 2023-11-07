@@ -27,7 +27,10 @@ namespace replicated_log {
 
     float Replicated_Log::get_fill_percentage() {
         // ALERT("Replicated LOG", "TODO calculate the fill percentage");
-        return 0.0;
+        this->Chase_Tail_Pointer();
+        if (this->_memory_size > 0) {
+            return (float) this->_tail_pointer / (float) this->_memory_size;
+        }
     }
 
     int Replicated_Log::get_size_bytes(){
@@ -38,12 +41,21 @@ namespace replicated_log {
         return (void*) ((uint64_t) this->_log) + this->_tail_pointer;
     }
 
-
-    void Replicated_Log::Append_Basic_Entry(Basic_Entry &bs) {
+    bool Replicated_Log::Can_Append(Basic_Entry &bs) {
         int total_entry_size = bs.entry_size + sizeof(Basic_Entry);
         int remaining_size = this->_memory_size - this->_tail_pointer;
         if (remaining_size < total_entry_size) {
             ALERT("REPLICATED_LOG", "not enough space in log. Total size %d, remaining size %d, log size %d", total_entry_size, remaining_size, this->_memory_size);
+            return false;
+        }
+        return true;
+    }
+
+
+    void Replicated_Log::Append_Basic_Entry(Basic_Entry &bs) {
+
+        int total_entry_size = bs.entry_size + sizeof(Basic_Entry);
+        if (!this->Can_Append(bs)) {
             return;
         }
         uint64_t old_tail_pointer = (uint64_t) this->_log + this->_tail_pointer;

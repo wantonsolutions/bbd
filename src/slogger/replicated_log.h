@@ -24,6 +24,7 @@ namespace replicated_log {
             Replicated_Log(unsigned int memory_size);
             // ~Replicated_Log() {ALERT("REPLICATED_LOG", "deleting replicated log");}
             void Append_Basic_Entry(Basic_Entry &bs);
+            bool Can_Append(Basic_Entry &bs);
             void Print_All_Entries();
 
             void Reset_Tail_Pointer();
