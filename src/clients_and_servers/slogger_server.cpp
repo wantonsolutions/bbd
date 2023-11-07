@@ -75,11 +75,12 @@ void moniter_run(int num_qps, int print_frequency, bool prime, int runtime, bool
             last_print = now;
             printf("Printing table after %d seconds\n", print_step * print_frequency);
             print_step++;
+            rl.Chase_Tail_Pointer();
             rl.Print_All_Entries();
             // copy_device_memory_to_host_lock_table(msm);
             // msm.print_table();
             // msm.print_lock_table();
-            printf("%2.3f % Full (total bytes %d) \n", fill_percentage, rl.get_size_bytes());
+            printf("%2.3f Full (total bytes %d) \n", fill_percentage, rl.get_size_bytes());
             ALERT("RUN MONITER", "TODO add the priming logic back in");
         }
 

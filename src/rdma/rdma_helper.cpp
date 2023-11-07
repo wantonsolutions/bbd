@@ -139,38 +139,23 @@ namespace rdma_helper {
     }
 
     // for RC & UC
-    // bool rdmaWrite(ibv_qp *qp, uint64_t source, uint64_t dest, uint64_t size,
-    //             uint32_t lkey, uint32_t remoteRKey, int32_t imm, bool isSignaled,
-    //             uint64_t wrID) {
+    bool rdmaWriteExp(ibv_qp *qp, uint64_t source, uint64_t dest, uint64_t size,
+                uint32_t lkey, uint32_t remoteRKey, int32_t imm, bool isSignaled,
+                uint64_t wrID) {
 
-    // struct ibv_sge sg;
-    // struct ibv_send_wr wr;
-    // struct ibv_send_wr *wrBad;
+        struct ibv_sge sg;
+        struct ibv_exp_send_wr wr;
+        struct ibv_exp_send_wr *wrBad;
 
-    // fillSgeWr(sg, wr, source, size, lkey);
+        setRdmaWriteExp(&sg, &wr, source, dest, size, lkey, remoteRKey, imm, isSignaled, wrID);
 
-    // if (imm == -1) {
-    //     wr.opcode = IBV_WR_RDMA_WRITE;
-    // } else {
-    //     wr.imm_data = imm;
-    //     wr.opcode = IBV_WR_RDMA_WRITE_WITH_IMM;
-    // }
 
-    // if (isSignaled) {
-    //     wr.send_flags = IBV_SEND_SIGNALED;
-    // }
-
-    // wr.wr.rdma.remote_addr = dest;
-    // wr.wr.rdma.rkey = remoteRKey;
-    // wr.wr_id = wrID;
-
-    // if (ibv_post_send(qp, &wr, &wrBad) != 0) {
-    //     Debug::notifyError("Send with RDMA_WRITE(WITH_IMM) failed.");
-    //     sleep(10);
-    //     return false;
-    // }
-    // return true;
-    // }
+        if (ibv_exp_post_send(qp, &wr, &wrBad) != 0) {
+            printf("Send with RDMA_WRITE(WITH_IMM) failed.");
+            return false;
+        }
+        return true;
+    }
 
 
 

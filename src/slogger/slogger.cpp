@@ -3,8 +3,10 @@
 #include "../slib/log.h"
 #include "../slib/memcached.h"
 #include "../rdma/rdma_common.h"
+#include "../rdma/rdma_helper.h"
 
 using namespace replicated_log;
+using namespace rdma_helper;
 
 namespace slogger {
 
@@ -31,12 +33,113 @@ namespace slogger {
         }
     }
 
+    uint64_t SLogger::local_to_remote_log_address(uint64_t local_address) {
+        uint64_t base_address = (uint64_t) _replicated_log.get_log_pointer();
+        uint64_t address_offset = local_address - base_address;
+        return _slog_config->slog_address + address_offset;
+    }
+
+    void SLogger::CAS_Allocate_Log_Entry(Basic_Entry &bs) {
+
+        struct ibv_sge sg;
+        struct ibv_exp_send_wr wr;
+
+        uint64_t local_tail_pointer_address = (uint64_t) _replicated_log.get_tail_pointer_address();
+        uint64_t remote_tail_pointer_address = _slog_config->tail_pointer_address;
+        uint64_t compare  = _replicated_log.get_tail_pointer();
+        uint64_t new_tail_pointer = compare + bs.Get_Total_Entry_Size();
+
+        uint64_t current_tail_value = _replicated_log.get_tail_pointer();
+
+        rdmaCompareAndSwapExp(
+            _qp,
+            local_tail_pointer_address,
+            remote_tail_pointer_address,
+            compare,
+            new_tail_pointer,
+            _tail_pointer_mr->lkey,
+            _slog_config->tail_pointer_key,
+            true,
+            _wr_id);
+
+        _wr_id++;
+        int outstanding_messages = 1;
+        int n = bulk_poll(_completion_queue, outstanding_messages, _wc);
+
+        if (n < 0) {
+            ALERT("SLOG", "Error polling completion queue");
+            exit(1);
+        }
+
+        if (current_tail_value != _replicated_log.get_tail_pointer()) {
+            ALERT("SLOG", "Unable to allocate. Try again later.  Current tail value is %lu", current_tail_value);
+            exit(1);
+        }
+
+        ALERT("Allocate log entry", "Allocated log entry successfully %lu", _replicated_log.get_tail_pointer());
+        //at this point the remote log has been allocate and we can write to it.
+        //also our local tail pointer has been updated to the point where we can write directly to the buffer.
+    }
+
+    void SLogger::Write_Log_Entry(Basic_Entry &bs){
+        //we have to have allocated the remote entry at this point.
+        //TODO assert somehow that we have allocated
+        uint64_t local_log_tail_address = (uint64_t) _replicated_log.get_reference_to_tail_pointer_entry();
+        uint64_t remote_log_tail_address = local_to_remote_log_address(local_log_tail_address);
+        uint64_t size = bs.Get_Total_Entry_Size();
+
+        printf("writing to local addr %ul remote log %ul\n", local_log_tail_address, remote_log_tail_address);
+
+        //Make the local change
+        _replicated_log.Append_Basic_Entry(bs);
+
+        rdmaWriteExp(
+            _qp,
+            local_log_tail_address,
+            remote_log_tail_address,
+            size,
+            _log_mr->lkey,
+            _slog_config->slog_key,
+            -1,
+            true,
+            _wr_id);
+
+        _wr_id++;
+        int outstanding_messages = 1;
+        int n = bulk_poll(_completion_queue, outstanding_messages, _wc);
+
+        if (n < 0) {
+            ALERT("SLOG", "Error polling completion queue");
+            exit(1);
+        }
+
+
+
+
+    }
+
+
+
     void SLogger::test_insert_log_entry(int i) {
 
 
         //Step 1 we are going to allocate some memory for the remote log
 
         //The assumption is that the local log tail pointer is at the end of the log.
+        //For the first step we are going to get the current value of the tail pointer
+
+        Basic_Entry bs;
+        const char digits[] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        bs.entry_size = 10 + i;
+        bs.entry_type = i;
+        bs.repeating_value = digits[i%36];
+
+        //Now we must find out the size of the new entry that we want to commit
+        printf("This is where we are at currently\n");
+        _replicated_log.Print_All_Entries();
+
+        CAS_Allocate_Log_Entry(bs);
+        Write_Log_Entry(bs);
 
     }
 
@@ -65,7 +168,7 @@ namespace slogger {
         // INFO(log_id(), "Registering table with RDMA device size %d, location %p\n", get_table_size_bytes(), get_table_pointer()[0]);
         _log_mr = rdma_buffer_register(_protection_domain, _replicated_log.get_log_pointer(), _replicated_log.get_size_bytes(), MEMORY_PERMISSION);
         // INFO(log_id(), "Registering lock table with RDMA device size %d, location %p\n", get_lock_table_size_bytes(), get_lock_table_pointer());
-        _tail_pointer_mr = rdma_buffer_register(_protection_domain, _replicated_log.get_tail_pointer(), _replicated_log.get_tail_pointer_size_bytes(), MEMORY_PERMISSION);
+        _tail_pointer_mr = rdma_buffer_register(_protection_domain, _replicated_log.get_tail_pointer_address(), _replicated_log.get_tail_pointer_size_bytes(), MEMORY_PERMISSION);
 
         _wr_id = 10000000;
         _wc = (struct ibv_wc *) calloc (MAX_CONCURRENT_MESSAGES, sizeof(struct ibv_wc));

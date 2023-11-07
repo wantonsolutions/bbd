@@ -15,6 +15,7 @@ namespace replicated_log {
         uint8_t repeating_value;
         string ToString();
         bool is_vaild_entry() {return this->entry_size > 0;}
+        int Get_Total_Entry_Size();
     } Basic_Entry;
 
     class Replicated_Log {
@@ -33,8 +34,10 @@ namespace replicated_log {
             float get_fill_percentage();
             int get_size_bytes();
 
-            void * get_tail_pointer_address();
-            void * get_tail_pointer() {return (void*) &(this->_tail_pointer);}
+            void * get_reference_to_tail_pointer_entry();//this one returns a pointer to the entry at the tail pointer
+            uint64_t get_tail_pointer() {return this->_tail_pointer;}
+            void set_tail_pointer(uint64_t tail_pointer) {this->_tail_pointer = tail_pointer;}
+            void * get_tail_pointer_address() {return (void*) &this->_tail_pointer;}
             int get_tail_pointer_size_bytes() {return sizeof(this->_tail_pointer);}
 
         private:

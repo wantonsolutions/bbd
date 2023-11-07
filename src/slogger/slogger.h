@@ -19,6 +19,9 @@ namespace slogger {
             SLogger(){};
             SLogger(unordered_map<string, string> config);
             // ~SLogger() {ALERT("SLOG", "deleting slog");}
+            void CAS_Allocate_Log_Entry(Basic_Entry &bs);
+            void Write_Log_Entry(Basic_Entry &bs);
+            uint64_t local_to_remote_log_address(uint64_t local_address);
 
             void init_rdma_structures(rdma_info info);
             void fsm();
