@@ -43,7 +43,7 @@ namespace replicated_log {
         int total_entry_size = bs.entry_size + sizeof(Basic_Entry);
         int remaining_size = this->_memory_size - this->_tail_pointer;
         if (remaining_size < total_entry_size) {
-            ALERT("REPLICATED_LOG", "not enough space in log");
+            ALERT("REPLICATED_LOG", "not enough space in log. Total size %d, remaining size %d, log size %d", total_entry_size, remaining_size, this->_memory_size);
             return;
         }
         uint64_t old_tail_pointer = (uint64_t) this->_log + this->_tail_pointer;

@@ -11,6 +11,7 @@ using namespace state_machines;
 using namespace replicated_log;
 
 #define MAX_CONCURRENT_MESSAGES 32
+#define ID_SIZE 64
 
 namespace slogger {
 
@@ -26,9 +27,11 @@ namespace slogger {
             void init_rdma_structures(rdma_info info);
             void fsm();
             void clear_statistics();
+            const char * log_id();
 
         private:
             void test_insert_log_entry(int i);
+            char _log_identifier[ID_SIZE];
 
             //RDMA Variables
             ibv_qp * _qp;
