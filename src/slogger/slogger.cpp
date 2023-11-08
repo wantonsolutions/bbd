@@ -92,6 +92,19 @@ namespace slogger {
             }
 
             allocated = (current_tail_value == _replicated_log.get_tail_pointer());
+
+            #ifdef MEASURE_ESSENTIAL
+            uint64_t request_size = RDMA_CAS_REQUEST_SIZE + RDMA_CAS_RESPONSE_SIZE;
+            _cas_bytes += request_size;
+            _total_bytes += request_size;
+            _insert_operation_bytes += request_size;
+            _current_insert_rtt++;
+            _insert_rtt_count++;
+            _total_cas++;
+            if(!allocated) {
+                _total_cas_failures++;
+            }
+            #endif
         }
         SUCCESS(log_id(), "Allocated log entry successfully %lu", _replicated_log.get_tail_pointer());
         return true;
@@ -128,6 +141,16 @@ namespace slogger {
             ALERT("SLOG", "Error polling completion queue");
             exit(1);
         }
+
+        #ifdef MEASURE_ESSENTIAL
+        uint64_t request_size = size + RDMA_WRITE_REQUEST_BASE_SIZE + RDMA_WRITE_RESPONSE_SIZE;
+        _cas_bytes += request_size;
+        _total_bytes += request_size;
+        _insert_operation_bytes += request_size;
+        _current_insert_rtt++;
+        _insert_rtt_count++;
+        _total_writes++;
+        #endif
 
 
 

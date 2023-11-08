@@ -17,9 +17,11 @@ using namespace cuckoo_virtual_rdma;
 #define RDMA_READ_REQUSET_SIZE 74
 #define RDMA_MASKED_CAS_REQUEST_SIZE 102
 #define RDMA_CAS_REQUEST_SIZE 86
+#define RDMA_WRITE_REQUEST_BASE_SIZE 82
 
 #define RDMA_READ_RESPONSE_BASE_SIZE 62
 #define RDMA_ATOMIC_RESPONSE_SIZE 70
+#define RDMA_WRITE_RESPONSE_SIZE 54
 #define RDMA_MASKED_CAS_RESPONSE_SIZE RDMA_ATOMIC_RESPONSE_SIZE
 #define RDMA_CAS_RESPONSE_SIZE RDMA_ATOMIC_RESPONSE_SIZE
 
@@ -80,12 +82,14 @@ namespace state_machines {
             uint64_t _read_bytes;
             uint64_t _write_bytes;
             uint64_t _cas_bytes;
+            uint64_t _faa_bytes;
             uint64_t _masked_cas_bytes;
 
             uint32_t _total_reads;
             uint32_t _total_writes;
             uint32_t _total_cas;
             uint32_t _total_cas_failures;
+            uint32_t _total_faa;
             uint32_t _total_masked_cas = 0;
             uint32_t _total_masked_cas_failures=0;
 
