@@ -1,6 +1,7 @@
 #include "slogger.h"
 #include "replicated_log.h"
 #include "../slib/log.h"
+#include "../slib/util.h"
 #include "../slib/memcached.h"
 #include "../rdma/rdma_common.h"
 #include "../rdma/rdma_helper.h"
@@ -37,6 +38,8 @@ namespace slogger {
         // for (int i=0;i<50;i++){
         int i=0;
         while(true){
+
+            _operation_start_time = get_current_ns();
             // INFO(log_id(), "SLogger FSM iteration %d\n", i);
             // sleep(1);
             i = (i+1)%50;
@@ -44,6 +47,20 @@ namespace slogger {
             if (!res) {
                 break;
             }
+            _operation_end_time = get_current_ns();
+
+            #ifdef MEASURE_ESSENTIAL
+            uint64_t latency = (_operation_end_time - _operation_start_time).count();
+            _completed_insert_count++;
+            _current_insert_rtt = 0;
+            _sum_insert_latency_ns += latency;
+                #ifdef MEASURE_MOST
+                _insert_rtt.push_back(_current_insert_rtt);
+                _insert_latency_ns.push_back(latency);
+                #endif
+            #endif
+
+
         }
     }
 
