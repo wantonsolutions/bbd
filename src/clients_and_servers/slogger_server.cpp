@@ -26,6 +26,12 @@ using namespace replicated_log;
 
 static on_chip_memory_attr device_memory;
 
+static void send_final_memory_stats_to_memcached_server(Replicated_Log rl){
+    memory_stats ms;
+    ms.finished_run = true;
+    ms.fill = rl.get_fill_percentage();
+    memcached_publish_memory_stats(&ms);
+}
 
 void copy_tail_pointer_from_device_memory(Replicated_Log &rl) {
     copy_device_memory_to_host_object((void *)rl.get_tail_pointer(), rl.get_tail_pointer_size_bytes(), device_memory);
@@ -58,7 +64,7 @@ static void send_slog_config_to_memcached_server(Replicated_Log& rl)
 
 
 
-void moniter_run(int num_qps, int print_frequency, bool prime, int runtime, bool use_runtime, Replicated_Log& rl) {
+void moniter_run(int num_qps, int print_frequency, bool prime, int runtime, bool use_runtime, float prime_fill, float max_fill, Replicated_Log& rl) {
 
     //print buffers every second
     int print_step=0;
@@ -76,7 +82,7 @@ void moniter_run(int num_qps, int print_frequency, bool prime, int runtime, bool
             printf("Printing table after %d seconds\n", print_step * print_frequency);
             print_step++;
             rl.Chase_Tail_Pointer();
-            rl.Print_All_Entries();
+            // rl.Print_All_Entries();
             // copy_device_memory_to_host_lock_table(msm);
             // msm.print_table();
             // msm.print_lock_table();
@@ -84,29 +90,30 @@ void moniter_run(int num_qps, int print_frequency, bool prime, int runtime, bool
             ALERT("RUN MONITER", "TODO add the priming logic back in");
         }
 
-        // if(prime && 
-        // !priming_complete &&
-        // (fill_percentage * 100.0) >= rl.get_prime_fill()
-        // ) {
-        //     printf("Table has reached it's priming factor\n");
-        //     announce_priming_complete();
-        //     priming_complete = true;
-        //     if (use_runtime) {
-        //         time(&experiment_start_time);
-        //     }
-        // }
+        //TODO add priming critera
+        if(prime && 
+        !priming_complete &&
+        (fill_percentage * 100.0) >= prime_fill
+        ) {
+            printf("Table has reached it's priming factor\n");
+            announce_priming_complete();
+            priming_complete = true;
+            if (use_runtime) {
+                time(&experiment_start_time);
+            }
+        }
 
-        // if((fill_percentage * 100.0) >= rl.get_max_fill()) {
-        //     printf("Table has reached it's full capactiy. Exiting globally\n");
-        //     end_experiment_globally();
-        //     break;
-        // }
+        if((fill_percentage * 100.0) >= max_fill) {
+            printf("Table has reached it's full capactiy. Exiting globally\n");
+            end_experiment_globally();
+            break;
+        }
 
-        // if(use_runtime && (now - experiment_start_time) >= runtime) {
-        //     printf("Experiment has reached it's runtime capactiy. Exiting globally\n");
-        //     end_experiment_globally();
-        //     break;
-        // }
+        if(use_runtime && (now - experiment_start_time) >= runtime) {
+            printf("Experiment has reached it's runtime capactiy. Exiting globally\n");
+            end_experiment_globally();
+            break;
+        }
     }
     ALERT("RDMA memory server", "Experiment has been ended globally\n");
     ALERT("RDMA memory server", "Write the stats to the memcached server\n");
@@ -139,6 +146,8 @@ int main(int argc, char **argv)
     Replicated_Log rl = Replicated_Log(memory_size_bytes);
 
     bool prime = (config["prime"] == "true");
+    float prime_fill = stof(config["prime_fill"]);
+    float max_fill = stof(config["max_fill"]);
     // msm.fill_table_with_incremental_values();
 
     //resolve the address from the config
@@ -177,11 +186,11 @@ int main(int argc, char **argv)
 
 
     printf("All server setup complete, now serving memory requests\n");
-    moniter_run(num_qps, 1 ,prime, runtime, use_runtime, rl);
+    moniter_run(num_qps, 1 ,prime, runtime, use_runtime, prime_fill, max_fill,rl);
 
     // ALERT("RDMA memory server", "Sending results to the memcached server\n");
     ALERT("SLogger server", "TODO send the results to the memcached server");
-    // send_final_memory_stats_to_memcached_server(msm);
+    send_final_memory_stats_to_memcached_server(rl);
 
     ret = disconnect_and_cleanup(num_qps);
     if (ret) { 

@@ -31,30 +31,6 @@ void copy_device_memory_to_host_lock_table(Memory_State_Machine &msm) {
     copy_device_memory_to_host_object((void *)msm.get_underlying_lock_table_address(), msm.get_underlying_lock_table_size_bytes(), device_memory);
 }
 
-static void send_inital_experiment_control_to_memcached_server() {
-    experiment_control ec;
-    ec.experiment_start = false;
-    ec.experiment_stop = false;
-    ec.priming_complete = false;
-    memcached_publish_experiment_control(&ec);
-}
-static void start_distributed_experiment(){
-    experiment_control *ec = (experiment_control *)memcached_get_experiment_control();
-    ec->experiment_start = true;
-    memcached_publish_experiment_control(ec);
-}
-
-static void end_experiment_globally(){
-    experiment_control *ec = (experiment_control *)memcached_get_experiment_control();
-    ec->experiment_stop = true;
-    memcached_publish_experiment_control(ec);
-}
-
-static void announce_priming_complete() {
-    experiment_control *ec = (experiment_control *)memcached_get_experiment_control();
-    ec->priming_complete = true;
-    memcached_publish_experiment_control(ec);
-}
 
 static void send_inital_memory_stats_to_memcached_server(){
     memory_stats ms;

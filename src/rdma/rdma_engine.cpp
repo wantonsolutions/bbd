@@ -140,7 +140,32 @@ void rcuckoo_stat_collection(State_Machine ** state_machines, unordered_map<stri
 }
 
 void slogger_stat_collection(State_Machine ** state_machines, unordered_map<string,string> config, int num_clients, auto ms_int) {
-    ALERT("RDMA Engine", "TODO we don't collect slogger statistics at the moment\n");
+    vector<unordered_map<string,string>> client_statistics;
+    for (int i=0;i<num_clients;i++) {
+        INFO("RDMA Engine", "Grabbing Statistics Off of Client Thread %d\n", i);
+        if (SLogger * cuckoo = dynamic_cast<SLogger *>(state_machines[i])) {
+            client_statistics.push_back(cuckoo->get_stats());
+        }
+        else {
+            ALERT("RDMA Engine", "Could not cast state machine to RCuckoo\n");
+            exit(1);
+        }
+    }
+    SUCCESS("RDMA Engine", "Grabbed Statistics Off of All Client %d Threads\n", num_clients);
+
+
+    unordered_map<string,string> system_statistics;
+    system_statistics["runtime_ms"] = to_string(ms_int.count());
+    system_statistics["runtime_s"]= to_string(ms_int.count() / 1000.0);
+    ALERT("RDMA Engine", "Runtime ms %d\n",ms_int.count());
+
+    memory_stats *ms;
+    unordered_map<string,string> memory_statistics;
+    memory_statistics["fill"]= to_string(ms->fill);
+    ALERT("RDMA Engine", "Writing out statistics\n");
+    write_statistics(config, system_statistics, client_statistics, memory_statistics);
+    // free(thread_ids);
+    VERBOSE("RDMA Engine", "done running state machine!");
 }
 
 void * slogger_thread_init(void * arg) {

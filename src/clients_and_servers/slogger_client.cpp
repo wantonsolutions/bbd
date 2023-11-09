@@ -14,7 +14,7 @@ using namespace slogger;
 
 int main(int argc, char **argv){
     if (argc > 2) {
-        ALERT("SLogger Client", "ERROR Too many arguments Usage: ./rdma_server <config_file>\n");
+        ALERT("SLogger Client", "ERROR Too many arguments Usage: ./slogger_client <config_file>\n");
         for (int i = 0; i < argc; i++) {
             ALERT("Slogger Client", "ERROR Argument %d: %s\n", i, argv[i]);
         }
