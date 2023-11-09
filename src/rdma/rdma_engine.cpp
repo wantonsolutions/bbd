@@ -17,6 +17,7 @@
 #include "../cuckoo/cuckoo.h"
 
 #include "../slogger/slogger.h"
+#include "../slogger/nt.h"
 
 #include "../slib/state_machines.h"
 #include "../slib/config.h"
@@ -29,6 +30,7 @@ using namespace state_machines;
 using namespace rdma_helper;
 using namespace cuckoo_rcuckoo;
 using namespace slogger;
+using namespace nt;
 
 
 volatile bool global_start_flag = false;
@@ -179,7 +181,8 @@ void * slogger_thread_init(void * arg) {
 
     ALERT("RDMA Engine", "Slogger instace %i\n", slogger_arg->id);
     config["id"]=to_string(slogger_arg->id);
-    SLogger * slogger = new SLogger(config);
+    // SLogger * slogger = new SLogger(config);
+    SLogger * slogger = new NT(config);
 
 
     ALERT("RDMA Engine", "TODO setup RDMA rdma resources within the slogger\n");
@@ -194,7 +197,8 @@ void * slogger_thread_init(void * arg) {
 
 void * slogger_fsm_runner(void * args){
     ALERT("RDMA Engine","launching threads in a slogger fsm\n");
-    SLogger * slogger = (SLogger *) args;
+    // SLogger * slogger = (SLogger *) args;
+    NT * slogger = (NT *) args;
     slogger->fsm();
     pthread_exit(NULL);
 }

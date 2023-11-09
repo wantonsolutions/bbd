@@ -9,22 +9,21 @@ using namespace std;
 
 namespace replicated_log {
 
-    typedef struct Basic_Entry {
+    typedef struct Log_Entry {
         uint16_t entry_size;
         uint8_t entry_type;
-        uint8_t repeating_value;
         string ToString();
         bool is_vaild_entry() {return this->entry_size > 0;}
         int Get_Total_Entry_Size();
-    } Basic_Entry;
+    } Log_Entry;
 
     class Replicated_Log {
         public:
             Replicated_Log();
             Replicated_Log(unsigned int memory_size);
             // ~Replicated_Log() {ALERT("REPLICATED_LOG", "deleting replicated log");}
-            void Append_Basic_Entry(Basic_Entry &bs);
-            bool Can_Append(Basic_Entry &bs);
+            void Append_Log_Entry(Log_Entry &bs, void * data);
+            bool Can_Append(Log_Entry &bs);
             void Print_All_Entries();
 
             void Reset_Tail_Pointer();

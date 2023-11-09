@@ -1,0 +1,3 @@
+[submodule "src/btrees"]
+	path = src/btrees
+	url = https://github.com/wichtounet/btrees.git

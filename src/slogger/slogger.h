@@ -20,11 +20,11 @@ namespace slogger {
             SLogger(){};
             SLogger(unordered_map<string, string> config);
             // ~SLogger() {ALERT("SLOG", "deleting slog");}
-            bool FAA_Allocate_Log_Entry(Basic_Entry &bs);
-            bool CAS_Allocate_Log_Entry(Basic_Entry &bs);
+            bool FAA_Allocate_Log_Entry(Log_Entry &bs);
+            bool CAS_Allocate_Log_Entry(Log_Entry &bs);
 
-            bool (SLogger::*_allocate_log_entry)(Basic_Entry &bs);
-            void Write_Log_Entry(Basic_Entry &bs);
+            bool (SLogger::*_allocate_log_entry)(Log_Entry &bs);
+            void Write_Log_Entry(Log_Entry &bs, void* data);
             void Syncronize_Log(uint64_t offset);
             uint64_t local_to_remote_log_address(uint64_t local_address);
 
