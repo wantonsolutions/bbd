@@ -20,7 +20,10 @@ namespace slogger {
             SLogger(){};
             SLogger(unordered_map<string, string> config);
             // ~SLogger() {ALERT("SLOG", "deleting slog");}
+            bool FAA_Allocate_Log_Entry(Basic_Entry &bs);
             bool CAS_Allocate_Log_Entry(Basic_Entry &bs);
+
+            bool (SLogger::*_allocate_log_entry)(Basic_Entry &bs);
             void Write_Log_Entry(Basic_Entry &bs);
             uint64_t local_to_remote_log_address(uint64_t local_address);
 
@@ -28,10 +31,14 @@ namespace slogger {
             void fsm();
             void clear_statistics();
             const char * log_id();
+            unordered_map<string, string> get_stats();
 
         private:
+            Client_Workload_Driver _workload_driver;
             bool test_insert_log_entry(int i);
             char _log_identifier[ID_SIZE];
+
+            void set_allocate_function(unordered_map<string, string> config);
 
             //RDMA Variables
             ibv_qp * _qp;

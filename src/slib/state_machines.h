@@ -17,6 +17,7 @@ using namespace cuckoo_virtual_rdma;
 #define RDMA_READ_REQUSET_SIZE 74
 #define RDMA_MASKED_CAS_REQUEST_SIZE 102
 #define RDMA_CAS_REQUEST_SIZE 86
+#define RDMA_FAA_REQUEST_SIZE 78
 #define RDMA_WRITE_REQUEST_BASE_SIZE 82
 
 #define RDMA_READ_RESPONSE_BASE_SIZE 62
@@ -24,6 +25,7 @@ using namespace cuckoo_virtual_rdma;
 #define RDMA_WRITE_RESPONSE_SIZE 54
 #define RDMA_MASKED_CAS_RESPONSE_SIZE RDMA_ATOMIC_RESPONSE_SIZE
 #define RDMA_CAS_RESPONSE_SIZE RDMA_ATOMIC_RESPONSE_SIZE
+#define RDMA_FAA_RESPONSE_SIZE RDMA_ATOMIC_RESPONSE_SIZE
 
 //Measurement DEFS
 // #define MEASURE_ALL
@@ -76,6 +78,8 @@ namespace state_machines {
             bool _inserting;
             bool _reading;
             bool _updating;
+
+            bool _local_prime_flag;
 
             //State Machine Statistics
             uint64_t _total_bytes;
