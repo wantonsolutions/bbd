@@ -18,7 +18,7 @@ import time
 # import asyncio use this eventually when you want to parallelize the builds
 
 
-class rcuckoo_ssh_wrapper:
+class ssh_wrapper:
     def __init__(self, username,hostname):
         # print("setting up ssh connection to", hostname)
         self.username = username
@@ -82,38 +82,38 @@ class rcuckoo_ssh_wrapper:
 
 class Orchestrator:
 
-    memory_program_name = "rdma_memory_server"
-    client_program_name = "cuckoo_client"
+    memory_program_name = "slogger_server"
+    client_program_name = "slogger_client"
     config_name = "remote_config.json"
     statistics_file = "statistics/statistics.json"
     server_name = 'yak-00.sysnet.ucsd.edu'
     build_server_name = 'yak-01.sysnet.ucsd.edu'
     # client_name = 'yak-01.sysnet.ucsd.edu' 
     client_names = [
-    'yeti-00.sysnet.ucsd.edu',
-    'yeti-01.sysnet.ucsd.edu',
-    'yeti-02.sysnet.ucsd.edu',
-    'yeti-03.sysnet.ucsd.edu',
-    'yeti-04.sysnet.ucsd.edu',
-    'yeti-05.sysnet.ucsd.edu', 
-    'yeti-06.sysnet.ucsd.edu',
-    'yeti-07.sysnet.ucsd.edu',
-    'yeti-08.sysnet.ucsd.edu',
-    'yeti-09.sysnet.ucsd.edu',
+    'yak-01.sysnet.ucsd.edu',
+    # 'yeti-01.sysnet.ucsd.edu',
+    # 'yeti-02.sysnet.ucsd.edu',
+    # 'yeti-03.sysnet.ucsd.edu',
+    # 'yeti-04.sysnet.ucsd.edu',
+    # 'yeti-05.sysnet.ucsd.edu', 
+    # 'yeti-06.sysnet.ucsd.edu',
+    # 'yeti-07.sysnet.ucsd.edu',
+    # 'yeti-08.sysnet.ucsd.edu',
+    # 'yeti-09.sysnet.ucsd.edu',
     ]
     config = dict()
     def __init__(self, conf):
-        self.server = rcuckoo_ssh_wrapper('ssgrant', self.server_name)
-        self.build_server = rcuckoo_ssh_wrapper('ssgrant', self.build_server_name)
+        self.server = ssh_wrapper('ssgrant', self.server_name)
+        self.build_server = ssh_wrapper('ssgrant', self.build_server_name)
         self.clients=[]
         for client_name in self.client_names:
-            self.clients.append(rcuckoo_ssh_wrapper('ssgrant', client_name))
+            self.clients.append(ssh_wrapper('ssgrant', client_name))
 
         #pointer to all of the nodes
         self.all_nodes = [self.server] + self.clients + [self.build_server]
 
         self.build_location = self.build_server
-        self.project_directory = '/usr/local/home/ssgrant/RemoteDataStructres/rcuckoo_rdma'
+        self.project_directory = '/usr/local/home/ssgrant/bbd'
         self.sync_dependents = [self.server] + self.clients
 
 
@@ -127,7 +127,7 @@ class Orchestrator:
         self.config_name = config_name
         for node in self.all_nodes:
             node.run_cmd(
-                'cd rcuckoo_rdma/configs;'
+                'cd src/configs;'
                 'echo \'' + json.dumps(config) + '\' > ' + config_name + ';')
 
     def get_threads_per_machine(self,config):
@@ -174,7 +174,7 @@ class Orchestrator:
         #send the memory configuration to the memory server
 
         self.server.run_cmd(
-            'cd rcuckoo_rdma/configs;'
+            'cd src/configs;'
             'echo \'' + json.dumps(config) + '\' > ' + config_name + ';')
 
         #send the client configuration to the clients
@@ -186,7 +186,7 @@ class Orchestrator:
             config["base_port"] = str(base_port)
             config["starting_id"] = str(starting_id)
             client.run_cmd(
-                'cd rcuckoo_rdma/configs;'
+                'cd src/configs;'
                 'echo \'' + json.dumps(config) + '\' > ' + config_name + ';')
             base_port += threads_per_machine
             starting_id += threads_per_machine
@@ -200,7 +200,7 @@ class Orchestrator:
 
         master_stats = dict()
         client_stat_filename = 'client_statistics.json'
-        remote_client_stat_filename = self.project_directory + '/statistics/'+client_stat_filename
+        remote_client_stat_filename = self.project_directory + '/src/statistics/'+client_stat_filename
         local_client_stat_filename = temp_dir.name+'/'+client_stat_filename
         success = False
         for i, client in enumerate(self.clients):
@@ -280,7 +280,7 @@ class Orchestrator:
     def setup_huge(self):
         #do hugeppages on the server
         #200gb of 2mb pages
-        # print("setting up huge pages on server")
+        print("setting up huge pages on server")
         self.server.run_cmd('echo iwicbV15 | sudo -S hugeadm --pool-pages-min 2MB:102400')
         for client in self.clients:
             # client.run_cmd('echo iwicbV15 | sudo hugeadm --pool-pages-min 2MB:16384')
@@ -288,14 +288,14 @@ class Orchestrator:
             client.run_cmd('echo iwicbV15 | sudo -S hugeadm --pool-pages-min 2MB:65536')
 
     def run(self):
-        # print("Starting RDMA Benchmark")
+        print("Starting Log Server")
 
-        server_command=('cd rcuckoo_rdma;'
+        server_command=('cd src;'
             'stdbuf -oL ./'+ self.memory_program_name + ' ' + 'configs/' + self.config_name + ' > memserver.out 2>&1 &')
         server_thread = threading.Thread(target=self.server.run_cmd, args=(server_command,))
         server_thread.start()
 
-        sleeptime=15
+        sleeptime=5
         print("sleeping for ", sleeptime, " seconds")
         for i in tqdm(range(sleeptime)):
             # print("Waiting for server to start")
@@ -305,7 +305,7 @@ class Orchestrator:
             # 'export MLX5_SINGLE_THREADED=1;'
         client_threads=[]
         client_command=(
-                'cd rcuckoo_rdma;'
+                'cd src;'
                 'rm -f statistics/client_statistics.json;'
                 'LD_PRELOAD=libhugetlbfs.so HUGETLB_MORECORE=yes stdbuf -oL ./' + self.client_program_name + ' ' + 'configs/' + self.config_name + ' > client.out 2>&1;'
                 'cat client.out;'
@@ -320,7 +320,7 @@ class Orchestrator:
             # print("starting client thread", client_thread)
             client_thread.start()
             time.sleep(1)
-        timeout = 120
+        timeout = 10
         print("Waiting for all {} clients to finish..".format(len(client_threads)))
         for i, client_thread in enumerate(client_threads):
             print("Waiting for client", i)
@@ -328,11 +328,7 @@ class Orchestrator:
             timeout=5
         print("All clients finished")
 
-        time.sleep(15)
-
         self.kill()
-
-
         # time.sleep(5)
 
 def fix_stats(stats, config):
