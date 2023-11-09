@@ -34,14 +34,17 @@ namespace slogger {
             const char * log_id();
             unordered_map<string, string> get_stats();
 
-        private:
+        protected:
             Client_Workload_Driver _workload_driver;
-            bool test_insert_log_entry(int i, int size);
             char _log_identifier[ID_SIZE];
+            uint32_t _id;
+
+
+        private:
+            bool test_insert_log_entry(int i, int size);
 
             void set_allocate_function(unordered_map<string, string> config);
 
-            uint32_t _id;
 
             //RDMA Variables
             ibv_qp * _qp;
