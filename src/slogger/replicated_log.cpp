@@ -17,12 +17,14 @@ namespace replicated_log {
         this->_memory_size = memory_size;
         this->_log = new uint8_t[memory_size];
         this->_tail_pointer = 0;
+        this->_locally_synced_tail_pointer = 0;
     }
 
     Replicated_Log::Replicated_Log(){
         this->_memory_size = 0;
         this->_log = NULL;
         this->_tail_pointer = 0;
+        this->_locally_synced_tail_pointer = 0;
     }
 
     float Replicated_Log::get_fill_percentage() {
@@ -39,6 +41,10 @@ namespace replicated_log {
 
     void * Replicated_Log::get_reference_to_tail_pointer_entry() {
         return (void*) ((uint64_t) this->_log) + this->_tail_pointer;
+    }
+
+    void * Replicated_Log::get_reference_to_locally_synced_tail_pointer_entry() {
+        return (void*) ((uint64_t) this->_log) + this->_locally_synced_tail_pointer;
     }
 
     bool Replicated_Log::Can_Append(Basic_Entry &bs) {
@@ -66,7 +72,8 @@ namespace replicated_log {
 
     void Replicated_Log::Print_All_Entries() {
         uint64_t current_pointer = (uint64_t) this->_log;
-        while (current_pointer < (uint64_t) this->get_reference_to_tail_pointer_entry()) {
+        // while (current_pointer < (uint64_t) this->get_reference_to_tail_pointer_entry()) {
+        while (current_pointer < (uint64_t) this->_log + (uint64_t) this->get_locally_synced_tail_pointer()) {
             Basic_Entry* bs = (Basic_Entry*) current_pointer;
             //Copy repeating values to buffer and print as a string
             char* repeating_values = new char[bs->entry_size + 1];
@@ -84,10 +91,18 @@ namespace replicated_log {
     }
 
     void Replicated_Log::Chase_Tail_Pointer() {
-        Basic_Entry * bs = (Basic_Entry*) this->get_reference_to_tail_pointer_entry();
+        Chase(&this->_tail_pointer);
+    }
+
+    void Replicated_Log::Chase_Locally_Synced_Tail_Pointer() {
+        Chase(&this->_locally_synced_tail_pointer);
+    }
+
+    void Replicated_Log::Chase(uint64_t * tail_pointer) {
+        Basic_Entry * bs = (Basic_Entry*) ((uint64_t) this->_log + *tail_pointer);
         while(bs->is_vaild_entry()) {
-            this->_tail_pointer += bs->entry_size + sizeof(Basic_Entry);
-            bs = (Basic_Entry*) this->get_reference_to_tail_pointer_entry();
+            *tail_pointer += bs->entry_size + sizeof(Basic_Entry);
+            bs = (Basic_Entry*) ((uint64_t) this->_log + *tail_pointer);
         }
     }
 }

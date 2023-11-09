@@ -23,6 +23,8 @@ namespace slogger {
             set_allocate_function(config);
 
             ALERT("SLOG", "Creating SLogger with id %s", config["id"].c_str());
+            _id = stoi(config["id"]);
+            _entry_size = stoi(config["entry_size"]);
             sprintf(_log_identifier, "Client: %3d", stoi(config["id"]));
             _local_prime_flag = false;
             ALERT(log_id(), "Done creating SLogger");
@@ -72,7 +74,7 @@ namespace slogger {
             // INFO(log_id(), "SLogger FSM iteration %d\n", i);
             // sleep(1);
             i = (i+1)%50;
-            bool res = test_insert_log_entry(i);
+            bool res = test_insert_log_entry(i,_entry_size);
             if (!res) {
                 break;
             }
@@ -238,15 +240,67 @@ namespace slogger {
         _insert_rtt_count++;
         _total_writes++;
         #endif
+    }
+
+    void SLogger::Syncronize_Log(uint64_t offset){
+        //Step One reset our local tail pointer and chase to the end of vaild entries
+        _replicated_log.Chase_Locally_Synced_Tail_Pointer(); // This will bring us to the last up to date entry
+
+        if (_replicated_log.get_locally_synced_tail_pointer() >= offset) {
+            SUCCESS(log_id(), "Log is already up to date");
+            return;
+        }
+
+        //Locally we have a tail pointer that is behind the adderss we want to sync to.
+        //Here we need to read the remote log and find out what the value of the tail pointer is     
+        if (_replicated_log.get_tail_pointer() < offset) {
+            ALERT(log_id(), "Local tail pointer is behind the offset we want to sync to not yet supported");
+            exit(1);
+        }
 
 
+        //Step Two we need to read the remote log and find out what the value of the tail pointer is
+        uint64_t local_log_tail_address = (uint64_t) _replicated_log.get_reference_to_locally_synced_tail_pointer_entry();
+        uint64_t remote_log_tail_address = local_to_remote_log_address(local_log_tail_address);
+        uint64_t size = offset - _replicated_log.get_locally_synced_tail_pointer();
 
+        // if (_id == 0){
+        //     ALERT(log_id(), "Syncing log from %lu to %lu", _replicated_log.get_locally_synced_tail_pointer(), offset);
+        // }
 
+        rdmaReadExp(
+            _qp,
+            local_log_tail_address,
+            remote_log_tail_address,
+            size,
+            _log_mr->lkey,
+            _slog_config->slog_key,
+            true,
+            _wr_id);
+        
+        _wr_id++;
+        int outstanding_messages = 1;
+        int n = bulk_poll(_completion_queue, outstanding_messages, _wc);
+
+        if (n < 0) {
+            ALERT("SLOG", "Error polling completion queue");
+            exit(1);
+        }
+
+        #ifdef MEASURE_ESSENTIAL
+        uint64_t request_size = size + RDMA_READ_REQUSET_SIZE + RDMA_READ_RESPONSE_BASE_SIZE;
+        _read_bytes += request_size;
+        _total_bytes += request_size;
+        _read_operation_bytes += request_size;
+        _current_read_rtt++;
+        _read_rtt_count++;
+        _total_reads++;
+        #endif
     }
 
 
 
-    bool SLogger::test_insert_log_entry(int i) {
+    bool SLogger::test_insert_log_entry(int i, int size) {
 
 
         //Step 1 we are going to allocate some memory for the remote log
@@ -256,8 +310,8 @@ namespace slogger {
 
         Basic_Entry bs;
         const char digits[] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-        bs.entry_size = 10;
-        bs.entry_type = i;
+        bs.entry_size = size;
+        bs.entry_type = _id;
         bs.repeating_value = digits[i%36];
 
         //Now we must find out the size of the new entry that we want to commit
@@ -268,7 +322,10 @@ namespace slogger {
         // if (FAA_Allocate_Log_Entry(bs)) {
         if((this->*_allocate_log_entry)(bs)) {
             Write_Log_Entry(bs);
-            // sleep(1);
+            Syncronize_Log(_replicated_log.get_tail_pointer()); 
+            // if (_id == 0){
+            //     _replicated_log.Print_All_Entries();
+            // }
             return true;
         }
         return false;

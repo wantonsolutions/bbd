@@ -29,6 +29,8 @@ namespace replicated_log {
 
             void Reset_Tail_Pointer();
             void Chase_Tail_Pointer();
+            void Chase_Locally_Synced_Tail_Pointer();
+
 
 
             void * get_log_pointer() {return (void*) this->_log;}
@@ -36,15 +38,20 @@ namespace replicated_log {
             int get_size_bytes();
 
             void * get_reference_to_tail_pointer_entry();//this one returns a pointer to the entry at the tail pointer
+            void * get_reference_to_locally_synced_tail_pointer_entry();
+
             uint64_t get_tail_pointer() {return this->_tail_pointer;}
+            uint64_t get_locally_synced_tail_pointer() {return this->_locally_synced_tail_pointer;}
             void set_tail_pointer(uint64_t tail_pointer) {this->_tail_pointer = tail_pointer;}
             void * get_tail_pointer_address() {return (void*) &this->_tail_pointer;}
             int get_tail_pointer_size_bytes() {return sizeof(this->_tail_pointer);}
 
         private:
+            void Chase(uint64_t * tail_pointer);
             unsigned int _memory_size;
             uint8_t* _log;
             uint64_t _tail_pointer;
+            uint64_t _locally_synced_tail_pointer;
     };
 
 }
