@@ -18,6 +18,9 @@ table_config *memcached_get_table_config(void);
 void memcached_publish_slog_config(slog_config *config);
 slog_config * memcached_get_slog_config(void);
 
+void memcached_publish_corrupter_config(corrupter_config *config);
+corrupter_config * memcached_get_corrupter_config(void);
+
 void memcached_publish_experiment_control(experiment_control *control);
 experiment_control *memcached_get_experiment_control(void);
 

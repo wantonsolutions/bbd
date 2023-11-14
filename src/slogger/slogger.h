@@ -13,6 +13,11 @@ using namespace replicated_log;
 #define MAX_CONCURRENT_MESSAGES 32
 #define ID_SIZE 64
 
+enum log_entry_types {
+    control = 0,
+    app = 1,
+};
+
 namespace slogger {
 
     class SLogger : public State_Machine {
@@ -20,12 +25,23 @@ namespace slogger {
             SLogger(){};
             SLogger(unordered_map<string, string> config);
             // ~SLogger() {ALERT("SLOG", "deleting slog");}
+            bool MFAA_Allocate_Log_Entry(Log_Entry &le);
             bool FAA_Allocate_Log_Entry(Log_Entry &bs);
             bool CAS_Allocate_Log_Entry(Log_Entry &bs);
 
             bool (SLogger::*_allocate_log_entry)(Log_Entry &bs);
+
+
+            void Read_Remote_Tail_Pointer();
             void Write_Log_Entry(Log_Entry &bs, void* data);
+
+            void Sync_To_Remote_Log();
+            void Sync_To_Last_Write();
             void Syncronize_Log(uint64_t offset);
+
+
+            void Write_Operation(void* op, int size);
+            void * Next_Operation();
             uint64_t local_to_remote_log_address(uint64_t local_address);
 
             void init_rdma_structures(rdma_info info);
@@ -36,6 +52,9 @@ namespace slogger {
 
         protected:
             Client_Workload_Driver _workload_driver;
+            ycsb_workload _workload;
+            void set_workload(string workload);
+
             char _log_identifier[ID_SIZE];
             uint32_t _id;
 
@@ -51,8 +70,8 @@ namespace slogger {
             ibv_pd *_protection_domain;
             struct ibv_cq * _completion_queue;
             slog_config *_slog_config;
-
             Replicated_Log _replicated_log;
+
             ibv_mr *_log_mr;
             ibv_mr *_tail_pointer_mr;
 

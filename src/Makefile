@@ -22,6 +22,7 @@ SLIB_DIR := slib
 RDMA_DIR := rdma
 CUCKOO_DIR := cuckoo
 SLOGGER_DIR := slogger
+CORRUPTER_DIR := corrupter
 ENTRY_POINT_DIR := clients_and_servers
 TEST_DIR := test
 
@@ -29,23 +30,29 @@ SLIB_CPP := $(wildcard $(SLIB_DIR)/*.cpp)
 RDMA_CPP := $(wildcard $(RDMA_DIR)/*.cpp)
 CUCKOO_CPP := $(wildcard $(CUCKOO_DIR)/*.cpp)
 SLOGGER_CPP := $(wildcard $(SLOGGER_DIR)/*.cpp)
+CORRUPTER_CPP := $(wildcard $(CORRUPTER_DIR)/*.cpp)
 
 
-CUCKOO_SERVER_CPP := $(SLIB_CPP) $(RDMA_CPP) $(SLOGGER_CPP) $(CUCKOO_CPP) $(ENTRY_POINT_DIR)/rdma_memory_server.cpp
-CUCKOO_CLIENT_CPP := $(SLIB_CPP) $(RDMA_CPP) $(SLOGGER_CPP) $(CUCKOO_CPP) $(ENTRY_POINT_DIR)/cuckoo_client.cpp
-SLOGGER_SERVER_CPP := $(SLIB_CPP) $(RDMA_CPP) $(SLOGGER_CPP) $(CUCKOO_CPP) $(ENTRY_POINT_DIR)/slogger_server.cpp
-SLOGGER_CLIENT_CPP := $(SLIB_CPP) $(RDMA_CPP) $(SLOGGER_CPP) $(CUCKOO_CPP) $(ENTRY_POINT_DIR)/slogger_client.cpp
+CUCKOO_SERVER_CPP := $(SLIB_CPP) $(RDMA_CPP) $(SLOGGER_CPP) $(CORRUPTER_CPP) $(CUCKOO_CPP) $(ENTRY_POINT_DIR)/rdma_memory_server.cpp
+CUCKOO_CLIENT_CPP := $(SLIB_CPP) $(RDMA_CPP) $(SLOGGER_CPP) $(CORRUPTER_CPP) $(CUCKOO_CPP) $(ENTRY_POINT_DIR)/cuckoo_client.cpp
+SLOGGER_SERVER_CPP := $(SLIB_CPP) $(RDMA_CPP) $(SLOGGER_CPP) $(CORRUPTER_CPP) $(CUCKOO_CPP) $(ENTRY_POINT_DIR)/slogger_server.cpp
+SLOGGER_CLIENT_CPP := $(SLIB_CPP) $(RDMA_CPP) $(SLOGGER_CPP) $(CORRUPTER_CPP) $(CUCKOO_CPP) $(ENTRY_POINT_DIR)/slogger_client.cpp
+CORRPUTER_CLIENT_CPP := $(SLIB_CPP) $(RDMA_CPP) $(SLOGGER_CPP) $(CORRUPTER_CPP) $(CUCKOO_CPP) $(ENTRY_POINT_DIR)/corrupter_client.cpp
+CORRUPTER_SERVER_CPP := $(SLIB_CPP) $(RDMA_CPP) $(SLOGGER_CPP) $(CORRUPTER_CPP) $(CUCKOO_CPP) $(ENTRY_POINT_DIR)/corrupter_server.cpp
 
 CUCKOO_SERVER_OBJ := $(patsubst %.cpp, obj/%.o, $(CUCKOO_SERVER_CPP))
 SLOGGER_SERVER_OBJ := $(patsubst %.cpp, obj/%.o, $(SLOGGER_SERVER_CPP))
 CUCKOO_CLIENT_OBJ := $(patsubst %.cpp, obj/%.o, $(CUCKOO_CLIENT_CPP))
 SLOGGER_CLIENT_OBJ := $(patsubst %.cpp, obj/%.o, $(SLOGGER_CLIENT_CPP))
 
+CORRPUTER_SERVER_OBJ := $(patsubst %.cpp, obj/%.o, $(CORRUPTER_SERVER_CPP))
+CORRPUTER_CLIENT_OBJ := $(patsubst %.cpp, obj/%.o, $(CORRPUTER_CLIENT_CPP))
+
 
 # config.o: config.cpp
 # 	$(CC) $(CFLAGS) $(INCLUDES) $(LIBRARIES) -c $< -o $@
 
-all: rdma_memory_server slogger_server cuckoo_client slogger_client replicated_log_test
+all: rdma_memory_server slogger_server cuckoo_client slogger_client corrupter_client corrupter_server replicated_log_test
 
 obj/%.o: %.cpp
 	$(CC) $(CFLAGS) $(INCLUDES) $(LIBRARIES) -c $< -o $@
@@ -62,8 +69,14 @@ cuckoo_client: $(CUCKOO_CLIENT_OBJ)
 slogger_client: $(SLOGGER_CLIENT_OBJ)
 	$(CC) $(CFLAGS) $(INCLUDES) $(SLOGGER_CLIENT_OBJ) -o slogger_client $(LIBRARIES)
 
+corrupter_client: $(CORRPUTER_CLIENT_OBJ)
+	$(CC) $(CFLAGS) $(INCLUDES) $(CORRPUTER_CLIENT_OBJ) -o corrupter_client $(LIBRARIES)
 
-REPLICATED_LOG_CPP = $(SLIB_CPP) $(RDMA_CPP) $(CUCKOO_CPP) $(SLOGGER_CPP) $(TEST_DIR)/test_replicated_log.cpp
+corrupter_server: $(CORRPUTER_SERVER_OBJ)
+	$(CC) $(CFLAGS) $(INCLUDES) $(CORRPUTER_SERVER_OBJ) -o corrupter_server $(LIBRARIES)
+
+
+REPLICATED_LOG_CPP = $(SLIB_CPP) $(RDMA_CPP) $(CUCKOO_CPP) $(CORRUPTER_CPP) $(SLOGGER_CPP) $(TEST_DIR)/test_replicated_log.cpp
 REPLICATED_LOG_OBJ := $(patsubst %.cpp, obj/%.o, $(REPLICATED_LOG_CPP))
 replicated_log_test: $(REPLICATED_LOG_OBJ)
 	$(CC) $(CFLAGS) $(INCLUDES) $(REPLICATED_LOG_OBJ) -o test_replicated_log $(LIBRARIES)
@@ -80,10 +93,14 @@ clean:
 	rm -rf obj/cuckoo/*.o
 	rm -rf obj/rdma/*.o
 	rm -rf obj/slib/*.o
+	rm -rf obj/corrupter/*.o
 
-	rm rdma_memory_server
-	rm cuckoo_client
-	rm slogger_client
+	rm -f rdma_memory_server
+	rm -f cuckoo_client
+	rm -f slogger_client
+	rm -f slogger_server
+	rm -f corrupter_server
+	rm -f corrupter_client
 
 	rm -rf build
 	rm -rf rcuckoo_wrapper.cpp

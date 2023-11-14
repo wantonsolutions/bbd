@@ -9,11 +9,12 @@ using namespace std;
 
 namespace replicated_log {
 
+
     typedef struct Log_Entry {
-        uint16_t entry_size;
-        uint8_t entry_type;
+        uint16_t size;
+        uint8_t type;
         string ToString();
-        bool is_vaild_entry() {return this->entry_size > 0;}
+        bool is_vaild_entry() {return this->size > 0;}
         int Get_Total_Entry_Size();
     } Log_Entry;
 
@@ -29,6 +30,10 @@ namespace replicated_log {
             void Reset_Tail_Pointer();
             void Chase_Tail_Pointer();
             void Chase_Locally_Synced_Tail_Pointer();
+            Log_Entry * Next_Locally_Synced_Tail_Pointer();
+            Log_Entry * Next_Operation();
+
+
 
 
 
@@ -44,13 +49,19 @@ namespace replicated_log {
             void set_tail_pointer(uint64_t tail_pointer) {this->_tail_pointer = tail_pointer;}
             void * get_tail_pointer_address() {return (void*) &this->_tail_pointer;}
             int get_tail_pointer_size_bytes() {return sizeof(this->_tail_pointer);}
+            unsigned int get_memory_size() {return this->_memory_size;}
 
         private:
+            Log_Entry * Next(uint64_t *tail_pointer);
             void Chase(uint64_t * tail_pointer);
             unsigned int _memory_size;
             uint8_t* _log;
+            //Tail pointer references the remote tail pointer. This value is DMA's to and from directly
             uint64_t _tail_pointer;
+            //Local tail pointer is used for tracking complete local updates. This defines the maximum local entries.
             uint64_t _locally_synced_tail_pointer;
+            //Operation tail pointer is used by the application to pop off operations from the log seperate from how the log is managed
+            uint64_t _operation_tail_pointer;
     };
 
 }

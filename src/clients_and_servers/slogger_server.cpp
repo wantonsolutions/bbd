@@ -82,7 +82,7 @@ void moniter_run(int num_qps, int print_frequency, bool prime, int runtime, bool
             printf("Printing table after %d seconds\n", print_step * print_frequency);
             print_step++;
             rl.Chase_Tail_Pointer();
-            // rl.Print_All_Entries();
+            rl.Print_All_Entries();
             // copy_device_memory_to_host_lock_table(msm);
             // msm.print_table();
             // msm.print_lock_table();
@@ -95,7 +95,7 @@ void moniter_run(int num_qps, int print_frequency, bool prime, int runtime, bool
         !priming_complete &&
         (fill_percentage * 100.0) >= prime_fill
         ) {
-            printf("Table has reached it's priming factor\n");
+            printf("Table has reached it's priming factor %f (current fill %f)\n", prime_fill, fill_percentage*100);
             announce_priming_complete();
             priming_complete = true;
             if (use_runtime) {
@@ -103,8 +103,9 @@ void moniter_run(int num_qps, int print_frequency, bool prime, int runtime, bool
             }
         }
 
-        if((fill_percentage * 100.0) >= max_fill) {
-            printf("Table has reached it's full capactiy. Exiting globally\n");
+        //Max fill of zero means we are not using max fill
+        if((max_fill != 0) && (fill_percentage * 100.0) >= max_fill) {
+            printf("Table has reached it's full capactiy %f (current fill %f). Exiting globally\n", max_fill, fill_percentage*100);
             end_experiment_globally();
             break;
         }
@@ -141,6 +142,7 @@ int main(int argc, char **argv)
     if (argc == 2) {
         config_filename = argv[1];
     }
+
     unordered_map<string, string> config = read_config_from_file(config_filename);
     int memory_size_bytes = stoi(config["memory_size"]);
     Replicated_Log rl = Replicated_Log(memory_size_bytes);

@@ -10,6 +10,7 @@ using namespace std;
 const string SERVER_TABLE_CONFIG_KEY = "server_table_config";
 const string SERVER_SLOG_CONFIG_KEY = "server_slog_config";
 const string EXPERIMENT_CONTROL_KEY = "experiment_control";
+const string SERVER_CORRUPTER_CONFIG_KEY = "server_corrupter_config";
 const string MEMORY_STATS_KEY = "memory_stats";
 
 typedef struct table_config {
@@ -52,6 +53,20 @@ typedef struct slog_config {
     int tail_pointer_key;
     int tail_pointer_size_bytes;
 } slog_config;
+
+typedef struct corrupter_config {
+    string to_string() {
+        return "chunk_address: " + std::to_string(chunk_address) + "\n" +
+            "chunk_key: " + std::to_string(chunk_key) + "\n" +
+            "chunk_mem_size: " + std::to_string(chunk_mem_size) + "\n" +
+            "chunk_size: " + std::to_string(chunk_size) + "\n";
+    }
+
+    uint64_t chunk_address;
+    int chunk_key;
+    int chunk_mem_size;
+    int chunk_size;
+} corrupter_config;
 
 typedef struct experiment_control {
     string to_string(){

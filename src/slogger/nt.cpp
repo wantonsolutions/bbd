@@ -41,30 +41,59 @@ namespace nt {
         NEDTRIE_INIT(&footree);
     }
 
+    void NT::Apply_Ops() {
+        nt_op_entry * op = (nt_op_entry *) Next_Operation();
+        while(op != NULL) {
+            foo_t v;
+            v.key = op->key;
+            //note we should not have non modifying operations in the log
+            switch(op->type) {
+                case NT_PUT:
+                    // ALERT(log_id(), "NT Apply_Ops called writing %d", op->key);
+                    NEDTRIE_INSERT(foo_tree_s, &footree, &v);
+                    break;
+                // case NT_GET:
+                //     ALERT(log_id(), "NT Apply_Ops called reading %d", op->key);
+                //     NEDTRIE_CFIND(foo_tree_s, &footree, &v,1);
+                //     break;
+                case NT_DEL:
+                    NEDTRIE_REMOVE(foo_tree_s, &footree, &v);
+                    break;
+                default:
+                    ALERT(log_id(), "Unknown operation type %d", op->type);
+                    break;
+            }
+            op = (nt_op_entry *) Next_Operation();
+        }
+    }
+
     void NT::put() {
         foo_t a;
         a.key=2;
         NEDTRIE_INSERT(foo_tree_s, &footree, &a);
 
 
-        #ifdef MEASURE_ESSENTIAL
-        uint64_t latency = (_operation_end_time - _operation_start_time).count();
-        _completed_insert_count++;
-        _current_insert_rtt = 0;
-        _sum_insert_latency_ns += latency;
-            #ifdef MEASURE_MOST
-            _insert_rtt.push_back(_current_insert_rtt);
-            _insert_latency_ns.push_back(latency);
-            #endif
-        #endif
+
+        nt_op_entry op;
+        op.type = NT_PUT;
+        op.key = 2;
+        // ALERT(log_id(), "NT put called writing %d", op.key);
+        Write_Operation(&op, sizeof(nt_op_entry));
+        Sync_To_Last_Write();
+        Apply_Ops();
+
     }
 
     void NT::get() {
+
+        // Sync_To_Remote_Log();
+        Sync_To_Last_Write();
+        Apply_Ops();
         foo_t b, *r;
-        b.key=6;
-        NEDTRIE_INSERT(foo_tree_s, &footree, &b);
-        r=NEDTRIE_FIND(foo_tree_s, &footree, &b);
-        assert(r==&b);
+        b.key=2;
+        // NEDTRIE_INSERT(foo_tree_s, &footree, &b);
+        r=NEDTRIE_CFIND(foo_tree_s, &footree, &b,1);
+        assert(r->key == b.key);
 
     }
 
@@ -76,7 +105,7 @@ namespace nt {
     }
 
     void NT::fsm() {
-        ALERT("NT", "NT fsm called");
+        ALERT(log_id(), "NT fsm called");
         // foo_t a, b, c, *r;
         // ALERT(log_id(), "SLogger Starting FSM");
         while(!*_global_start_flag){
@@ -84,6 +113,7 @@ namespace nt {
         };
 
         int i=0;
+        _workload_driver.set_workload(W);
         while(!*_global_end_flag){
             Request next_request;
             
@@ -92,6 +122,7 @@ namespace nt {
             //To have locks, or any outstanding requests
             if (*_global_prime_flag && !_local_prime_flag){
                 _local_prime_flag = true;
+                _workload_driver.set_workload(_workload);
                 clear_statistics();
             }
 
@@ -112,7 +143,30 @@ namespace nt {
                 exit(1);
             }
 
-            _operation_end_time = get_current_ns();
+
+            #ifdef MEASURE_ESSENTIAL
+            uint64_t latency = (_operation_end_time - _operation_start_time).count();
+
+            if (next_request.op == PUT) {
+                    #ifdef MEASURE_MOST
+                    _insert_rtt.push_back(_current_insert_rtt);
+                    _insert_latency_ns.push_back(latency);
+                    #endif
+                _completed_insert_count++;
+                _current_insert_rtt = 0;
+                _sum_insert_latency_ns += latency;
+            } else if (next_request.op == GET) {
+                    #ifdef MEASURE_MOST
+                    _read_rtt.push_back(current_read_rtt);
+                    _read_latency_ns.push_back(latency);
+                    #endif
+                _completed_read_count++;
+                _current_read_rtt =0;
+                _sum_read_latency_ns += latency;
+
+            }
+            #endif
+
 
         }
 
