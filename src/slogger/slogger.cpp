@@ -6,6 +6,7 @@
 #include "../rdma/rdma_common.h"
 #include "../rdma/rdma_helper.h"
 
+#include <stdint.h>
 using namespace replicated_log;
 using namespace rdma_helper;
 
@@ -16,11 +17,20 @@ namespace slogger {
 
         try {
             unsigned int memory_size = stoi(config["memory_size"]);
+            if (memory_size < 1) {
+                ALERT("SLOG", "Error: memory size must be greater than 0");
+                exit(1);
+            }
+            if (!IsPowerOfTwo(memory_size)) {
+                ALERT("SLOG", "Error: memory size must be a power of 2, input was %d", memory_size);
+                exit(1);
+            }
             _workload_driver = Client_Workload_Driver(config);
 
 
             _replicated_log = Replicated_Log(memory_size);
             set_allocate_function(config);
+            set_workload(config["workload"]);
 
             ALERT("SLOG", "Creating SLogger with id %s", config["id"].c_str());
             _id = stoi(config["id"]);
@@ -102,7 +112,7 @@ namespace slogger {
         return _slog_config->slog_address + address_offset;
     }
 
-    bool SLogger::FAA_Allocate_Log_Entry(Basic_Entry &bs) {
+    bool SLogger::FAA_Allocate_Log_Entry(Log_Entry &bs) {
 
         // printf("FETCH AND ADD\n");
         uint64_t local_tail_pointer_address = (uint64_t) _replicated_log.get_tail_pointer_address();
@@ -129,6 +139,8 @@ namespace slogger {
             exit(1);
         }
 
+        // printf("FETCH AND ADD DONE tail value at the time of the faa is %lu\n", _replicated_log.get_tail_pointer());
+
         assert(current_tail_value <= _replicated_log.get_tail_pointer());
         #ifdef MEASURE_ESSENTIAL
         uint64_t request_size = RDMA_FAA_REQUEST_SIZE + RDMA_FAA_RESPONSE_SIZE;
@@ -145,7 +157,91 @@ namespace slogger {
         return true;
     }
 
-    bool SLogger::CAS_Allocate_Log_Entry(Basic_Entry &bs) {
+    bool SLogger::MFAA_Allocate_Log_Entry(Log_Entry &le) {
+        // printf("FETCH AND ADD\n");
+        uint64_t local_tail_pointer_address = (uint64_t) _replicated_log.get_tail_pointer_address();
+        uint64_t remote_tail_pointer_address = _slog_config->tail_pointer_address;
+        uint64_t add  = le.Get_Total_Entry_Size();
+        uint64_t current_tail_value = _replicated_log.get_tail_pointer();
+
+        // ALERT("SLOG", "MFAA_Allocate_Log_Entry: local_tail_pointer_address %lu, remote_tail_pointer_address %lu, add %lu, current_tail_value %lu", local_tail_pointer_address, remote_tail_pointer_address, add, current_tail_value);
+
+
+
+        rdmaMaskedFetchAndAddExp(
+            _qp,
+            local_tail_pointer_address,
+            remote_tail_pointer_address,
+            add,
+            _tail_pointer_mr->lkey,
+            _slog_config->tail_pointer_key,
+            _replicated_log.get_memory_size()/2,
+            true,
+            _wr_id);
+
+        _wr_id++;
+        int outstanding_messages = 1;
+        int n = bulk_poll(_completion_queue, outstanding_messages, _wc);
+
+        if (n < 0) {
+            ALERT(log_id(), "Error polling completion queue");
+            exit(1);
+        }
+
+        // printf("FETCH AND ADD DONE tail value at the time of the faa is %lu\n", _replicated_log.get_tail_pointer());
+
+        // ALERT("TODO", "Here is where we need to perform some roll over calculations. If the size we requested + the current tail pointer is greater than the size of the log, then we need to roll over the tail pointer. We also need to roll over the tail pointer if the size we requested + the current tail pointer is greater than the size of the log minus the size of the log header. We also need to roll over the tail pointer if the size we requested + the current tail pointer is greater than the size of the log minus the size of the log header minus the size of the log footer. We also need to roll over the tail pointer if the size we requested + the current tail pointer is greater than the size of the log minus the size of the log header minus the size of the log footer minus the size of the log control. We also need to roll over the tail pointer if the size we requested + the current tail pointer is greater than the size of the log minus the size of the log header minus the size of the log footer minus the size of the log control minus the size of the log control.");
+
+        if (_replicated_log.get_tail_pointer() + add > _replicated_log.get_memory_size()) {
+            ALERT("SLOG", "ALERT we have detected that we are on the boundry and need to do the roll over");
+        }
+
+
+        assert(current_tail_value <= _replicated_log.get_tail_pointer());
+        #ifdef MEASURE_ESSENTIAL
+        uint64_t request_size = RDMA_FAA_REQUEST_SIZE + RDMA_FAA_RESPONSE_SIZE;
+        _faa_bytes += request_size;
+        _total_bytes += request_size;
+        _insert_operation_bytes += request_size;
+        _current_insert_rtt++;
+        _insert_rtt_count++;
+        _total_cas++;
+        #endif
+        //At this point we should have a local tail that is at least as large as the remote tail
+        //Also the remote tail is allocated
+
+        return true;
+
+
+    }
+
+    void * SLogger::Next_Operation() {
+        Log_Entry * le = _replicated_log.Next_Operation();
+        if (le == NULL) {
+            return NULL;
+        }
+        //TODO here is where we would put controls in the log.
+        //For now we just return the data.
+        //For instance, if we wanted to have contorl log entries with different types we could embed them here.
+        if (le->type == log_entry_types::control) {
+            ALERT("SLOG", "Got a control log entry");
+        }
+
+        //return a pointer to the data of the log entry. Leave it to the application to figure out what's next;
+        return (void *) le + sizeof(Log_Entry);
+    }
+
+    void SLogger::Write_Operation(void* op, int size) {
+        Log_Entry le;
+        le.type = log_entry_types::app;
+        le.size = size;
+
+        if((this->*_allocate_log_entry)(le)) {
+            Write_Log_Entry(le, op);
+        }
+    }
+
+    bool SLogger::CAS_Allocate_Log_Entry(Log_Entry &bs) {
 
         bool allocated = false;
 
@@ -199,7 +295,41 @@ namespace slogger {
         return true;
     }
 
-    void SLogger::Write_Log_Entry(Basic_Entry &bs){
+    void SLogger::Read_Remote_Tail_Pointer() {
+            uint64_t local_tail_pointer_address = (uint64_t) _replicated_log.get_tail_pointer_address();
+            uint64_t remote_tail_pointer_address = _slog_config->tail_pointer_address;
+            uint64_t size = sizeof(uint64_t);
+            rdmaReadExp(
+                _qp,
+                local_tail_pointer_address,
+                remote_tail_pointer_address,
+                size,
+                _log_mr->lkey,
+                _slog_config->slog_key,
+                true,
+                _wr_id);
+
+            _wr_id++;
+            int outstanding_messages = 1;
+            int n = bulk_poll(_completion_queue, outstanding_messages, _wc);
+
+            if (n < 0) {
+                ALERT("SLOG", "Error polling completion queue");
+                exit(1);
+            }
+
+            #ifdef MEASURE_ESSENTIAL
+            uint64_t request_size = size + RDMA_READ_REQUSET_SIZE + RDMA_READ_RESPONSE_BASE_SIZE;
+            _read_bytes += request_size;
+            _total_bytes += request_size;
+            _read_operation_bytes += request_size;
+            _current_read_rtt++;
+            _read_rtt_count++;
+            _total_reads++;
+            #endif
+    }
+
+    void SLogger::Write_Log_Entry(Log_Entry &bs, void* data){
         //we have to have allocated the remote entry at this point.
         //TODO assert somehow that we have allocated
         uint64_t local_log_tail_address = (uint64_t) _replicated_log.get_reference_to_tail_pointer_entry();
@@ -209,7 +339,7 @@ namespace slogger {
         // printf("writing to local addr %ul remote log %ul\n", local_log_tail_address, remote_log_tail_address);
 
         //Make the local change
-        _replicated_log.Append_Basic_Entry(bs);
+        _replicated_log.Append_Log_Entry(bs, data);
 
         rdmaWriteExp(
             _qp,
@@ -242,6 +372,16 @@ namespace slogger {
         #endif
     }
 
+    void SLogger::Sync_To_Last_Write() {
+        Syncronize_Log(_replicated_log.get_tail_pointer()); 
+    }
+
+    void SLogger::Sync_To_Remote_Log() {
+        Read_Remote_Tail_Pointer();
+        Syncronize_Log(_replicated_log.get_tail_pointer()); 
+    }
+
+
     void SLogger::Syncronize_Log(uint64_t offset){
         //Step One reset our local tail pointer and chase to the end of vaild entries
         _replicated_log.Chase_Locally_Synced_Tail_Pointer(); // This will bring us to the last up to date entry
@@ -258,44 +398,48 @@ namespace slogger {
             exit(1);
         }
 
+        while (_replicated_log.get_locally_synced_tail_pointer() < offset) {
+            //Step Two we need to read the remote log and find out what the value of the tail pointer is
+            uint64_t local_log_tail_address = (uint64_t) _replicated_log.get_reference_to_locally_synced_tail_pointer_entry();
+            uint64_t remote_log_tail_address = local_to_remote_log_address(local_log_tail_address);
+            uint64_t size = offset - _replicated_log.get_locally_synced_tail_pointer();
 
-        //Step Two we need to read the remote log and find out what the value of the tail pointer is
-        uint64_t local_log_tail_address = (uint64_t) _replicated_log.get_reference_to_locally_synced_tail_pointer_entry();
-        uint64_t remote_log_tail_address = local_to_remote_log_address(local_log_tail_address);
-        uint64_t size = offset - _replicated_log.get_locally_synced_tail_pointer();
+            // if (_id == 0){
+            //     ALERT(log_id(), "Syncing log from %lu to %lu", _replicated_log.get_locally_synced_tail_pointer(), offset);
+            // }
 
-        // if (_id == 0){
-        //     ALERT(log_id(), "Syncing log from %lu to %lu", _replicated_log.get_locally_synced_tail_pointer(), offset);
-        // }
+            rdmaReadExp(
+                _qp,
+                local_log_tail_address,
+                remote_log_tail_address,
+                size,
+                _log_mr->lkey,
+                _slog_config->slog_key,
+                true,
+                _wr_id);
 
-        rdmaReadExp(
-            _qp,
-            local_log_tail_address,
-            remote_log_tail_address,
-            size,
-            _log_mr->lkey,
-            _slog_config->slog_key,
-            true,
-            _wr_id);
-        
-        _wr_id++;
-        int outstanding_messages = 1;
-        int n = bulk_poll(_completion_queue, outstanding_messages, _wc);
+            _wr_id++;
+            int outstanding_messages = 1;
+            int n = bulk_poll(_completion_queue, outstanding_messages, _wc);
 
-        if (n < 0) {
-            ALERT("SLOG", "Error polling completion queue");
-            exit(1);
+            if (n < 0) {
+                ALERT("SLOG", "Error polling completion queue");
+                exit(1);
+            }
+
+            #ifdef MEASURE_ESSENTIAL
+            uint64_t request_size = size + RDMA_READ_REQUSET_SIZE + RDMA_READ_RESPONSE_BASE_SIZE;
+            _read_bytes += request_size;
+            _total_bytes += request_size;
+            _read_operation_bytes += request_size;
+            _current_read_rtt++;
+            _read_rtt_count++;
+            _total_reads++;
+            #endif
+
+            //Finally chase to the end of what we have read. If the entry is not vaild read again.
+            _replicated_log.Chase_Locally_Synced_Tail_Pointer(); // This will bring us to the last up to date entry
         }
-
-        #ifdef MEASURE_ESSENTIAL
-        uint64_t request_size = size + RDMA_READ_REQUSET_SIZE + RDMA_READ_RESPONSE_BASE_SIZE;
-        _read_bytes += request_size;
-        _total_bytes += request_size;
-        _read_operation_bytes += request_size;
-        _current_read_rtt++;
-        _read_rtt_count++;
-        _total_reads++;
-        #endif
     }
 
 
@@ -307,12 +451,20 @@ namespace slogger {
 
         //The assumption is that the local log tail pointer is at the end of the log.
         //For the first step we are going to get the current value of the tail pointer
-
-        Basic_Entry bs;
+        #define MAX_LOG_ENTRY_SIZE 4096
+        assert(size < MAX_LOG_ENTRY_SIZE);
+        char data[MAX_LOG_ENTRY_SIZE];
         const char digits[] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-        bs.entry_size = size;
-        bs.entry_type = _id;
-        bs.repeating_value = digits[i%36];
+
+        //TODO uncomment for debugging
+        for (int j = 0; j < size; j++) {
+            data[j] = digits[i%36];
+        }
+        Log_Entry bs;
+        bs.size = size;
+        bs.type = _id;
+
+        // bs.repeating_value = digits[i%36];
 
         //Now we must find out the size of the new entry that we want to commit
         // printf("This is where we are at currently\n");
@@ -321,8 +473,8 @@ namespace slogger {
         // if (CAS_Allocate_Log_Entry(bs)) {
         // if (FAA_Allocate_Log_Entry(bs)) {
         if((this->*_allocate_log_entry)(bs)) {
-            Write_Log_Entry(bs);
-            Syncronize_Log(_replicated_log.get_tail_pointer()); 
+            Write_Log_Entry(bs,data);
+            Sync_To_Last_Write();
             // if (_id == 0){
             //     _replicated_log.Print_All_Entries();
             // }
@@ -339,9 +491,27 @@ namespace slogger {
             _allocate_log_entry = &SLogger::CAS_Allocate_Log_Entry;
         } else if (allocate_function == "FAA") {
             _allocate_log_entry = &SLogger::FAA_Allocate_Log_Entry;
+        } else if (allocate_function == "MFAA") {
+            _allocate_log_entry = &SLogger::MFAA_Allocate_Log_Entry;
         } else {
             ALERT("SLOG", "Unknown allocate function %s", allocate_function.c_str());
             exit(1);
+        }
+    }
+
+    void SLogger::set_workload(string workload) {
+        printf("setting workload to %s\n", workload.c_str());
+        if (workload == "ycsb-a"){
+            _workload = A;
+        } else if (workload == "ycsb-b"){
+            _workload = B;
+        } else if (workload == "ycsb-c"){
+            _workload = C;
+        } else if (workload == "ycsb-w"){
+            _workload = W;
+        } else {
+            ALERT("ERROR", "unknown workload\n");
+            throw logic_error("ERROR: unknown workload");
         }
     }
 

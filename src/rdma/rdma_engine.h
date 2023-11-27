@@ -23,6 +23,7 @@ namespace rdma_engine {
     enum state_machine_type {
         rcuckoo_client,
         slogger_client,
+        corrupter_client,
     };
     
     class RDMA_Engine {

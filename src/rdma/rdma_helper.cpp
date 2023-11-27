@@ -275,6 +275,43 @@ namespace rdma_helper {
         return true;
     }
 
+    void setRdmaMaskedFetchAndAddExp(struct ibv_sge * sg, struct ibv_exp_send_wr * wr, ibv_qp *qp, uint64_t source, uint64_t dest,
+        uint64_t add, uint32_t lkey,
+        uint32_t remoteRKey, uint64_t mask, bool signal, uint64_t wrID) {
+        fillSgeWr(*sg, *wr, source, 8, lkey);
+
+        wr->exp_opcode = IBV_EXP_WR_EXT_MASKED_ATOMIC_FETCH_AND_ADD;
+        wr->exp_send_flags = IBV_EXP_SEND_EXT_ATOMIC_INLINE;
+
+        if (signal) {
+            wr->exp_send_flags |= IBV_EXP_SEND_SIGNALED;
+        }
+        wr->ext_op.masked_atomics.log_arg_sz = 3;
+        wr->ext_op.masked_atomics.remote_addr = dest;
+        wr->ext_op.masked_atomics.rkey = remoteRKey;
+
+        auto &op = wr->ext_op.masked_atomics.wr_data.inline_data.op.fetch_add;
+        op.add_val = add;
+        // op.field_boundary = 1ull << boundary;
+        op.field_boundary = mask;
+
+    }
+
+    bool rdmaMaskedFetchAndAddExp(ibv_qp *qp, uint64_t source, uint64_t dest,
+                                uint64_t add, uint32_t lkey, uint32_t remoteRKey,
+                                uint64_t mask, bool singal, uint64_t wr_id) {
+        struct ibv_sge sg;
+        struct ibv_exp_send_wr wr;
+        struct ibv_exp_send_wr *wrBad;
+
+        setRdmaMaskedFetchAndAddExp(&sg, &wr, qp, source, dest, add, lkey, remoteRKey, mask, singal, wr_id);
+        if (ibv_exp_post_send(qp, &wr, &wrBad)) {
+            printf("Send with MASK FETCH_AND_ADD failed.");
+            return false;
+        }
+        return true;
+    }
+
 
 
 

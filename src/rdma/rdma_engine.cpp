@@ -17,6 +17,9 @@
 #include "../cuckoo/cuckoo.h"
 
 #include "../slogger/slogger.h"
+#include "../slogger/nt.h"
+
+#include "../corrupter/corrupter.h"
 
 #include "../slib/state_machines.h"
 #include "../slib/config.h"
@@ -29,6 +32,8 @@ using namespace state_machines;
 using namespace rdma_helper;
 using namespace cuckoo_rcuckoo;
 using namespace slogger;
+using namespace corrupter;
+using namespace nt;
 
 
 volatile bool global_start_flag = false;
@@ -180,6 +185,7 @@ void * slogger_thread_init(void * arg) {
     ALERT("RDMA Engine", "Slogger instace %i\n", slogger_arg->id);
     config["id"]=to_string(slogger_arg->id);
     SLogger * slogger = new SLogger(config);
+    // SLogger * slogger = new NT(config);
 
 
     ALERT("RDMA Engine", "TODO setup RDMA rdma resources within the slogger\n");
@@ -195,9 +201,72 @@ void * slogger_thread_init(void * arg) {
 void * slogger_fsm_runner(void * args){
     ALERT("RDMA Engine","launching threads in a slogger fsm\n");
     SLogger * slogger = (SLogger *) args;
+    // NT * slogger = (NT *) args;
     slogger->fsm();
     pthread_exit(NULL);
 }
+
+void corrupter_stat_collection(State_Machine ** state_machines, unordered_map<string,string> config, int num_clients, auto ms_int) {
+    vector<unordered_map<string,string>> client_statistics;
+    for (int i=0;i<num_clients;i++) {
+        INFO("RDMA Engine", "Grabbing Statistics Off of Client Thread %d\n", i);
+        if (Corrupter * corrupter = dynamic_cast<Corrupter *>(state_machines[i])) {
+            client_statistics.push_back(corrupter->get_stats());
+        }
+        else {
+            ALERT("RDMA Engine", "Could not cast state machine to RCuckoo\n");
+            exit(1);
+        }
+    }
+    SUCCESS("RDMA Engine", "Grabbed Statistics Off of All Client %d Threads\n", num_clients);
+
+
+    unordered_map<string,string> system_statistics;
+    system_statistics["runtime_ms"] = to_string(ms_int.count());
+    system_statistics["runtime_s"]= to_string(ms_int.count() / 1000.0);
+    ALERT("RDMA Engine", "Runtime ms %d\n",ms_int.count());
+
+    memory_stats *ms;
+    unordered_map<string,string> memory_statistics;
+    memory_statistics["fill"]= to_string(ms->fill);
+    ALERT("RDMA Engine", "Writing out statistics\n");
+    write_statistics(config, system_statistics, client_statistics, memory_statistics);
+    // free(thread_ids);
+    VERBOSE("RDMA Engine", "done running state machine!");
+}
+
+void * corrupter_thread_init(void * arg) {
+    using namespace rdma_engine;
+
+    state_machine_init_arg * corrupter_arg = (state_machine_init_arg *) arg;
+    unordered_map <string, string> config;
+    std::copy(corrupter_arg->config.begin(), corrupter_arg->config.end(), std::inserter(config, config.end()));
+    
+
+    ALERT("RDMA Engine", "Slogger instace %i\n", corrupter_arg->id);
+    config["id"]=to_string(corrupter_arg->id);
+    Corrupter * corrupter = new Corrupter(config);
+    // SLogger * slogger = new NT(config);
+
+
+    ALERT("RDMA Engine", "TODO setup RDMA rdma resources within the slogger\n");
+    struct rdma_info info;
+    info.qp = corrupter_arg->cm->client_qp[corrupter_arg->id];
+    info.completion_queue = corrupter_arg->cm->client_cq_threads[corrupter_arg->id];
+    info.pd = corrupter_arg->cm->pd;
+    corrupter->init_rdma_structures(info);
+    state_machine_holder[corrupter_arg->id] = corrupter;
+    pthread_exit(NULL);
+}
+
+void * corrupter_fsm_runner(void * args){
+    ALERT("RDMA Engine","launching threads in a slogger fsm\n");
+    Corrupter * corrupter = (Corrupter *) args;
+    // NT * slogger = (NT *) args;
+    corrupter->fsm();
+    pthread_exit(NULL);
+}
+
 
 
 namespace rdma_engine {
@@ -221,6 +290,11 @@ namespace rdma_engine {
                 thread_init = slogger_thread_init;
                 thread_runner = slogger_fsm_runner;
                 // exit(0);
+                break;
+            case corrupter_client:
+                collect_stats = corrupter_stat_collection;
+                thread_init = corrupter_thread_init;
+                thread_runner = corrupter_fsm_runner;
                 break;
             default:
                 ALERT("RDMA Engine", "Unknown state machine type\n");

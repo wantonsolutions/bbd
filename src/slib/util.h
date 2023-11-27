@@ -9,6 +9,7 @@
 #include <vector>
 using namespace std;
 
+bool IsPowerOfTwo(ulong x);
 string uint64t_to_bin_string(uint64_t num);
 uint64_t bin_string_to_uint64_t(string s);
 uint8_t reverse(uint8_t b);

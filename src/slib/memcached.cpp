@@ -93,6 +93,27 @@ slog_config * memcached_get_slog_config(void) {
   return config;
 }
 
+
+void memcached_publish_corrupter_config(corrupter_config *config) {
+  assert(config != NULL);
+  assert(config->chunk_address > 0);
+  assert(config->chunk_key > 0);
+  assert(config->chunk_mem_size > 0);
+  assert(config->chunk_size > 0);
+  memcached_publish(SERVER_CORRUPTER_CONFIG_KEY.c_str(), (void *)config, sizeof(corrupter_config));
+
+}
+
+corrupter_config * memcached_get_corrupter_config(void) {
+  corrupter_config *config;
+  int config_len = memcached_get_published(SERVER_CORRUPTER_CONFIG_KEY.c_str(), (void **)&config);
+  INFO("Memcached", "about to print the fetched corrupter config of size %d\n",config_len);
+  INFO("Memcached", "corrupter config: %s\n", config->to_string().c_str());
+  assert(config_len == sizeof(corrupter_config));
+  return config;
+
+}
+
 void memcached_publish_experiment_control(experiment_control * ec){
     memcached_publish(EXPERIMENT_CONTROL_KEY.c_str(), (void *)ec, sizeof(table_config));
 }
