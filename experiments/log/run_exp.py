@@ -168,11 +168,12 @@ def entry_size(config):
 
 def cas_vs_faa_alocate(config):
     clients = [1, 2, 4, 8, 16, 24]
-    allocate_functions = ["FAA", "CAS"]
+    # clients = [1]
+    allocate_functions = ["FAA", "MFAA", "CAS"]
 
     memory_size = 1024 * 1024
     config["memory_size"] = str(memory_size)
-    config["trials"]=5
+    config["trials"]=3
 
     config["prime"]="true"
     config["prime_fill"]="10"
@@ -191,7 +192,7 @@ def cas_vs_faa_alocate(config):
         dm.save_statistics(runs, dirname=dirname)
 
 def plot_cas_vs_faa_allocate():
-    allocate_functions = ["FAA", "CAS"]
+    allocate_functions = ["FAA", "MFAA", "CAS"]
     fig, axs = plt.subplots(2,1, figsize=(4,5))
     for i, af in enumerate(allocate_functions):
         dirname="data/allocate-"+af
@@ -211,15 +212,74 @@ def plot_cas_vs_faa_allocate():
     plt.tight_layout()
     plt.savefig("allocate_tput.pdf")
 
+def run_hero_ycsb_update():
+    memory_size = memory_size = 1024 * 1024 * 10
+    # clients = [4, 8, 16, 32, 64, 128, 160]
+    clients = [1,2,4,8,16,24]
+    # clients = [160]
+    # clients = [400]
+    config["indexes"] = str(table_size)
+    config["memory_size"] = str(memory_size)
+    config["search_function"]="bfs"
 
-entry_size(config)
+    config["prime"]="true"
+    config["prime_fill"]="10"
+    config["max_fill"]="90"
+
+    config["allocate_function"]="FAA"
+
+
+
+    config['trials'] = 1
+    workloads = ["ycsb-a", "ycsb-b", "ycsb-c", "ycsb-w"]
+    # workloads = ["ycsb-w"]
+    # workloads=["ycsb-a"]
+
+    orchestrator.boot(config.copy())
+    for workload in workloads:
+        runs=[]
+        for c in clients:
+            lconfig = config.copy()
+            lconfig['num_clients'] = str(c)
+            lconfig['workload']=workload
+            runs.append(orchestrator.run_trials(lconfig))
+        dirname="data/hero-update-"+workload
+        dm.save_statistics(runs, dirname=dirname)
+        # plot_general_stats_last_run(dirname=dirname)
+
+
+def plot_hero_ycsb_update():
+    workloads = ["ycsb-a", "ycsb-b", "ycsb-c", "ycsb-w"]
+    # workloads = ["ycsb-a"]
+    fig, axs = plt.subplots(1,len(workloads), figsize=(12,3))
+
+    for i in range(len(workloads)):
+        dirname="data/hero-update-"+workloads[i]
+        ax = axs[i]
+        stats = dm.load_statistics(dirname=dirname)
+        stats=stats[0]
+        plot_cuckoo.throughput(ax, stats, decoration=False, label="nedtrie")
+        ax.legend()
+        ax.set_xlabel("clients")
+        ax.set_title(workloads[i])
+        ax.set_ylabel("throughput (MOPS)")
+
+    plt.tight_layout()
+    plt.savefig("hero_ycsb-update.pdf")
+
+
+
+# run_hero_ycsb_update()
+# plot_hero_ycsb_update()
+
+# entry_size(config)
 
 # client_fill_to_50_exp(config)
-plot_general_stats_last_run()
+# plot_general_stats_last_run()
 
 
-# cas_vs_faa_alocate(config)
-# plot_cas_vs_faa_allocate()
+cas_vs_faa_alocate(config)
+plot_cas_vs_faa_allocate()
 
 # run_hero_ycsb_update()
 # plot_hero_ycsb_update()

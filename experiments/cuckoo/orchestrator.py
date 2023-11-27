@@ -90,16 +90,17 @@ class Orchestrator:
     build_server_name = 'yak-01.sysnet.ucsd.edu'
     # client_name = 'yak-01.sysnet.ucsd.edu' 
     client_names = [
-    'yeti-00.sysnet.ucsd.edu',
-    'yeti-01.sysnet.ucsd.edu',
-    'yeti-02.sysnet.ucsd.edu',
-    'yeti-03.sysnet.ucsd.edu',
-    'yeti-04.sysnet.ucsd.edu',
-    'yeti-05.sysnet.ucsd.edu', 
-    'yeti-06.sysnet.ucsd.edu',
-    'yeti-07.sysnet.ucsd.edu',
-    'yeti-08.sysnet.ucsd.edu',
-    'yeti-09.sysnet.ucsd.edu',
+    'yak-01.sysnet.ucsd.edu',
+    # 'yeti-00.sysnet.ucsd.edu',
+    # 'yeti-01.sysnet.ucsd.edu',
+    # 'yeti-02.sysnet.ucsd.edu',
+    # 'yeti-03.sysnet.ucsd.edu',
+    # 'yeti-04.sysnet.ucsd.edu',
+    # 'yeti-05.sysnet.ucsd.edu', 
+    # 'yeti-06.sysnet.ucsd.edu',
+    # 'yeti-07.sysnet.ucsd.edu',
+    # 'yeti-08.sysnet.ucsd.edu',
+    # 'yeti-09.sysnet.ucsd.edu',
     ]
     config = dict()
     def __init__(self, conf):
@@ -113,7 +114,7 @@ class Orchestrator:
         self.all_nodes = [self.server] + self.clients + [self.build_server]
 
         self.build_location = self.build_server
-        self.project_directory = '/usr/local/home/ssgrant/RemoteDataStructres/rcuckoo_rdma'
+        self.project_directory = '/usr/local/home/ssgrant/bbd/src/'
         self.sync_dependents = [self.server] + self.clients
 
 
@@ -127,7 +128,7 @@ class Orchestrator:
         self.config_name = config_name
         for node in self.all_nodes:
             node.run_cmd(
-                'cd rcuckoo_rdma/configs;'
+                'cd ' + self.project_directory + '/configs;'
                 'echo \'' + json.dumps(config) + '\' > ' + config_name + ';')
 
     def get_threads_per_machine(self,config):
@@ -174,7 +175,7 @@ class Orchestrator:
         #send the memory configuration to the memory server
 
         self.server.run_cmd(
-            'cd rcuckoo_rdma/configs;'
+            'cd '+ self.project_directory + '/configs;'
             'echo \'' + json.dumps(config) + '\' > ' + config_name + ';')
 
         #send the client configuration to the clients
@@ -186,7 +187,7 @@ class Orchestrator:
             config["base_port"] = str(base_port)
             config["starting_id"] = str(starting_id)
             client.run_cmd(
-                'cd rcuckoo_rdma/configs;'
+                'cd '+ self.project_directory + '/configs;'
                 'echo \'' + json.dumps(config) + '\' > ' + config_name + ';')
             base_port += threads_per_machine
             starting_id += threads_per_machine
@@ -252,8 +253,11 @@ class Orchestrator:
             'make -B -j ;')
 
     def sync(self):
+
+        print("not syncing I think it's broken")
+        return
         sync_command=(
-                'cd rcuckoo_rdma;'
+                'cd src/cuckoo;'
                 'rsync -a ' + self.build_location.hostname + ':' + self.project_directory + '/* ./;')
         
         sync_threads=[]
@@ -290,7 +294,8 @@ class Orchestrator:
     def run(self):
         # print("Starting RDMA Benchmark")
 
-        server_command=('cd rcuckoo_rdma;'
+        server_command=(
+            'cd '+ self.project_directory + ';'
             'stdbuf -oL ./'+ self.memory_program_name + ' ' + 'configs/' + self.config_name + ' > memserver.out 2>&1 &')
         server_thread = threading.Thread(target=self.server.run_cmd, args=(server_command,))
         server_thread.start()
@@ -298,14 +303,14 @@ class Orchestrator:
         sleeptime=15
         print("sleeping for ", sleeptime, " seconds")
         for i in tqdm(range(sleeptime)):
-            # print("Waiting for server to start")
+            print("Waiting for server to start")
             time.sleep(1)
 
 
             # 'export MLX5_SINGLE_THREADED=1;'
         client_threads=[]
         client_command=(
-                'cd rcuckoo_rdma;'
+                'cd '+ self.project_directory + ';'
                 'rm -f statistics/client_statistics.json;'
                 'LD_PRELOAD=libhugetlbfs.so HUGETLB_MORECORE=yes stdbuf -oL ./' + self.client_program_name + ' ' + 'configs/' + self.config_name + ' > client.out 2>&1;'
                 'cat client.out;'

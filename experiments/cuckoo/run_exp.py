@@ -1084,10 +1084,10 @@ def plot_search_success_lock_size():
     # ax.errorbar(x_axis_vals,lock_retries,yerr=lock_errors,label="failed lock aquisitions", marker="o", linestyle=":", color=color)
 
 def run_hero_ycsb_update():
-    table_size = 1024 * 1024 * 10
+    table_size = 1024 * 1024 * 1
     memory_size = entry_size * table_size
-    # clients = [4, 8, 16, 32, 64, 128, 160]
-    clients = [10,20,40,80,160,320,400]
+    clients = [1,2,4]
+    # clients = [10,20,40,80,160,320,400]
     # clients = [160]
     # clients = [400]
     config["indexes"] = str(table_size)
@@ -1122,7 +1122,8 @@ def run_hero_ycsb_update():
 
 
 def plot_hero_ycsb_update():
-    workloads = ["ycsb-a", "ycsb-b", "ycsb-c", "ycsb-w"]
+    # workloads = ["ycsb-a", "ycsb-b", "ycsb-c", "ycsb-w"]
+    workloads = ["ycsb-a", "ycsb-b"]
     # workloads = ["ycsb-a"]
     fig, axs = plt.subplots(1,len(workloads), figsize=(12,3))
 
@@ -1131,7 +1132,7 @@ def plot_hero_ycsb_update():
         ax = axs[i]
         stats = dm.load_statistics(dirname=dirname)
         stats=stats[0]
-        plot_cuckoo.throughput(ax, stats, decoration=False)
+        plot_cuckoo.throughput(ax, stats, decoration=False, label="cuckoo")
         ax.legend()
         ax.set_xlabel("clients")
         ax.set_title(workloads[i])
