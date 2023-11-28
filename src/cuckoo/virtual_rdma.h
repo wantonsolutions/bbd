@@ -60,21 +60,7 @@ namespace cuckoo_virtual_rdma {
         string to_string();
     } VRCasData;
 
-    typedef struct LockingContext {
-        vector<unsigned int> buckets;
-        unsigned int number_of_chunks;
-        vector<vector<unsigned int>> fast_lock_chunks;
-        vector<VRMaskedCasData> lock_list;
-        unsigned int buckets_per_lock;
-        unsigned int locks_per_message;
-        unsigned int total_physical_locks;
-
-        bool locking;
-
-        unsigned int * lock_indexes;
-        unsigned int lock_indexes_size;
-    } LockingContext;
-
+    #define MAX_LOCKS 128
     #define ETHERNET_SIZE 18
     #define IP_SIZE 20
     #define UDP_SIZE 8
@@ -100,8 +86,26 @@ namespace cuckoo_virtual_rdma {
     #define MASKED_CAS_RESPONSE_SIZE (BASE_ROCE_SIZE + MASKED_CAS_RESPONSE_HEADER)
 
 
-    #define MAX_LOCKS 512
     #define BITS_IN_MASKED_CAS 64
+
+    typedef struct LockingContext {
+        vector<unsigned int> buckets;
+        unsigned int number_of_chunks;
+        vector<vector<unsigned int>> fast_lock_chunks;
+        vector<VRMaskedCasData> lock_list;
+        unsigned int buckets_per_lock;
+        unsigned int locks_per_message;
+
+        bool virtual_lock_table;
+        unsigned int total_physical_locks;
+        unsigned int scale_factor; //This is how many times smaller the virtual lock table is than the physical table.
+
+        bool locking;
+
+        unsigned int lock_indexes[MAX_LOCKS];
+        unsigned int lock_indexes_size;
+    } LockingContext;
+
 
 
     vector<Entry> read_table_entry(Table &table, uint32_t bucket_id, uint32_t bucket_offset, uint32_t size);
@@ -111,6 +115,7 @@ namespace cuckoo_virtual_rdma {
 
     unsigned int single_read_size_bytes(hash_locations buckets, unsigned int row_size_bytes);
     void lock_indexes_to_buckets(vector<unsigned int> &buckets, vector<unsigned int>& lock_indexes, unsigned int buckets_per_lock);
+    void lock_indexes_to_buckets_context(vector<unsigned int> &buckets, vector<unsigned int>& lock_indexes, LockingContext &context);
 
     vector<unsigned int> get_unique_lock_indexes(vector<unsigned int> buckets, unsigned int buckets_per_lock);
     unsigned int get_unique_lock_indexes_fast(vector<unsigned int> &buckets, unsigned int buckets_per_lock, unsigned int *unique_buckets, unsigned int unique_buckets_size);

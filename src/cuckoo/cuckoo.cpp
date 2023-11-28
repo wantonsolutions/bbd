@@ -102,6 +102,7 @@ namespace cuckoo_rcuckoo {
 
         clear_statistics();
         //try to parse state machine config
+        bool use_virtual_lock_table;
         try{
             _read_threshold_bytes = stoi(config["read_threshold_bytes"]);
             _buckets_per_lock = stoi(config["buckets_per_lock"]);
@@ -111,6 +112,7 @@ namespace cuckoo_rcuckoo {
             _global_clients = stoi(config["global_clients"]);
             _id = stoi(config["id"]) + _starting_id;
             _use_mask = (config["use_mask"] == "true");
+            use_virtual_lock_table = (config["use_virtual_lock_table"] == "true");
 
         } catch (exception& e) {
             printf("ERROR: RCuckoo config missing required field\n");
@@ -131,7 +133,15 @@ namespace cuckoo_rcuckoo {
         }
         _locking_context.buckets_per_lock = _buckets_per_lock;
         _locking_context.locks_per_message = _locks_per_message;
-        _locking_context.total_physical_locks = _table.get_total_locks();
+        _locking_context.virtual_lock_table = use_virtual_lock_table;
+        if (_locking_context.virtual_lock_table) {
+            _locking_context.total_physical_locks = _table.get_total_locks();
+            for (int i=0;i<50;i++){
+                ALERT("virutal lock table", "we are using an artifically sized virtual lock table\n");
+                _locking_context.scale_factor = 16;
+                _locking_context.total_physical_locks = _table.get_total_locks() / _locking_context.scale_factor;
+            }
+        }
         sprintf(_log_identifier, "Client: %3d", _id);
 
         _local_prime_flag = false; //we have yet to prime
@@ -777,7 +787,8 @@ namespace cuckoo_rcuckoo {
             _failed_insert_first_search_count++;
             INFO(log_id(), "Path is not valid\n");
             INFO(log_id(), "first path %s\n", path_to_string(_search_context.path).c_str());
-            lock_indexes_to_buckets(_search_context.open_buckets, _locks_held, _buckets_per_lock);
+            // lock_indexes_to_buckets(_search_context.open_buckets, _locks_held, _buckets_per_lock);
+            lock_indexes_to_buckets_context(_search_context.open_buckets, _locks_held, _locking_context);
             bool successful_search = (this->*_table_search_function)();
             _search_path_index = _search_context.path.size() -1;
             if (!successful_search) {

@@ -149,6 +149,35 @@ namespace cuckoo_virtual_rdma {
         }
     }
 
+    void lock_indexes_to_buckets_context(vector<unsigned int> &buckets, vector<unsigned int>& lock_indexes, LockingContext &context) {
+        buckets.clear();
+        // const uint8_t bits_in_byte = 8;
+        //Translate locks by multiplying by the buckets per lock
+        if (context.virtual_lock_table) {
+            for (int i=0; i<lock_indexes.size(); i++) {
+                unsigned int lock_index = lock_indexes[i];
+                for (int j=0;j<context.scale_factor;j++){
+                    unsigned int bucket = (lock_index * context.buckets_per_lock) + (j * context.buckets_per_lock * context.total_physical_locks);
+                    //fill in buckets that are covered by the lock
+                    //This is every bucket which is covered by the buckets per lock
+                    for(int k=0; k<context.buckets_per_lock; k++) {
+                        buckets.push_back(bucket + k);
+                    }
+                }
+            }
+        } else {
+            for (int i=0; i<lock_indexes.size(); i++) {
+                unsigned int lock_index = lock_indexes[i];
+                unsigned int bucket = lock_index * context.buckets_per_lock;
+                //fill in buckets that are covered by the lock
+                //This is every bucket which is covered by the buckets per lock
+                for(int j=0; j<context.buckets_per_lock; j++) {
+                    buckets.push_back(bucket + j);
+                }
+            }
+        }
+    }
+
     vector<unsigned int> get_unique_lock_indexes(vector<unsigned int> buckets, unsigned int buckets_per_lock) {
         vector<unsigned int> buckets_chunked_by_lock;
         for (int i=0; i<buckets.size(); i++) {
@@ -317,24 +346,41 @@ namespace cuckoo_virtual_rdma {
         //This would be a good point to insert the virtual lock layer
 
         unsigned int unique_lock_count = get_unique_lock_indexes_fast(context.buckets, context.buckets_per_lock, unique_lock_indexes, MAX_LOCKS);
-        bool virutal_lock_table = true;
+        // bool virutal_lock_table = true;
 
-        if (virutal_lock_table) {
+        if (context.virtual_lock_table) {
             for (int i=0; i<unique_lock_count; i++) {
-                virtual_lock_indexes[i] = unique_lock_indexes[i] % (context.total_physical_locks / 16);
-                sort(virtual_lock_indexes, virtual_lock_indexes + unique_lock_count);
+                virtual_lock_indexes[i] = unique_lock_indexes[i] % (context.total_physical_locks);
             }
+            sort(virtual_lock_indexes, virtual_lock_indexes + unique_lock_count);
             //remove duplicates from the virutal lock indexes
             unsigned int unique_virtual_lock_count = unique(virtual_lock_indexes, virtual_lock_indexes + unique_lock_count) - virtual_lock_indexes;
             if (unique_virtual_lock_count != unique_lock_count) {
                 ALERT("virutal lock table", "we have a collision in the virtual lock table\n");
+                //print out both the unique lock index and the virtual lock indexes
+                for (int i=0; i<unique_lock_count; i++) {
+                    virtual_lock_indexes[i] = unique_lock_indexes[i] % (context.total_physical_locks);
+                }
+                sort(virtual_lock_indexes, virtual_lock_indexes + unique_lock_count);
+
+                for (int i=0; i<unique_lock_count; i++) {
+                    printf("unique lock index %d virtual lock index %d total physical locks %d\n", unique_lock_indexes[i], virtual_lock_indexes[i], context.total_physical_locks);
+                }
                 exit(0);
             }
+            //TODO do this in place to speed it up
+            context.lock_indexes_size = unique_virtual_lock_count;
+            for(int i=0;i<unique_virtual_lock_count;i++){
+                context.lock_indexes[i] = virtual_lock_indexes[i];
+            }
 
+        } else {
+            // break_lock_indexes_into_chunks_fast(unique_lock_indexes, unique_lock_count, context.locks_per_message, context.fast_lock_chunks);
+            context.lock_indexes_size = unique_lock_count;
+            for(int i=0;i<unique_lock_count;i++){
+                context.lock_indexes[i] = unique_lock_indexes[i];
+            }
         }
-        // break_lock_indexes_into_chunks_fast(unique_lock_indexes, unique_lock_count, context.locks_per_message, context.fast_lock_chunks);
-        context.lock_indexes_size = unique_lock_count;
-        context.lock_indexes = unique_lock_indexes;
         break_lock_indexes_into_chunks_fast_context(context);
 
         // #define CHECK_WITH_OLD_UNLOCK 

@@ -8,7 +8,7 @@
 #include "hash.h"
 #include <unordered_map>
 
-#define MAX_SEARCH_ITEMS 5000
+#define MAX_SEARCH_ITEMS 500
 #define MAX_SEARCH_DEPTH 50
 namespace cuckoo_search {
 
@@ -122,6 +122,9 @@ namespace cuckoo_search {
         int max_search_depth;
         bool found;
     } search_context;
+
+
+    void bfs_search(search_context & context);
 
     unsigned int get_table_id_from_index(unsigned int index);
     std::vector<unsigned int> search_path_to_buckets(std::vector<path_element> path);
