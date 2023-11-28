@@ -134,7 +134,7 @@ namespace cuckoo_virtual_rdma {
     void lock_chunks_to_masked_cas_data(vector<vector<unsigned int>> lock_chunks, vector<VRMaskedCasData> &masked_cas_data);
     vector<VRMaskedCasData> unlock_chunks_to_masked_cas_data(vector<vector<unsigned int>> lock_chunks);
 
-    void read_theshold_message(vector<VRReadData> & messages, hash_locations (*location_function)(Key, unsigned int), Key key, unsigned int read_threshold_bytes,unsigned int table_size,unsigned int row_size_bytes);
+    void read_theshold_message(vector<VRReadData> & messages, hash_locations (*location_function)(Key&, unsigned int), Key key, unsigned int read_threshold_bytes,unsigned int table_size,unsigned int row_size_bytes);
 
     //RDMA specific functions
     vector<VRReadData> get_covering_reads_from_lock_list(vector<VRMaskedCasData> masked_cas_list, unsigned int buckets_per_lock, unsigned int row_size_bytes);

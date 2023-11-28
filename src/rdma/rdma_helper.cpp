@@ -174,7 +174,7 @@ namespace rdma_helper {
         return true;
     }
 
-    void setRdmaCompareAndSwap(struct ibv_sge * sg, struct ibv_send_wr * wr, ibv_qp *qp, uint64_t source, uint64_t dest,
+    void setRdmaCompareAndSwap(struct ibv_sge * sg, struct ibv_send_wr * wr, uint64_t source, uint64_t dest,
             uint64_t compare, uint64_t swap, uint32_t lkey,
             uint32_t remoteRKey, bool signal, uint64_t wrID) {
             fillSgeWr(*sg, *wr, source, 8, lkey);
@@ -200,7 +200,7 @@ namespace rdma_helper {
         struct ibv_send_wr wr;
         struct ibv_send_wr *wrBad;
 
-        setRdmaCompareAndSwap(&sg, &wr, qp, source, dest, compare, swap, lkey, remoteRKey, signal, wrID);
+        setRdmaCompareAndSwap(&sg, &wr, source, dest, compare, swap, lkey, remoteRKey, signal, wrID);
         if (ibv_post_send(qp, &wr, &wrBad)) {
             printf("send with rdma compare and swap failed\n");
             // sleep(5);
@@ -209,7 +209,7 @@ namespace rdma_helper {
         return true;
     }
 
-    void setRdmaCompareAndSwapExp(struct ibv_sge * sg, struct ibv_exp_send_wr * wr, ibv_qp *qp, uint64_t source, uint64_t dest,
+    void setRdmaCompareAndSwapExp(struct ibv_sge * sg, struct ibv_exp_send_wr * wr, uint64_t source, uint64_t dest,
         uint64_t compare, uint64_t swap, uint32_t lkey,
         uint32_t remoteRKey, bool signal, uint64_t wrID) {
         fillSgeWr(*sg, *wr, source, 8, lkey);
@@ -234,7 +234,7 @@ namespace rdma_helper {
         struct ibv_exp_send_wr wr;
         struct ibv_exp_send_wr *wrBad;
 
-        setRdmaCompareAndSwapExp(&sg, &wr, qp, source, dest, compare, swap, lkey, remoteRKey, signal, wrID);
+        setRdmaCompareAndSwapExp(&sg, &wr, source, dest, compare, swap, lkey, remoteRKey, signal, wrID);
         if (ibv_exp_post_send(qp, &wr, &wrBad)) {
             printf("send with rdma compare and swap failed\n");
             // sleep(5);
@@ -243,7 +243,7 @@ namespace rdma_helper {
         return true;
     }
 
-    void setRdmaFetchAndAddExp(struct ibv_sge * sg, struct ibv_exp_send_wr * wr, ibv_qp *qp, uint64_t source, uint64_t dest,
+    void setRdmaFetchAndAddExp(struct ibv_sge * sg, struct ibv_exp_send_wr * wr, uint64_t source, uint64_t dest,
         uint64_t add, uint32_t lkey,
         uint32_t remoteRKey, bool signal, uint64_t wrID) {
         fillSgeWr(*sg, *wr, source, 8, lkey);
@@ -266,7 +266,7 @@ namespace rdma_helper {
         struct ibv_exp_send_wr wr;
         struct ibv_exp_send_wr *wrBad;
 
-        setRdmaFetchAndAddExp(&sg, &wr, qp, source, dest, add, lkey, remoteRKey, signal, wrID);
+        setRdmaFetchAndAddExp(&sg, &wr, source, dest, add, lkey, remoteRKey, signal, wrID);
         if (ibv_exp_post_send(qp, &wr, &wrBad)) {
             printf("send with rdma fetch and add failed\n");
             // sleep(5);
@@ -275,7 +275,7 @@ namespace rdma_helper {
         return true;
     }
 
-    void setRdmaMaskedFetchAndAddExp(struct ibv_sge * sg, struct ibv_exp_send_wr * wr, ibv_qp *qp, uint64_t source, uint64_t dest,
+    void setRdmaMaskedFetchAndAddExp(struct ibv_sge * sg, struct ibv_exp_send_wr * wr, uint64_t source, uint64_t dest,
         uint64_t add, uint32_t lkey,
         uint32_t remoteRKey, uint64_t mask, bool signal, uint64_t wrID) {
         fillSgeWr(*sg, *wr, source, 8, lkey);
@@ -289,6 +289,7 @@ namespace rdma_helper {
         wr->ext_op.masked_atomics.log_arg_sz = 3;
         wr->ext_op.masked_atomics.remote_addr = dest;
         wr->ext_op.masked_atomics.rkey = remoteRKey;
+        wr->wr_id = wrID;
 
         auto &op = wr->ext_op.masked_atomics.wr_data.inline_data.op.fetch_add;
         op.add_val = add;
@@ -304,7 +305,7 @@ namespace rdma_helper {
         struct ibv_exp_send_wr wr;
         struct ibv_exp_send_wr *wrBad;
 
-        setRdmaMaskedFetchAndAddExp(&sg, &wr, qp, source, dest, add, lkey, remoteRKey, mask, singal, wr_id);
+        setRdmaMaskedFetchAndAddExp(&sg, &wr, source, dest, add, lkey, remoteRKey, mask, singal, wr_id);
         if (ibv_exp_post_send(qp, &wr, &wrBad)) {
             printf("Send with MASK FETCH_AND_ADD failed.");
             return false;
@@ -315,7 +316,7 @@ namespace rdma_helper {
 
 
 
-    void setRdmaCompareAndSwapMask(struct ibv_sge* sg, struct ibv_exp_send_wr *wr, ibv_qp *qp, uint64_t source, uint64_t dest,
+    void setRdmaCompareAndSwapMask(struct ibv_sge* sg, struct ibv_exp_send_wr *wr, uint64_t source, uint64_t dest,
                                 uint64_t compare, uint64_t swap, uint32_t lkey,
                                 uint32_t remoteRKey, uint64_t mask, bool singal, uint64_t wr_ID) {
         fillSgeWr(*sg, *wr, source, 8, lkey);
@@ -350,7 +351,7 @@ namespace rdma_helper {
         struct ibv_exp_send_wr wr;
         struct ibv_exp_send_wr *wrBad;
 
-        setRdmaCompareAndSwapMask(&sg, &wr, qp, source, dest, compare, swap, lkey, remoteRKey, mask, singal, wr_ID);
+        setRdmaCompareAndSwapMask(&sg, &wr, source, dest, compare, swap, lkey, remoteRKey, mask, singal, wr_ID);
 
         int ret = ibv_exp_post_send(qp, &wr, &wrBad);
         if (ret) {

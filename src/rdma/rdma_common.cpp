@@ -162,6 +162,7 @@ void print_dev_attributes(struct ibv_device_attr_ex * attr) {
 	printf("Device attributes\n");
 	printf("todo after switching to V4.9 this seems to not work\n");
 	printf("print attributes better");
+	printf("attr address %p\n", (void*)attr);
 	// printf("Fetch ADD %X\n",attr->pci_atomic_caps.fetch_add);
 	// printf("SWAP %X\n",attr->pci_atomic_caps.swap);
 	// printf("CAS %X\n",attr->pci_atomic_caps.compare_swap);

@@ -1,7 +1,7 @@
 #ifndef RDMA_CLIENT_LIB_H
 #define RDMA_CLIENT_LIB_H
 
-#define MAX_THREADS MAX_QPS
+#define MAX_CLIENT_THREADS MAX_QPS
 #define MULTI_CQ
 
 #include "rdma_common.h"
@@ -48,10 +48,10 @@ class RDMAConnectionManager {
         struct rdma_buffer_attr server_qp_metadata_attr[MAX_QPS];
 
 
-        result_t thread_results[MAX_THREADS];
-        struct ibv_cq *client_cq_threads[MAX_THREADS];
-        struct ibv_comp_channel *io_completion_channel_threads[MAX_THREADS];
-        uint32_t thread_contexts[MAX_THREADS];
+        result_t thread_results[MAX_CLIENT_THREADS];
+        struct ibv_cq *client_cq_threads[MAX_CLIENT_THREADS];
+        struct ibv_comp_channel *io_completion_channel_threads[MAX_CLIENT_THREADS];
+        uint32_t thread_contexts[MAX_CLIENT_THREADS];
 
 
         struct ibv_send_wr client_send_wr, *bad_client_send_wr;

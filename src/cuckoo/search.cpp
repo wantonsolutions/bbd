@@ -66,7 +66,7 @@ namespace cuckoo_search {
         return locations.secondary;
     }
 
-    unsigned int next_search_index(path_element pe, hash_locations (*location_func) (Key, unsigned int), Table &table){
+    unsigned int next_search_index(path_element pe, hash_locations (*location_func) (Key&, unsigned int), Table &table){
         hash_locations locations = location_func(pe.key, table.get_row_count());
         unsigned int table_index = next_table_index(pe.table_index);
         return table_index_to_hash_location(locations, table_index);

@@ -455,7 +455,6 @@ namespace cuckoo_rcuckoo {
         setRdmaCompareAndSwapMask(
             &sg[0],
             &wr[0],
-            _qp,
             local_lock_address,
             remote_lock_address,
             compare,
@@ -628,7 +627,6 @@ namespace cuckoo_rcuckoo {
             setRdmaCompareAndSwapMask(
                 &sg[i + insert_messages.size()],
                 &wr[i + insert_messages.size()],
-                _qp,
                 local_lock_address,
                 remote_lock_address,
                 compare,

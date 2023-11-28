@@ -150,7 +150,6 @@ int main(int argc, char **argv)
     bool prime = (config["prime"] == "true");
     float prime_fill = stof(config["prime_fill"]);
     float max_fill = stof(config["max_fill"]);
-    // msm.fill_table_with_incremental_values();
 
     //resolve the address from the config
     struct sockaddr_in server_sockaddr = server_address_to_socket_addr(config["server_address"]);

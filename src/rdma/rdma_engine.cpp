@@ -42,7 +42,9 @@ volatile bool global_end_flag = false;
 
 
 #define MAX_THREADS 40
-State_Machine *state_machine_holder[MAX_THREADS];
+#define MAX_RDMA_ENGINE_QPS MAX_THREADS
+
+State_Machine *state_machine_holder[MAX_CLIENT_THREADS];
 
 const int yeti_core_order[40]={1,3,5,7,9,11,13,15,17,19,21,23,25,27,29,31,33,35,37,39,41,43,45,47,49,51,53,55,57,59,61,63,65,67,69,71,73,75,77,79};
 const int yeti_control_core = 0;
@@ -304,8 +306,8 @@ namespace rdma_engine {
 
     void RDMA_Engine::Init_State_Machines(unordered_map<string, string> config) {
         int i;
-        pthread_t thread_ids[MAX_THREADS];
-        state_machine_init_arg init_args[MAX_THREADS];
+        pthread_t thread_ids[MAX_CLIENT_THREADS];
+        state_machine_init_arg init_args[MAX_CLIENT_THREADS];
         try {
             for (i=0;i<_num_clients;i++) {
 
@@ -353,7 +355,6 @@ namespace rdma_engine {
                 ALERT("RDMA Engine", "Error: num_qps must be at least 1\n");
                 exit(1);
             }
-            #define MAX_RDMA_ENGINE_QPS MAX_THREADS
             if (args.num_qps > MAX_RDMA_ENGINE_QPS) {
                 ALERT("RDMA Engine", "Error: num_qps must be at most %d, we are only enabling a few QP per process\n", MAX_RDMA_ENGINE_QPS);
                 ALERT("RDMA Engine", "TODO; we probably need a better way to scale clients if we are going more than this.\n");
@@ -398,9 +399,9 @@ namespace rdma_engine {
     bool RDMA_Engine::start() {
         VERBOSE("RDMA Engine", "starting rdma engine\n");
         VERBOSE("RDMA Engine", "for the moment just start the first of the state machines\n");
-        assert(_num_clients <= MAX_THREADS);
-        if (_num_clients > MAX_THREADS) {
-            ALERT("RDMA Engine", "Error: num_clients must be at most %d, we are only enabling a few QP per process\n", MAX_THREADS);
+        assert(_num_clients <= MAX_CLIENT_THREADS);
+        if (_num_clients > MAX_CLIENT_THREADS) {
+            ALERT("RDMA Engine", "Error: num_clients must be at most %d, we are only enabling a few QP per process\n", MAX_CLIENT_THREADS);
             ALERT("RDMA Engine", "TODO; we probably need a better way to scale clients if we are going more than this.\n");
             exit(1);
         }
@@ -410,7 +411,7 @@ namespace rdma_engine {
             global_prime_flag=true;
         }
 
-        pthread_t thread_ids[MAX_THREADS];
+        pthread_t thread_ids[MAX_CLIENT_THREADS];
         for(int i=0;i<_num_clients;i++){
             INFO("RDMA Engine","Creating Client Thread %d\n", i);
             set_control_flag(state_machine_holder[i]);

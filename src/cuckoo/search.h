@@ -106,7 +106,7 @@ namespace cuckoo_search {
     typedef struct search_context {
         //input values
         cuckoo_tables::Table *table;
-        hash_locations (*location_func) (cuckoo_tables::Key, unsigned int);
+        hash_locations (*location_func) (cuckoo_tables::Key&, unsigned int);
         cuckoo_tables::Key key;
         vector<unsigned int> open_buckets;
         //return values

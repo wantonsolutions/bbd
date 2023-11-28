@@ -137,7 +137,7 @@ namespace cuckoo_rcuckoo {
 
 
             // hash_locations  (*_location_function)(string, unsigned int);
-            hash_locations  (*_location_function)(Key, unsigned int);
+            hash_locations  (*_location_function)(Key&, unsigned int);
 
             bool (RCuckoo::*_table_search_function)();
             bool a_star_insert_self();

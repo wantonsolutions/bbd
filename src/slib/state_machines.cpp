@@ -645,25 +645,6 @@ namespace state_machines {
     } 
 
 
-    void Memory_State_Machine::fill_table_with_incremental_values() {
-        Key key;
-        vector<unsigned int> open_buckets; //empty open buckets
-        for (int i=0; i< (_table.get_row_count() * _table.get_buckets_per_row());i++){
-            fill_key(key, i);
-            vector<path_element> path = bucket_cuckoo_a_star_insert(_table, rcuckoo_hash_locations, key, open_buckets);
-            // print_path(path);
-            if (path.size() == 0){
-                cout << "failed to insert key: " << key.to_string() << endl;
-                break;
-            }
-            insert_cuckoo_path(_table, path);
-        }
-
-        cout << "final fill: " << _table.get_fill_percentage() << endl;
-        return;
-    }
-
-
     bool Memory_State_Machine::contains_duplicates(){
         return _table.contains_duplicates();
     }

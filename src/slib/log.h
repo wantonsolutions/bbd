@@ -23,9 +23,10 @@
 
 
 #ifdef _LOG_NO_COLOR
-	#define __LOG_COLOR(CLR,CTX,TXT,args...) printf("  %s : "#TXT" \n",CTX,##args)
+	#define __LOG_COLOR(CLR,CTX,TXT,args...) printf("  %s : "#TXT" \n",CTX,##__VA_ARGS__)
 #else
-	#define __LOG_COLOR(CLR,CTX,TXT,args...) printf("  \033[%sm%s : "#TXT" \033[m\n",CLR,CTX,##args)
+	// #define __LOG_COLOR(CLR,CTX,TXT,args...) printf("  \033[%sm%s : "#TXT" \033[m\n",CLR,CTX,##__VA_ARGS__)
+	#define __LOG_COLOR(CLR,CTX,TXT,...) printf("  \033[%sm%s : "#TXT" \033[m\n",CLR,CTX,##__VA_ARGS__)
 #endif
 
 #ifdef _LOG_ALL
@@ -54,38 +55,38 @@
 #if defined _LOG_VERBOSE && !(defined _LOG_NO_VERBOSE)
 	#include <stdio.h>
 	#define _LOG_INFO
-	#define VERBOSE(CTX,TXT,args...) __LOG_COLOR(__LOG_COLOR_WHITE,CTX,TXT,##args)
+	#define VERBOSE(CTX,TXT,...) __LOG_COLOR(__LOG_COLOR_WHITE,CTX,TXT,##__VA_ARGS__)
 #else
-	#define VERBOSE(CTX,TXT,args...)
+	#define VERBOSE(CTX,TXT,...)
 #endif
 
 #if defined _LOG_INFO && !(defined _LOG_NO_INFO)
 	#include <stdio.h>
 	#define _LOG_SUCCESS
-	#define INFO(CTX,TXT,args...) __LOG_COLOR(__LOG_COLOR_BLUE,CTX,TXT,##args)
+	#define INFO(CTX,TXT,...) __LOG_COLOR(__LOG_COLOR_BLUE,CTX,TXT,##__VA_ARGS__)
 #else
-	#define INFO(CTX,TXT,args...)
+	#define INFO(CTX,TXT,...)
 #endif
 
 #if defined _LOG_SUCCESS && !(defined _LOG_NO_SUCCESS)
 	#include <stdio.h>
 	#define _LOG_WARNING
-	#define SUCCESS(CTX,TXT,args...) __LOG_COLOR(__LOG_COLOR_GREEN,CTX,TXT,##args)
+	#define SUCCESS(CTX,TXT,...) __LOG_COLOR(__LOG_COLOR_GREEN,CTX,TXT,##__VA_ARGS__)
 #else
-	#define SUCCESS(CTX,TXT,args...)
+	#define SUCCESS(CTX,TXT,...)
 #endif
 
 #if defined _LOG_WARNING && !(defined _LOG_NO_WARNING)
 	#include <stdio.h>
 	#define _LOG_ALERT
-	#define WARNING(CTX,TXT,args...) __LOG_COLOR(__LOG_COLOR_YELLOW,CTX,TXT,##args)
+	#define WARNING(CTX,TXT,...) __LOG_COLOR(__LOG_COLOR_YELLOW,CTX,TXT,##__VA_ARGS__)
 #else
-	#define WARNING(CTX,TXT,args...)
+	#define WARNING(CTX,TXT,...)
 #endif
 
 #if defined _LOG_ALERT && !(defined _LOG_NO_ALERT)
 	#include <stdio.h>
-	#define ALERT(CTX,TXT,args...) __LOG_COLOR(__LOG_COLOR_RED,CTX,TXT,##args)
+	#define ALERT(CTX,TXT,...) __LOG_COLOR(__LOG_COLOR_RED,CTX,TXT,##__VA_ARGS__)
 #else
 	#define ALERT(CTX,TXT,args...)
 #endif
