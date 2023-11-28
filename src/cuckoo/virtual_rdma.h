@@ -34,20 +34,6 @@ namespace cuckoo_virtual_rdma {
         NO_OP_MESSAGE
     };
 
-    typedef struct VRMessage {
-        string function;
-        message_type type; // same as function but not the string
-        // VRMessage(){
-        //     function = "";
-        // }
-        unordered_map<string,string> function_args;
-        message_type get_message_type();
-        uint32_t get_message_size_bytes();
-        string to_string();
-        VRMessage& operator=(const VRMessage& other);
-
-    } VRMessage;
-
     typedef struct Request {
         enum operation op;
         Key key;
@@ -131,7 +117,6 @@ namespace cuckoo_virtual_rdma {
 
     string message_type_to_function_string(message_type type);
     uint32_t header_size(message_type type);
-    unordered_map<string,string> unpack_read_read_response(VRMessage &msg);
     void fill_local_table_with_read_response(Table &table, unordered_map<string,string> &args);
 
     void fill_table_with_read(Table &table, uint32_t bucket_id, uint32_t bucket_offset, uint32_t size, vector<Entry> &entries);
@@ -147,15 +132,12 @@ namespace cuckoo_virtual_rdma {
     int keys_contained_in_read_response(const Key &key, const vector<Entry> &entries);
 
     unsigned int single_read_size_bytes(hash_locations buckets, unsigned int row_size_bytes);
-    vector<VRMessage> read_threshold_message(hash_locations (*location_function)(string, unsigned int), Key current_read_key, unsigned int read_threshold_bytes,unsigned int table_size,unsigned int row_size_bytes);
     // vector<unsigned int> lock_indexes_to_buckets(vector<unsigned int> lock_indexes, unsigned int buckets_per_lock);
     void lock_indexes_to_buckets(vector<unsigned int> &buckets, vector<unsigned int>& lock_indexes, unsigned int buckets_per_lock);
 
 
 
-    vector<VRMaskedCasData> get_lock_list(vector<unsigned int> buckets, unsigned int buckets_per_lock, unsigned int locks_per_message);
     vector<unsigned int> get_unique_lock_indexes(vector<unsigned int> buckets, unsigned int buckets_per_lock);
-    vector<VRMaskedCasData> get_lock_or_unlock_list_fast(vector<unsigned int> buckets, unsigned int buckets_per_lock, unsigned int locks_per_message, bool locking);
     unsigned int get_unique_lock_indexes_fast(vector<unsigned int> &buckets, unsigned int buckets_per_lock, unsigned int *unique_buckets, unsigned int unique_buckets_size);
 
 
@@ -173,35 +155,15 @@ namespace cuckoo_virtual_rdma {
     // vector<VRMaskedCasData> lock_chunks_to_masked_cas_data(vector<vector<unsigned int>> lock_chunks);
     void lock_chunks_to_masked_cas_data(vector<vector<unsigned int>> lock_chunks, vector<VRMaskedCasData> &masked_cas_data);
     vector<VRMaskedCasData> unlock_chunks_to_masked_cas_data(vector<vector<unsigned int>> lock_chunks);
-    vector<VRMaskedCasData> get_lock_or_unlock_list(vector<unsigned int> buckets, unsigned int buckets_per_lock, unsigned int locks_per_message, bool locking);
-    vector<VRMaskedCasData> get_lock_list(vector<unsigned int> buckets, unsigned int buckets_per_lock, unsigned int locks_per_message);
-    vector<VRMaskedCasData> get_unlock_list(vector<unsigned int> buckets, unsigned int buckets_per_lock, unsigned int locks_per_message);
-
-
-    void get_lock_list_fast(vector<unsigned int> &buckets,vector<vector<unsigned int>> &fast_lock_chunks, vector<VRMaskedCasData> &lock_list, unsigned int buckets_per_lock, unsigned int locks_per_message);
-    void get_unlock_list_fast(vector<unsigned int> &buckets,vector<vector<unsigned int>> &fast_lock_chunks, vector<VRMaskedCasData> &lock_list, unsigned int buckets_per_lock, unsigned int locks_per_message);
-    void get_lock_or_unlock_list_fast(vector<unsigned int> buckets, vector<vector<unsigned int>> & fast_lock_chunks, vector<VRMaskedCasData> &masked_cas_data, unsigned int buckets_per_lock, unsigned int locks_per_message, bool locking);
-
-
-    VRMessage read_request_message(unsigned int start_bucket, unsigned int offset, unsigned int size);
 
 
 
 
-    vector<VRMessage> multi_bucket_read_message(hash_locations buckets, unsigned int row_size_bytes);
-    VRMessage single_bucket_read_message(unsigned int bucket, unsigned int row_size_bytes);
-    vector<VRMessage> single_bucket_read_messages(hash_locations buckets, unsigned int row_size_bytes);
-    vector<VRMessage> read_threshold_message(hash_locations (*location_function)(Key, unsigned int), Key key, unsigned int read_threshold_bytes,unsigned int table_size,unsigned int row_size_bytes);
+
+
     void read_theshold_message(vector<VRReadData> & messages, hash_locations (*location_function)(Key, unsigned int), Key key, unsigned int read_threshold_bytes,unsigned int table_size,unsigned int row_size_bytes);
 
-    vector<unsigned int> lock_message_to_lock_indexes(VRMessage lock_message);
-    VRMessage create_masked_cas_message_from_lock_list(VRMaskedCasData masked_cas_data);
-    vector<VRMessage> create_masked_cas_messages_from_lock_list(vector<VRMaskedCasData> masked_cas_list);
-    VRMessage get_covering_read_from_lock_message(VRMessage lock_message, unsigned int buckets_per_lock, unsigned int row_size_bytes);
 
-    VRMessage cas_table_entry_message(unsigned int bucket_index, unsigned int bucket_offset, Key old, Key new_value);
-    VRMessage next_cas_message(vector<path_element> search_path, unsigned int index);
-    vector<VRMessage> gen_cas_messages(vector<path_element> search_path);
 
     //RDMA specific functions
     vector<VRReadData> get_covering_reads_from_lock_list(vector<VRMaskedCasData> masked_cas_list, unsigned int buckets_per_lock, unsigned int row_size_bytes);

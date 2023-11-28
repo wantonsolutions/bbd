@@ -304,77 +304,6 @@ namespace state_machines {
         return stats;
     }
 
-    void State_Machine::update_message_stats(vector<VRMessage> messages){
-
-        for (auto message : messages) {
-            // WARNING("update_stats", "Message: %s\n", message.to_string().c_str());
-            if (message.get_message_type() == NO_OP_MESSAGE) {
-                continue;
-            }
-            uint32_t message_size_bytes = message.get_message_size_bytes();
-            if (_inserting) {
-                _current_insert_messages++;
-                _insert_operation_bytes += message_size_bytes;
-                _insert_operation_messages++;
-            } else if (_reading) {
-                _current_read_messages++;
-                _read_operation_bytes += message_size_bytes;
-                _read_operation_messages++;
-            } 
-            
-            // else {
-            //     printf("ERROR: update_message_stats called when not reading or inserting\n");
-            //     throw logic_error("ERROR: update_message_stats called when not reading or inserting");
-            // }
-
-            _total_bytes += message_size_bytes;
-            switch (message.get_message_type()){
-            case READ_REQUEST:
-                _total_reads++;
-                _read_bytes += message_size_bytes;
-                break;
-            case READ_RESPONSE:
-                _read_bytes += message_size_bytes;
-                break;
-            case WRITE_REQUEST:
-                printf("TODO track writes\n");
-                break;
-            case WRITE_RESPONSE:
-                printf("TODO track writes\n");
-                break;
-            case CAS_REQUEST:
-            case MASKED_CAS_REQUEST:
-                _total_cas++;
-                _cas_bytes += message_size_bytes;
-                break;
-            case CAS_RESPONSE:
-            case MASKED_CAS_RESPONSE:
-                _cas_bytes += message_size_bytes;
-                if (message.function_args["success"] == "false") {
-                    _total_cas_failures++;
-                }
-                break;
-            default:
-                printf("ERROR: unknown message type\n");
-                throw logic_error("ERROR: unknown message type");
-            }
-        }
-
-    }
-
-    vector<VRMessage> State_Machine::fsm(VRMessage message) {
-        vector<VRMessage> messages;
-        messages.push_back(message);
-        update_message_stats(messages);
-        vector<VRMessage> output_messages = fsm_logic(message);
-        update_message_stats(output_messages);
-        return output_messages;
-    }
-
-    // vector<VRMessage> State_Machine::fsm_logic(VRMessage messages) {
-    //     printf("FSM Logic must be implemented by a subclass\n");
-    //     throw logic_error("FSM Logic must be implemented by a subclass");
-    // }
 
     static const char *ycsb_workload_names[] = {"ycsb-a", "ycsb-b", "ycsb-c", "ycsb-w"};
     const char* get_ycsb_workload_name(ycsb_workload workload) {
@@ -628,14 +557,6 @@ namespace state_machines {
         return;
     }
 
-    vector<VRMessage> Client_State_Machine::begin_read(vector<VRMessage> messages) {
-        _outstanding_read_requests = messages.size();
-        _read_values_found = 0;
-        _read_values = vector<Key>();
-        _state = READING;
-        _reading = true;
-        return messages;
-    }
 
     bool Client_State_Machine::read_complete() {
         return _outstanding_read_requests == 0;
@@ -657,23 +578,6 @@ namespace state_machines {
         return success;
     }
 
-    vector<VRMessage> Client_State_Machine::general_idle_fsm() {
-        Request next_request = _workload_driver.next();
-        VERBOSE("DEBUG: general idle fsm","Generated New Request: %s\n", next_request.to_string().c_str());
-
-        if (next_request.op == NO_OP) {
-            return vector<VRMessage>();
-        } else if (next_request.op == PUT) {
-            _current_insert_key = next_request.key;
-            return put();
-        } else if (next_request.op == GET) {
-            _current_read_key = next_request.key;
-            return get();
-        } else {
-            printf("ERROR: unknown operation\n");
-            throw logic_error("ERROR: unknown operation");
-        }
-    }
 
     unordered_map<string, string> Client_State_Machine::get_stats(){
         unordered_map<string, string> stats = State_Machine::get_stats();
@@ -681,19 +585,6 @@ namespace state_machines {
         stats.insert(workload_stats.begin(), workload_stats.end());
         return stats;
     }
-
-    vector<VRMessage> Client_State_Machine::put() {
-        ALERT("TODO", "implement put in subclass\n");
-        vector<VRMessage> messages;
-        return messages;
-    }
-
-    vector<VRMessage> Client_State_Machine::get() {
-        ALERT("TODO", "implement gut in subclass\n");
-        vector<VRMessage> messages;
-        return messages;
-    }
-        
 
     string Client_State_Machine::get_state_machine_name() {
         return "Client State Machine Super Class";
@@ -833,92 +724,5 @@ namespace state_machines {
     }
     void Memory_State_Machine::set_underlying_lock_table_address(void * address){
         _table.set_underlying_lock_table_address(address);
-    }
-
-
-    vector<VRMessage> Memory_State_Machine::fsm_logic(VRMessage message) {
-        if (_table.get_fill_percentage_fast() * 100 > _max_fill) {
-            ALERT("fsm logic", "table full to %d percent, not processing any more requests\n", _max_fill);
-            throw TableFullException();
-        }
-
-        vector<VRMessage> response;
-        WARNING("Memory", "received %s\n", message.to_string().c_str());
-        switch (message.get_message_type()) {
-            case READ_REQUEST:
-                try{
-                    uint32_t bucket_id = stoi(message.function_args["bucket_id"]);
-                    uint32_t offset = stoi(message.function_args["bucket_offset"]);
-                    uint32_t size = stoi(message.function_args["size"]);
-                    vector<Entry> entries = read_table_entry(_table, bucket_id, offset, size);
-                    // printf("Read success (bucket_id: %d, offset: %d, size: %d)\n", bucket_id, offset, size);
-                    VRMessage r;
-                    r.function = message_type_to_function_string(READ_RESPONSE);
-                    r.function_args["read"] = encode_entries_to_string(entries);
-                    r.function_args["bucket_id"] = to_string(bucket_id);
-                    r.function_args["bucket_offset"] = to_string(offset);
-                    r.function_args["size"] = to_string(size);
-                    response.push_back(r);
-                } catch (exception& e) {
-                    printf("ERROR: read request missing required field %s\n", e.what());
-                    throw logic_error("ERROR: read request missing required field");
-                }
-                break;
-            case CAS_REQUEST:
-                try {
-                    uint32_t bucket_id = stoi(message.function_args["bucket_id"]);
-                    uint32_t offset = stoi(message.function_args["bucket_offset"]);
-                    // uint64_t old = stoull(message.function_args["old"], nullptr, 10);
-                    // uint64_t new_val = stoull(message.function_args["new"], nullptr, 10);
-                    uint64_t old = stoull(message.function_args["old"], nullptr, 16);
-                    uint64_t new_val = stoull(message.function_args["new"], nullptr, 16);
-                    CasOperationReturn cas_ret = cas_table_entry(_table, bucket_id, offset, old, new_val);
-
-                    VERBOSE("Memory Got CAS", "print table\n %s", _table.to_string().c_str());
-                    VRMessage r;
-                    r.function = message_type_to_function_string(CAS_RESPONSE);
-                    r.function_args["success"] = to_string(cas_ret.success);
-                    r.function_args["old"] = uint64t_to_bin_string(cas_ret.original_value);
-                    //todo remove these feilds they are not part of the CAS specification
-                    r.function_args["bucket_id"] = to_string(bucket_id);
-                    r.function_args["bucket_offset"] = to_string(offset);
-                    response.push_back(r);
-                } catch (exception& e){
-                    ALERT("ERROR", "cas request missing required field %s\n", e.what());
-                    throw logic_error("ERROR: cas request missing required field");
-                }
-                break;
-            case MASKED_CAS_REQUEST:
-                try {
-                    uint32_t lock_index = stoi(message.function_args["lock_index"]);
-                    uint64_t old = bin_string_to_uint64_t(message.function_args["old"]);
-                    uint64_t new_val = bin_string_to_uint64_t(message.function_args["new"]);
-                    uint64_t mask = bin_string_to_uint64_t(message.function_args["mask"]);
-                    old = __builtin_bswap64(old);
-                    new_val = __builtin_bswap64(new_val);
-                    mask = __builtin_bswap64(mask);
-                    CasOperationReturn masked_cas_ret = masked_cas_lock_table(_table,lock_index,old, new_val,mask);
-                    VRMessage r;
-                    r.function = message_type_to_function_string(MASKED_CAS_RESPONSE);
-                    r.function_args["success"] = to_string(masked_cas_ret.success);
-                    r.function_args["lock_index"] = to_string(lock_index);
-                    r.function_args["old"] = uint64t_to_bin_string(__builtin_bswap64(masked_cas_ret.original_value));
-                    r.function_args["mask"] = uint64t_to_bin_string(__builtin_bswap64(mask));
-                    response.push_back(r);
-                } catch (exception& e){
-                    ALERT("ERROR", "cas request missing required field %s\n", e.what());
-                    throw logic_error("ERROR: cas request missing required field");
-                }
-                break;
-            default:
-                ALERT("ERROR", "unknown message type\n");
-                throw logic_error("ERROR: unknown message type");
-        }
-
-        for (auto& r : response) {
-            WARNING("Memory", "sending %s\n", r.to_string().c_str());
-        }
-
-        return response;
     }
 }

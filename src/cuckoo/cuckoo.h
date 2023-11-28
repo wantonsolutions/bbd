@@ -110,11 +110,6 @@ namespace cuckoo_rcuckoo {
             vector<unsigned int> _locks_held;
 
 
-
-            vector<VRMessage> _current_locking_messages;
-            vector<VRMessage> _current_locking_read_messages;
-
-
             int _locking_message_index;
 
             /*rdma specific variables*/
@@ -132,7 +127,6 @@ namespace cuckoo_rcuckoo {
             vector<unsigned int> _buckets;
 
             vector<VRCasData> _insert_messages;
-            vector<VRMaskedCasData> _lock_list;
             vector<VRReadData> _covering_reads;
 
 
@@ -154,9 +148,6 @@ namespace cuckoo_rcuckoo {
             bool read_complete();
             bool all_locks_aquired();
             bool all_locks_released();
-            VRMessage get_prior_locking_message();
-            VRMessage get_current_locking_message();
-
     };
 }
 

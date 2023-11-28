@@ -145,8 +145,6 @@ namespace cuckoo_rcuckoo {
         // _search_path = vector<path_element>();
         _search_path_index = 0;
         _locks_held = vector<unsigned int>();
-        _current_locking_messages = vector<VRMessage>();
-        _current_locking_read_messages = vector<VRMessage>();
         _locking_message_index = 0;
         return;
     }
@@ -281,17 +279,6 @@ namespace cuckoo_rcuckoo {
         _locking_message_index++;
     }
 
-    VRMessage RCuckoo::get_prior_locking_message() {
-        return _current_locking_messages[_locking_message_index - 1];
-    }
-
-    VRMessage RCuckoo::get_current_locking_message() {
-        return _current_locking_messages[_locking_message_index];
-    }
-
-    bool RCuckoo::all_locks_aquired() {
-        return (_locking_message_index >= _current_locking_messages.size() && _locks_held.size() > 0);
-    }
 
     bool RCuckoo::all_locks_released() {
         return (_locks_held.size() == 0);
@@ -307,7 +294,6 @@ namespace cuckoo_rcuckoo {
         //log info buckets
         sort(_locking_context.buckets.begin(), _locking_context.buckets.end());
         get_unlock_list_fast_context(_locking_context);
-        _lock_list = _locking_context.lock_list;
         // get_unlock_list_fast(buckets, _fast_lock_chunks, _lock_list, _buckets_per_lock, _locks_per_message);
         //_lock_list is now full of locks
     }
@@ -682,7 +668,6 @@ namespace cuckoo_rcuckoo {
         get_lock_list_fast_context(_locking_context);
         INFO(log_id(), "[aquire_locks] gathering locks for buckets %s\n", vector_to_string(_locking_context.buckets).c_str());
         //TODO make this one thing
-        _lock_list = _locking_context.lock_list;
         get_covering_reads_from_lock_list(_locking_context.lock_list, _covering_reads ,_buckets_per_lock, _table.row_size_bytes());
 
         for (unsigned int i = 0; i < _locking_context.lock_list.size(); i++) {
@@ -828,7 +813,6 @@ namespace cuckoo_rcuckoo {
         }
 
 
-        // vector<VRMessage> unlock_messages = release_locks_batched();
         _locking_message_index = 0;
         fill_current_unlock_list();
         // _lock_list is now full

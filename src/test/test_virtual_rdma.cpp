@@ -485,7 +485,6 @@ int main() {
     //     cout << "Masked Cas Data: " << i.to_string() << endl;
     // }
 
-    // vector<VRMessage> masked_cas_messages = create_masked_cas_messages_from_lock_list(masked_cas_data);
 
     // for (auto i : masked_cas_messages){
     //     cout << "Masked Cas Message: " << i.to_string() << endl;

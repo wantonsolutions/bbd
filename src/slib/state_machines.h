@@ -51,7 +51,7 @@ namespace state_machines {
         public:
             State_Machine();
             State_Machine(unordered_map<string, string> config);
-            ~State_Machine() {}
+            virtual ~State_Machine() = default;
             void clear_statistics();
 
             string get_state_machine_name();
@@ -64,8 +64,6 @@ namespace state_machines {
             void complete_update_stats(bool success);
             unordered_map<string, string> get_stats();
 
-            vector<VRMessage> fsm(VRMessage messages);
-            virtual vector<VRMessage> fsm_logic(VRMessage messages) { printf("fsm_logic not implemented\n"); return vector<VRMessage>(); };
 
             void set_global_start_flag(volatile bool * flag);
             void set_global_end_flag(volatile bool * flag);
@@ -163,7 +161,6 @@ namespace state_machines {
             volatile bool * _global_prime_flag;
 
         private:
-            void update_message_stats(vector<VRMessage>);
     };
 
     enum ycsb_workload {
@@ -184,7 +181,6 @@ namespace state_machines {
             void set_workload(ycsb_workload workload);
             void set_workload(string workload);
             Request next();
-            virtual vector<VRMessage> fsm_logic(VRMessage messages) { printf("fsm_logic not implemented CLIENT STATE MACHINE\n"); return vector<VRMessage>(); };
 
         private:
             int _total_requests;
@@ -236,15 +232,10 @@ namespace state_machines {
             ~Client_State_Machine() {}
             void clear_statistics();
             void set_workload(ycsb_workload workload);
-            vector<VRMessage> begin_read(vector<VRMessage> messages);
             bool read_complete();
             bool read_successful(Key key);
-            read_status wait_for_read_messages_fsm(Table &table, VRMessage message, const Key &key);
             string get_state_machine_name();
-            vector<VRMessage> general_idle_fsm();
             unordered_map<string, string> get_stats();
-            virtual vector<VRMessage> put();
-            virtual vector<VRMessage> get();
 
         protected:
             uint32_t _total_inserts;
@@ -298,7 +289,6 @@ namespace state_machines {
             void set_table_pointer(Entry ** table);
             Entry ** get_table_pointer();
             Table * get_table();
-            vector<VRMessage> fsm_logic(VRMessage messages);
 
 
             void * get_underlying_lock_table_address();
