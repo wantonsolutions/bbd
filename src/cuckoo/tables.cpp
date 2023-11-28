@@ -104,6 +104,10 @@ namespace cuckoo_tables {
         _locks = (uint8_t*) address;
     }
 
+    unsigned int Lock_Table::get_total_locks(){
+        return _total_locks;
+    }
+
 
     /*lock table functions*/
     Lock_Table::Lock_Table(){
@@ -285,6 +289,10 @@ namespace cuckoo_tables {
     void Table::unlock_all(){
         _lock_table.unlock_all();
         return;
+    }
+
+    unsigned int Table::get_total_locks(){
+        return _lock_table.get_total_locks();
     }
 
     string Table::to_string(){

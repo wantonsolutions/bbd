@@ -199,6 +199,7 @@ namespace cuckoo_tables {
             CasOperationReturn masked_cas(unsigned int index, uint64_t old, uint64_t new_value, uint64_t mask);
             void fill_masked_cas(unsigned int index, bool success, uint64_t new_value, uint64_t mask);
             void * get_lock_table_address();
+            unsigned int get_total_locks();
             unsigned int get_lock_table_size_bytes();
             void set_lock_table_address(void * address);
             void * get_lock_pointer(unsigned int lock_index);
@@ -254,6 +255,7 @@ namespace cuckoo_tables {
             vector<Duplicate_Entry> get_duplicates();
 
 
+            unsigned int get_total_locks();
             void * get_underlying_lock_table_address();
             unsigned int get_underlying_lock_table_size_bytes();
             void set_underlying_lock_table_address(void * address);

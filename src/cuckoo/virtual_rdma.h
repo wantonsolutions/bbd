@@ -67,6 +67,7 @@ namespace cuckoo_virtual_rdma {
         vector<VRMaskedCasData> lock_list;
         unsigned int buckets_per_lock;
         unsigned int locks_per_message;
+        unsigned int total_physical_locks;
 
         bool locking;
 

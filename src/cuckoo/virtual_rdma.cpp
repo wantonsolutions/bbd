@@ -2,6 +2,7 @@
 #include <string.h>
 #include <algorithm>
 #include <iostream>
+#include <bits/stdc++.h>
 #include "search.h"
 #include "../slib/log.h"
 #include "../slib/util.h"
@@ -305,6 +306,7 @@ namespace cuckoo_virtual_rdma {
         // }
         // assert(context.buckets.size() <= MAX_LOCKS);
         unsigned int unique_lock_indexes[MAX_LOCKS];
+        unsigned int virtual_lock_indexes[MAX_LOCKS];
 
         //Lets make sure that all the buckets are allready sorted
         //I'm 90% sure this will get optimized out in the end
@@ -314,17 +316,22 @@ namespace cuckoo_virtual_rdma {
 
         //This would be a good point to insert the virtual lock layer
 
-        bool virutal_lock_table = false;
-        unsigned int unique_lock_count = 0;
-        if (!virutal_lock_table) {
-            unique_lock_count = get_unique_lock_indexes_fast(context.buckets, context.buckets_per_lock, unique_lock_indexes, MAX_LOCKS);
-        } else {
-            //Start here tomorrow we are implementing the virtual lock table. 
-            // get_virtual_lock_indexes()
-            printf("ERROR: virtual lock table not implemented yet\n");
+        unsigned int unique_lock_count = get_unique_lock_indexes_fast(context.buckets, context.buckets_per_lock, unique_lock_indexes, MAX_LOCKS);
+        bool virutal_lock_table = true;
+
+        if (virutal_lock_table) {
+            for (int i=0; i<unique_lock_count; i++) {
+                virtual_lock_indexes[i] = unique_lock_indexes[i] % (context.total_physical_locks / 16);
+                sort(virtual_lock_indexes, virtual_lock_indexes + unique_lock_count);
+            }
+            //remove duplicates from the virutal lock indexes
+            unsigned int unique_virtual_lock_count = unique(virtual_lock_indexes, virtual_lock_indexes + unique_lock_count) - virtual_lock_indexes;
+            if (unique_virtual_lock_count != unique_lock_count) {
+                ALERT("virutal lock table", "we have a collision in the virtual lock table\n");
+                exit(0);
+            }
 
         }
-
         // break_lock_indexes_into_chunks_fast(unique_lock_indexes, unique_lock_count, context.locks_per_message, context.fast_lock_chunks);
         context.lock_indexes_size = unique_lock_count;
         context.lock_indexes = unique_lock_indexes;

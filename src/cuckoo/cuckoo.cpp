@@ -131,6 +131,7 @@ namespace cuckoo_rcuckoo {
         }
         _locking_context.buckets_per_lock = _buckets_per_lock;
         _locking_context.locks_per_message = _locks_per_message;
+        _locking_context.total_physical_locks = _table.get_total_locks();
         sprintf(_log_identifier, "Client: %3d", _id);
 
         _local_prime_flag = false; //we have yet to prime
