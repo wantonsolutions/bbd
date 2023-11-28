@@ -34,6 +34,10 @@ namespace cuckoo_rcuckoo {
         return _table.get_underlying_table();
     }
 
+    const char * RCuckoo::log_id() {
+        return _log_identifier;
+    }
+
     void * RCuckoo::get_lock_table_pointer(){
         return _table.get_underlying_lock_table_address();
     }
@@ -182,26 +186,20 @@ namespace cuckoo_rcuckoo {
             float hash_factor = stof(factor);
             _hash_factor = hash_factor;
             set_factor(hash_factor);
-
         } catch(exception &e) {
             printf("unable to parse hash factor");
         }
-
     }
 
     bool RCuckoo::a_star_insert_self() {
         _search_context.key = _current_insert_key;
         bucket_cuckoo_a_star_insert_fast_context(_search_context);
         return (_search_context.path.size() > 0);
-        
-        // return bucket_cuckoo_a_star_insert_fast(_table, _location_function, _current_insert_key, searchable_buckets);
     }
 
     bool RCuckoo::random_insert_self() {
         _search_context.key = _current_insert_key;
-        // ALERT("TODO", "fix this path we should not be returning a path here");
         bucket_cuckoo_random_insert_fast_context(_search_context);
-        // _search_context.path = bucket_cuckoo_random_insert(*_search_context.table, _search_context.location_func, _search_context.key, _search_context.open_buckets);
         return (_search_context.path.size() > 0);
     }
 
@@ -211,9 +209,7 @@ namespace cuckoo_rcuckoo {
         return (_search_context.path.size() > 0);
     }
 
-
     void RCuckoo::complete_insert_stats(bool success){
-        // exit(0);
         #ifdef MEASURE_MOST
         _insert_path_lengths.push_back(_search_context.path.size());
         _index_range_per_insert.push_back(path_index_range(_search_context.path));
@@ -232,9 +228,6 @@ namespace cuckoo_rcuckoo {
         _state = IDLE;
         _inserting = false;
         _operation_end_time = get_current_ns();
-
-        //TODO record this variable
-
         complete_insert_stats(true);
         return;
     }
@@ -260,7 +253,6 @@ namespace cuckoo_rcuckoo {
         _operation_end_time = get_current_ns();
         complete_update_stats(success);
         return;
-
     }
 
     void RCuckoo::receive_successful_locking_message(unsigned int message_index){
@@ -279,7 +271,6 @@ namespace cuckoo_rcuckoo {
         _locking_message_index++;
     }
 
-
     bool RCuckoo::all_locks_released() {
         return (_locks_held.size() == 0);
     }
@@ -287,7 +278,6 @@ namespace cuckoo_rcuckoo {
     bool RCuckoo::read_complete() {
         return (_outstanding_read_requests == 0);
     }
-
 
     void RCuckoo::fill_current_unlock_list() {
         lock_indexes_to_buckets(_locking_context.buckets,_locks_held, _buckets_per_lock);
@@ -298,10 +288,6 @@ namespace cuckoo_rcuckoo {
         //_lock_list is now full of locks
     }
 
-
-    const char * RCuckoo::log_id() {
-        return _log_identifier;
-    }
 
     /******* DIRECT RDMA CALLS ********/
 
@@ -1052,6 +1038,3 @@ namespace cuckoo_rcuckoo {
         return;
     }
 }
-
-
-

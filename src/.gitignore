@@ -35,3 +35,9 @@ xxHash
 src/slogger_client
 src/test/test_replicated_log
 
+corrupter_client
+corrupter_server
+slogger_client
+slogger_server
+test/test_replicated_log
+
