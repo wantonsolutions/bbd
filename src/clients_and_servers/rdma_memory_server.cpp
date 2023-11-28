@@ -163,7 +163,6 @@ int main(int argc, char **argv)
     Memory_State_Machine msm = Memory_State_Machine(config);
 
     bool prime = (config["prime"] == "true");
-    // msm.fill_table_with_incremental_values();
 
     //resolve the address from the config
     struct sockaddr_in server_sockaddr = server_address_to_socket_addr(config["server_address"]);

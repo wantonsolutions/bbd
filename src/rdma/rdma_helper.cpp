@@ -32,7 +32,7 @@ namespace rdma_helper {
     void send_bulk(int n, ibv_qp * qp, struct ibv_exp_send_wr *send_work_request_batch) {
         assert(n > 0);
         assert(send_work_request_batch);
-        struct ibv_exp_send_wr **bad_send_wr;
+        struct ibv_exp_send_wr **bad_send_wr = NULL;
         for (int i = 0; i < n; i++) {
             send_work_request_batch[i].next=&(send_work_request_batch[i+1]);
         }

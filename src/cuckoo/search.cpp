@@ -49,12 +49,12 @@ namespace cuckoo_search {
     }
 
     vector<path_element> random_dfs_search(Key key, unsigned int table_size){
-        ALERT("random dfs search", "random_dfs_search not implemented");
+        ALERT("random dfs search", "random_dfs_search not implemented Key %s, table_size %d", key.to_string().c_str(), table_size);
         std::vector<path_element> path;
         return path;
     }
     vector<path_element> bucket_cuckoo_insert(Table table, hash_locations (*location_func) (string, unsigned int), Key key, vector<unsigned int>  open_buckets){
-        ALERT("Bucket Cuckoo Insert", "Bucket Cuckoo Insert not implemented");;
+        ALERT("Bucket Cuckoo Insert", "Bucket Cuckoo Insert not implemented");
         vector<path_element> path;
         return path;
     }

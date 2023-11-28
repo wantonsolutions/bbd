@@ -17,10 +17,10 @@ static struct ibv_qp_init_attr qp_init_attr;
 static struct ibv_qp *client_qp[MAX_QPS];
 /* RDMA memory resources */
 static struct ibv_mr *client_qp_metadata_mr[MAX_QPS], *server_qp_buffer_mr[MAX_QPS], *server_qp_metadata_mr[MAX_QPS];
-static struct rdma_buffer_attr client_qp_metadata_attr[MAX_QPS], server_qp_metadata_attr[MAX_QPS];
+static struct rdma_buffer_attr client_qp_metadata_attr[MAX_QPS];
 static struct ibv_recv_wr client_recv_wr, *bad_client_recv_wr = NULL;
-static struct ibv_send_wr server_send_wr, *bad_server_send_wr = NULL;
-static struct ibv_sge client_recv_sge, server_send_sge;
+// static struct ibv_send_wr server_send_wr, *bad_server_send_wr = NULL;
+static struct ibv_sge client_recv_sge;
 
 static struct rdma_cm_event * event_mailbox[MAX_QPS];
 
@@ -237,8 +237,8 @@ int setup_client_qp(int qp_num) {
         /* Save the reference for handy typing but is not required */
         client_qp[qp_num] = cm_client_qp_id[qp_num]->qp;
         debug("Client QP created at %p\n", client_qp[qp_num]);
-        return ret;
     }
+    return ret;
 }
 
 /* Starts an RDMA server by allocating basic connection resources for all QPs */

@@ -102,7 +102,7 @@ memory_stats * get_cuckoo_memory_stats(){
     }
 }
 
-void rcuckoo_stat_collection(State_Machine ** state_machines, unordered_map<string,string> config, int num_clients, auto ms_int){
+void rcuckoo_stat_collection(State_Machine ** state_machines, unordered_map<string,string> config, int num_clients, chrono::milliseconds  ms_int){
     //Collect statistics from each of the threads
     vector<unordered_map<string,string>> client_statistics;
     for (int i=0;i<num_clients;i++) {
@@ -146,7 +146,7 @@ void rcuckoo_stat_collection(State_Machine ** state_machines, unordered_map<stri
     VERBOSE("RDMA Engine", "done running state machine!");
 }
 
-void slogger_stat_collection(State_Machine ** state_machines, unordered_map<string,string> config, int num_clients, auto ms_int) {
+void slogger_stat_collection(State_Machine ** state_machines, unordered_map<string,string> config, int num_clients, chrono::milliseconds  ms_int) {
     vector<unordered_map<string,string>> client_statistics;
     for (int i=0;i<num_clients;i++) {
         INFO("RDMA Engine", "Grabbing Statistics Off of Client Thread %d\n", i);
@@ -208,7 +208,7 @@ void * slogger_fsm_runner(void * args){
     pthread_exit(NULL);
 }
 
-void corrupter_stat_collection(State_Machine ** state_machines, unordered_map<string,string> config, int num_clients, auto ms_int) {
+void corrupter_stat_collection(State_Machine ** state_machines, unordered_map<string,string> config, int num_clients, chrono::milliseconds  ms_int) {
     vector<unordered_map<string,string>> client_statistics;
     for (int i=0;i<num_clients;i++) {
         INFO("RDMA Engine", "Grabbing Statistics Off of Client Thread %d\n", i);

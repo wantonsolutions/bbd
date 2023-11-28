@@ -75,7 +75,7 @@ void write_statistics(
 
     //Take care of the client statistics
     Json::Value client_vector (Json::arrayValue);
-    for (int i = 0; i < client_stats.size(); i++) {
+    for (long unsigned int i = 0; i < client_stats.size(); i++) {
         Json::Value client_stats_json;
         client_stats_json["client_id"] = client_stats[i]["client_id"];
         for (auto it = client_stats[i].begin(); it != client_stats[i].end(); it++) {

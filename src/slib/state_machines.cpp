@@ -21,7 +21,7 @@ using namespace std;
 template <typename T>
 string array_to_string(vector<T> array) {
     string result = "";
-    for (auto i = 0; i < array.size(); i++) {
+    for (long unsigned int i = 0; i < array.size(); i++) {
         result += to_string(array[i]);
         if (i < array.size() - 1) {
             result += ",";
@@ -33,7 +33,7 @@ string array_to_string(vector<T> array) {
 
 string key_array_to_string(vector<Key> array) {
     string result = "";
-    for (auto i = 0; i < array.size(); i++) {
+    for (long unsigned int i = 0; i < array.size(); i++) {
         result += array[i].to_string();
         if (i < array.size() - 1) {
             result += ",";
@@ -136,8 +136,8 @@ namespace state_machines {
         _read_rtt_count = 0;
 
 
-        _operation_start_time; //not sure how to clear
-        _operation_end_time; //not sure how to clear
+        // _operation_start_time; //not sure how to clear
+        // _operation_end_time; //not sure how to clear
         _sum_insert_latency_ns = 0;
         _sum_read_latency_ns = 0;
         _insert_latency_ns = vector<int>();
@@ -157,7 +157,7 @@ namespace state_machines {
     }
 
     void State_Machine::set_max_fill(float max_fill){
-        printf("SET MAX FILL Overload this function");
+        printf("SET MAX FILL Overload this function (set value %f)", max_fill);
         throw logic_error("SET MAX FILL Overload this function");
     }
 
@@ -177,6 +177,7 @@ namespace state_machines {
             _failed_read_count++;
             #endif
         }
+        read_key = read_key;
         uint64_t latency = (_operation_end_time - _operation_start_time).count();
         #ifdef MEASURE_MOST
         _messages_per_read.push_back(_current_read_messages);
@@ -230,6 +231,7 @@ namespace state_machines {
     }
 
     void State_Machine::complete_update_stats(bool success) {
+        success=success; //kill a compiler error and we might need this again
         uint64_t latency = (_operation_end_time - _operation_start_time).count();
         #ifdef MEASURE_MOST
         _completed_updates.push_back(_current_update_key);
@@ -564,6 +566,7 @@ namespace state_machines {
 
     bool Client_State_Machine::read_successful(Key key) {
         bool success = false;
+        key=key; // kill a compiler error when we have non verbose output
         if (_read_values_found == 0) {
             success = false;
             VERBOSE("read success", "Read incomplete (key: %s)", key.to_string().c_str());

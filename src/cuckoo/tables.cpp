@@ -132,9 +132,7 @@ namespace cuckoo_tables {
         const int bits_per_byte=8;
         _total_lock_entries = (_total_locks / bits_per_byte) + cas_size;
 
-        // _total_lock_entries += 4096;
         //round lock entries to the nearest value divisible by 8 so everything is cache line alligned
-        const int cas_line_size = 8;
         if (_total_lock_entries % cas_size != 0){
             _total_lock_entries += cas_size - (_total_lock_entries % cas_size);
         }
@@ -250,8 +248,8 @@ namespace cuckoo_tables {
         if (this->get_buckets_per_row() != rhs.get_buckets_per_row()){
             return false;
         }
-        for (int i=0;i<this->get_row_count();i++) {
-            for (int j=0;j<this->get_buckets_per_row();j++) {
+        for (unsigned int i=0;i<this->get_row_count();i++) {
+            for (unsigned int j=0;j<this->get_buckets_per_row();j++) {
                 if (this->get_entry(i,j) != rhs.get_entry(i,j)){
                     return false;
                 }
@@ -424,7 +422,7 @@ namespace cuckoo_tables {
 
     }
 
-    bool Table::bucket_contains(unsigned int bucket_index, Key key){
+    bool Table::bucket_contains(unsigned int bucket_index, Key &key){
         for (unsigned int i = 0; i < _bucket_size; i++){
             if (_table[bucket_index][i].key == key){
                 return true;

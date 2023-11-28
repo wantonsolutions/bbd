@@ -51,15 +51,21 @@ namespace cuckoo_tables {
                 return true;
             }
         }
-        bool operator=(const Key& rhs) {
-            for (int i = 0; i < KEY_SIZE; i++){
-                bytes[i] = rhs.bytes[i];
-            }
-            return true;
-        }
+        // bool operator=(const Key& rhs) {
+        //     for (int i = 0; i < KEY_SIZE; i++){
+        //         bytes[i] = rhs.bytes[i];
+        //     }
+        //     return true;
+        // }
+        // bool operator=(const Key rhs) {
+        //     for (int i = 0; i < KEY_SIZE; i++){
+        //         bytes[i] = rhs.bytes[i];
+        //     }
+        //     return true;
+        // }
         template <typename T>
         void set(T val) {
-            for (int i = 0; i < KEY_SIZE && i < sizeof(val); i++){
+            for (long unsigned int i = 0; i < KEY_SIZE && i < sizeof(val); i++){
                 bytes[i] = (val >> (8 * i)) & 0xFF;
             }
         }
@@ -93,15 +99,15 @@ namespace cuckoo_tables {
             }
             return true;
         }
-        bool operator=(const Value& rhs) {
-            for (int i = 0; i < VALUE_SIZE; i++){
-                bytes[i] = rhs.bytes[i];
-            }
-            return true;
-        }
+        // bool operator=(const Value& rhs) {
+        //     for (int i = 0; i < VALUE_SIZE; i++){
+        //         bytes[i] = rhs.bytes[i];
+        //     }
+        //     return true;
+        // }
         template <typename T>
         void set(T val) {
-            for (int i = 0; i < VALUE_SIZE && i < sizeof(val); i++){
+            for (long unsigned int i = 0; i < VALUE_SIZE && i < sizeof(val); i++){
                 bytes[i] = (val >> (8 * i)) & 0xFF;
             }
         }
@@ -242,7 +248,7 @@ namespace cuckoo_tables {
             unsigned int get_first_empty_index(unsigned int bucket_index);
 
             bool contains(Key key);
-            bool bucket_contains(unsigned int bucket_index, Key key);
+            bool bucket_contains(unsigned int bucket_index, Key &key);
 
             float get_fill_percentage_fast();
             float get_fill_percentage();
