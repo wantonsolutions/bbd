@@ -17,7 +17,7 @@
 #define _LOG_ALERT
 // #define _LOG_INFO
 // #define _LOG_WARNING
-// #define _LOG_VERBOSE
+#define _LOG_VERBOSE
 // #define _LOG_ALERT
 // #define _LOG_SUCCESS
 

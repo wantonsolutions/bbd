@@ -685,11 +685,15 @@ namespace cuckoo_rcuckoo {
         _lock_list = _locking_context.lock_list;
         get_covering_reads_from_lock_list(_locking_context.lock_list, _covering_reads ,_buckets_per_lock, _table.row_size_bytes());
 
-        for (unsigned int i = 0; i < _lock_list.size(); i++) {
-            INFO(log_id(), "[aquire_locks] lock %d -> [lock %s] [read %s]\n", i, _lock_list[i].to_string().c_str(), _covering_reads[i].to_string().c_str());
+        for (unsigned int i = 0; i < _locking_context.lock_list.size(); i++) {
+            INFO(log_id(), "[aquire_locks] lock %d -> [lock %s] [read %s]\n", i, _locking_context.lock_list[i].to_string().c_str(), _covering_reads[i].to_string().c_str());
         }
 
-        assert(_lock_list.size() == _covering_reads.size());
+        if(_locking_context.lock_list.size() != _covering_reads.size()) {
+            ALERT(log_id(), "[aquire_locks] lock_list.size() != covering_reads.size() %lu != %lu\n", _locking_context.lock_list.size(), _covering_reads.size());
+            exit(1);
+        }
+        assert(_locking_context.lock_list.size() == _covering_reads.size());
 
         bool locking_complete = false;
         bool failed_last_request = false;
@@ -699,9 +703,9 @@ namespace cuckoo_rcuckoo {
         unsigned int message_index = 0;
         while (!locking_complete) {
 
-            assert(message_index < _lock_list.size());
+            assert(message_index < _locking_context.lock_list.size());
 
-            VRMaskedCasData lock = _lock_list[message_index];
+            VRMaskedCasData lock = _locking_context.lock_list[message_index];
             VRReadData read = _covering_reads[message_index];
 
             //This is for testing the benifit of locks only
@@ -780,7 +784,7 @@ namespace cuckoo_rcuckoo {
                 failed_last_request = true;
             }
 
-            if (_lock_list.size() == message_index) {
+            if (_locking_context.lock_list.size() == message_index) {
                 locking_complete = true;
                 INFO(log_id(), " [put-direct] we got all the locks!\n");
                 break;
@@ -829,8 +833,8 @@ namespace cuckoo_rcuckoo {
         fill_current_unlock_list();
         // _lock_list is now full
 
-        INFO("insert direct", "about to unlock a total of %d lock messages\n", _lock_list.size());
-        unsigned int total_messages = _lock_list.size();
+        INFO("insert direct", "about to unlock a total of %d lock messages\n", _locking_context.lock_list.size());
+        unsigned int total_messages = _locking_context.lock_list.size();
         if (_state == INSERTING) {
             gen_cas_data(_search_context.path, _insert_messages);
             total_messages += _insert_messages.size();
@@ -842,7 +846,7 @@ namespace cuckoo_rcuckoo {
         if (_state == INSERTING) {
             insert_cuckoo_path_local(_table, _search_context.path);
         }
-        send_insert_and_unlock_messages(_insert_messages, _lock_list, _wr_id);
+        send_insert_and_unlock_messages(_insert_messages, _locking_context.lock_list, _wr_id);
         _wr_id += total_messages;
 
 
@@ -955,8 +959,8 @@ namespace cuckoo_rcuckoo {
         _locking_message_index = 0;
         fill_current_unlock_list();
 
-        INFO("update direct", "about to unlock a total of %d lock messages\n", _lock_list.size());
-        unsigned int total_messages = _lock_list.size();
+        INFO("update direct", "about to unlock a total of %d lock messages\n", _locking_context.lock_list.size());
+        unsigned int total_messages = _locking_context.lock_list.size();
         if (success) {
             printf("TODO here is where we make a packet that actually does the update");
             _insert_messages.clear();
@@ -967,7 +971,7 @@ namespace cuckoo_rcuckoo {
         }
 
 
-        send_insert_and_unlock_messages(_insert_messages, _lock_list, _wr_id);
+        send_insert_and_unlock_messages(_insert_messages, _locking_context.lock_list, _wr_id);
         _wr_id += total_messages;
 
 
