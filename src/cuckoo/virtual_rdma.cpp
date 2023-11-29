@@ -147,6 +147,7 @@ namespace cuckoo_virtual_rdma {
                     }
                 }
             }
+            std::sort(buckets.begin(), buckets.end());
         } else {
             for (size_t i=0; i<lock_indexes.size(); i++) {
                 unsigned int lock_index = lock_indexes[i];
@@ -331,6 +332,7 @@ namespace cuckoo_virtual_rdma {
         // bool virutal_lock_table = true;
 
         if (context.virtual_lock_table) {
+            // ALERT("virtual lock table", "we are using the virtual lock table\n");
             for (unsigned int i=0; i<unique_lock_count; i++) {
                 virtual_lock_indexes[i] = unique_lock_indexes[i] % (context.total_physical_locks);
             }
@@ -363,43 +365,8 @@ namespace cuckoo_virtual_rdma {
                 context.lock_indexes[i] = unique_lock_indexes[i];
             }
         }
+
         break_lock_indexes_into_chunks_fast_context(context);
-
-        // #define CHECK_WITH_OLD_UNLOCK 
-        #ifdef CHECK_WITH_OLD_UNLOCK
-        //Do the same thing as the old method
-        vector<unsigned int> unique_lock_indexes_slow = get_unique_lock_indexes(buckets, buckets_per_lock);
-        assert(unique_lock_count == unique_lock_indexes_slow.size());
-        for (int i=0; i<unique_lock_count; i++) {
-            assert(unique_lock_indexes[i] == unique_lock_indexes_slow[i]);
-        }
-        //Now we need to make sure that everything is okay for testing purposes
-        vector<vector<unsigned int>> test_locks_chunked = break_lock_indexes_into_chunks(unique_lock_indexes_slow, locks_per_message);
-        //Test one way
-        for (int i = 0; i < test_locks_chunked.size(); i++) {
-            for (int j = 0; j < test_locks_chunked[i].size(); j++) {
-                printf("1) test_locks_chunked[%d][%d] = %u\n", i, j, test_locks_chunked[i][j]);
-                printf("1)      locks_chunked[%d][%d] = %u\n", i, j, fast_lock_chunks[i][j]);
-                if (test_locks_chunked[i][j] != fast_lock_chunks[i][j]) {
-                    printf("ERROR: lock chunking failed\n");
-                    exit(1);
-                }
-            }
-        }
-        //Test the other way
-
-        for (int i=0; i<fast_lock_chunks.size(); i++) {
-            for (int j=0; j<fast_lock_chunks[i].size(); j++) {
-                printf("2) test_locks_chunked[%d][%d] = %u\n", i, j, test_locks_chunked[i][j]);
-                printf("2)      locks_chunked[%d][%d] = %u\n", i, j, fast_lock_chunks[i][j]);
-                if (test_locks_chunked[i][j] != fast_lock_chunks[i][j]) {
-                    printf("ERROR: lock chunking failed 2\n");
-                    exit(1);
-                }
-            }
-        }
-        #endif
-
         if (context.locking) {
             lock_chunks_to_masked_cas_data_context(context);
             // lock_chunks_to_masked_cas_data(context.fast_lock_chunks, context.lock_list);
@@ -407,7 +374,12 @@ namespace cuckoo_virtual_rdma {
             unlock_chunks_to_masked_cas_data_context(context);
         }
         //Masked cas data should be filled at this point
+    }
 
+    void get_unlock_list_from_lock_indexes(LockingContext &context) {
+        context.locking = false;
+        break_lock_indexes_into_chunks_fast_context(context);
+        unlock_chunks_to_masked_cas_data_context(context);
     }
 
     unsigned int get_unique_lock_indexes_fast(vector<unsigned int> &buckets, unsigned int buckets_per_lock, unsigned int *unique_buckets, unsigned int unique_buckets_size)
@@ -501,6 +473,14 @@ namespace cuckoo_virtual_rdma {
         read_data_list.clear();
         for (size_t i=0; i<masked_cas_list.size(); i++) {
             read_data_list.push_back(get_covering_read_from_lock(masked_cas_list[i], buckets_per_lock, row_size_bytes));
+        }
+        return;
+    }
+
+    void get_covering_reads_context(LockingContext context, vector<VRReadData> &read_data_list, Table &table, unsigned int buckets_per_lock){
+        read_data_list.clear();
+        for (size_t i=0; i<context.lock_list.size(); i++) {
+            read_data_list.push_back(get_covering_read_from_lock(context.lock_list[i], buckets_per_lock, table.row_size_bytes()));
         }
         return;
     }

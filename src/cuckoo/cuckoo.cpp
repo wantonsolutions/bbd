@@ -135,10 +135,10 @@ namespace cuckoo_rcuckoo {
         _locking_context.locks_per_message = _locks_per_message;
         _locking_context.virtual_lock_table = use_virtual_lock_table;
         if (_locking_context.virtual_lock_table) {
-            _locking_context.total_physical_locks = _table.get_total_locks();
+            _locking_context.scale_factor = 8;
+            _locking_context.total_physical_locks = _table.get_total_locks() / _locking_context.scale_factor;
             for (int i=0;i<50;i++){
                 ALERT("virutal lock table", "we are using an artifically sized virtual lock table\n");
-                _locking_context.scale_factor = 16;
                 _locking_context.total_physical_locks = _table.get_total_locks() / _locking_context.scale_factor;
             }
         }
@@ -291,10 +291,14 @@ namespace cuckoo_rcuckoo {
     }
 
     void RCuckoo::fill_current_unlock_list() {
-        lock_indexes_to_buckets(_locking_context.buckets,_locks_held, _buckets_per_lock);
-        //log info buckets
-        sort(_locking_context.buckets.begin(), _locking_context.buckets.end());
-        get_unlock_list_fast_context(_locking_context);
+        // lock_indexes_to_buckets(_locking_context.buckets,_locks_held, _buckets_per_lock);
+
+        // lock_indexes_to_buckets_context(_locking_context.buckets, _locks_held, _locking_context);
+        // sort(_locking_context.buckets.begin(), _locking_context.buckets.end());
+        // get_unlock_list_fast_context(_locking_context);
+
+
+        get_unlock_list_from_lock_indexes(_locking_context);
         // get_unlock_list_fast(buckets, _fast_lock_chunks, _lock_list, _buckets_per_lock, _locks_per_message);
         //_lock_list is now full of locks
     }
@@ -663,7 +667,8 @@ namespace cuckoo_rcuckoo {
         get_lock_list_fast_context(_locking_context);
         INFO(log_id(), "[aquire_locks] gathering locks for buckets %s\n", vector_to_string(_locking_context.buckets).c_str());
         //TODO make this one thing
-        get_covering_reads_from_lock_list(_locking_context.lock_list, _covering_reads ,_buckets_per_lock, _table.row_size_bytes());
+        // get_covering_reads_from_lock_list(_locking_context.lock_list, _covering_reads ,_buckets_per_lock, _table.row_size_bytes());
+        get_covering_reads_context(_locking_context, _covering_reads, _table, _buckets_per_lock);
 
         for (unsigned int i = 0; i < _locking_context.lock_list.size(); i++) {
             INFO(log_id(), "[aquire_locks] lock %d -> [lock %s] [read %s]\n", i, _locking_context.lock_list[i].to_string().c_str(), _covering_reads[i].to_string().c_str());
@@ -946,10 +951,8 @@ namespace cuckoo_rcuckoo {
             _insert_messages.clear();
         }
 
-
         send_insert_and_unlock_messages(_insert_messages, _locking_context.lock_list, _wr_id);
         _wr_id += total_messages;
-
 
         //Bulk poll to receive all messages
         bulk_poll(_completion_queue, 1, _wc + 1);

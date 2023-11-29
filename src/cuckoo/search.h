@@ -8,8 +8,8 @@
 #include "hash.h"
 #include <unordered_map>
 
-#define MAX_SEARCH_ITEMS 500
-#define MAX_SEARCH_DEPTH 50
+#define MAX_SEARCH_ITEMS 5000
+#define MAX_SEARCH_DEPTH 500
 namespace cuckoo_search {
 
 
@@ -112,15 +112,16 @@ namespace cuckoo_search {
         //return values
         vector<path_element> path;
         //internal_values
-        fast_a_star_pe closed_list_addressable[MAX_SEARCH_ITEMS];
-        bfs_pe closed_list_bfs_addressable[MAX_SEARCH_ITEMS];
-        vector<fast_a_star_pe> open_list;
-        vector<fast_a_star_pe> closed_list;
         vector<bfs_pe> bfs_queue;
         vector<unsigned int> targets;
         vector<unsigned int> visited_buckets;
         int max_search_depth;
         bool found;
+
+        vector<fast_a_star_pe> open_list;
+        vector<fast_a_star_pe> closed_list;
+        fast_a_star_pe closed_list_addressable[MAX_SEARCH_ITEMS];
+        bfs_pe closed_list_bfs_addressable[MAX_SEARCH_ITEMS];
     } search_context;
 
 

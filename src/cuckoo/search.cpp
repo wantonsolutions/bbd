@@ -900,8 +900,6 @@ namespace cuckoo_search {
     }
 
 
-
-    #define MAX_BFS_DEPTH 10000
     void bfs_search(search_context & context) {
         context.path.clear();
         context.visited_buckets.clear();
@@ -915,6 +913,17 @@ namespace cuckoo_search {
         int front_index = 0;
         int back_index = 1;
 
+        // for (unsigned int i=0; i<context.open_buckets.size(); i++) {
+        //     if (context.open_buckets[i] > 9000 && context.open_buckets[i] %2 == 1) {
+        //         printf("open bucket %d\n", context.open_buckets[i]);
+        //     }
+        // }
+                for (unsigned int i=0; i<context.open_buckets.size(); i++) {
+                    printf("open bucket %d\n", context.open_buckets[i]);
+                }
+                if (context.open_buckets.size() > 0)
+                    printf("\n");
+
         context.closed_list_bfs_addressable[front_index] = starting_bfs_pe;
         // while(bfs_queue.size() > 0){
         while(front_index < back_index){
@@ -923,8 +932,8 @@ namespace cuckoo_search {
             current_ptr = &context.closed_list_bfs_addressable[front_index];
             front_index++;
 
-            int index = next_search_index(current_ptr->pe, context.location_func, *context.table);
-            int table_index = next_table_index(current_ptr->pe.table_index);
+            unsigned int index = next_search_index(current_ptr->pe, context.location_func, *context.table);
+            unsigned int table_index = next_table_index(current_ptr->pe.table_index);
 
             //Move on if we cant search this bucket
             if (context.open_buckets.size() > 0){
@@ -934,6 +943,7 @@ namespace cuckoo_search {
             }
 
             //move on if this bucket is allready visited
+
             if (std::find(context.visited_buckets.begin(), context.visited_buckets.end(), index) != context.visited_buckets.end()){
                 continue;
             } 
@@ -956,6 +966,17 @@ namespace cuckoo_search {
                 Key * child_key = &(context.table->get_entry_pointer(index, bucket_index)->key);
                 path_element child_pe = path_element(*child_key, table_index, index, bucket_index);
                 bfs_pe chile_bfs_pe = bfs_pe(child_pe, current_ptr);
+                if (back_index >= MAX_SEARCH_ITEMS){
+                    printf("ERROR: MAX SEARCH ITEMS REACHED\n");
+                    printf("printing open buckets\n");
+                    for (unsigned int i=0; i<context.open_buckets.size(); i++) {
+                        printf("open bucket %d\n", context.open_buckets[i]);
+                    }
+
+                    // context.table->print_table();
+                    assert(false);
+                }
+                assert(back_index < MAX_SEARCH_ITEMS);
                 context.closed_list_bfs_addressable[back_index] = chile_bfs_pe;
                 back_index++;
             }
