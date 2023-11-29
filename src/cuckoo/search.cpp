@@ -53,11 +53,6 @@ namespace cuckoo_search {
         std::vector<path_element> path;
         return path;
     }
-    vector<path_element> bucket_cuckoo_insert(Table table, hash_locations (*location_func) (string, unsigned int), Key key, vector<unsigned int>  open_buckets){
-        ALERT("Bucket Cuckoo Insert", "Bucket Cuckoo Insert not implemented");
-        vector<path_element> path;
-        return path;
-    }
 
     inline unsigned int table_index_to_hash_location(hash_locations locations, unsigned int table_index){
         if (table_index == 0){
@@ -115,12 +110,8 @@ namespace cuckoo_search {
 
     void search_closest_bi_n_locations_from_location(Table &table, hash_locations locations, unsigned int n, vector<unsigned int>& targets){
         unsigned int index_0 = locations.primary;
-        unsigned int index_1 = (locations.primary -1);
-        // vector <unsigned int> targets;
-        targets.clear();
-
-        unsigned int counter = 0;
         unsigned int row_count = table.get_row_count();
+        targets.clear();
 
         while(targets.size() < n) {
             if (index_0 >= row_count){
@@ -131,36 +122,6 @@ namespace cuckoo_search {
             }
             index_0++;
         }
-
-
-
-
-        // while (targets.size() < n){
-        //     //deal with wrap around for unsigned ints
-        //     if (index_0 >= row_count)[[unlikely]]{
-        //         index_0 = 0;
-        //     }
-        //     if (index_1 >= row_count)[[unlikeely]]{
-        //         index_1 = row_count - 1;
-        //     }
-        //     if (counter > row_count / 2)[[unlikely]]{
-        //         return;
-        //     }
-        //     if (index_0 < row_count){
-        //         // printf("index_0: %u\n", index_0);
-        //         if (table.bucket_has_empty(index_0)){
-        //             targets.push_back(index_0);
-        //         }
-        //     }
-        //     if (index_1 < row_count && index_1 != index_0){
-        //         if (table.bucket_has_empty(index_1)){
-        //             targets.push_back(index_1);
-        //         }
-        //     }
-        //     index_0++;
-        //     index_1--;
-        //     counter++;
-        // }
     }
 
     //A* search requires targets to search for. This function fines them.
@@ -205,7 +166,7 @@ namespace cuckoo_search {
         // return aspe;
         fast_a_star_pe min = list[0];
         int min_index = 0;
-        for (int i=1; i < list.size(); i++){
+        for (size_t i=1; i < list.size(); i++){
             if (list[i].fscore == DELETED_FSCORE){
                 continue;
             }
@@ -264,7 +225,7 @@ namespace cuckoo_search {
     }
 
     inline bool fast_list_contains_vector(vector<fast_a_star_pe> &list, Key *key){
-        for (int i=0; i<list.size(); i++){
+        for (size_t i=0; i<list.size(); i++){
             if (list[i].pe.key == key){
                 return true;
             }
@@ -313,11 +274,11 @@ namespace cuckoo_search {
     static volatile int median = 0;
 
     inline int get_median(){
-        if (median != 0) [[likely]]{
+        if (median != 0) {
             return median;
         } 
         float factor = get_factor();
-        for (int i=0; i<median_distances.size(); i++){
+        for (size_t i=0; i<median_distances.size(); i++){
             if (factor < median_distances[i].first){
                 median = median_distances[i].second;
                 return median_distances[i].second;
@@ -328,6 +289,7 @@ namespace cuckoo_search {
     }
 
     unsigned int heuristic(unsigned int current_index, unsigned int target_index, unsigned int table_size) {
+        table_size = table_size; //Kill the compiler errors
         const unsigned int median = get_median();
         unsigned int distance = 0;
         if (target_index == current_index){
@@ -359,7 +321,7 @@ namespace cuckoo_search {
     unsigned int fast_min_fscore(fast_a_star_pe pe, vector<unsigned int>&target_index, unsigned int table_size){
         unsigned int g = pe.distance;
         unsigned int min_h = heuristic(pe.pe.bucket_index, target_index[0], table_size);
-        for(int i=1; i<target_index.size(); i++){
+        for(size_t i=1; i<target_index.size(); i++){
             unsigned int h = heuristic(pe.pe.bucket_index, target_index[i], table_size);
             if (h < min_h){
                 min_h = h;
@@ -377,12 +339,7 @@ namespace cuckoo_search {
         a_star_pe * prior_aspe = NULL;
         a_star_pe search_element;
 
-        // Debugging print the list of targets
-        for (auto target : targets){
-            VERBOSE("DEBUG a_star search", "target in search pool: %d\n", target);
-        }
-
-        for (auto target : targets){
+        for (unsigned int target : targets){
             VERBOSE("DEBUG a_star search", "searching for target: %d\n", target);
             path_element starting_pe = path_element(key, -1, -1, -1);
             search_element = a_star_pe(starting_pe, NULL, 0, 0);
@@ -433,7 +390,6 @@ namespace cuckoo_search {
                 if (table.bucket_has_empty(index)){
                     unsigned int offset = table.get_first_empty_index(index);
                     path_element open_pe = path_element(table.get_entry(index,offset).key, table_index, index, offset);
-                    unsigned int distance = search_element.distance + 1;
                     unsigned int f_score = fscore(search_element, target, table.get_row_count());
                     a_star_pe open_a_star_pe = a_star_pe(open_pe, prior_aspe, search_element.distance+1, f_score);
                     // cout << "found target: " << open_a_star_pe.pe.to_string() << endl;
@@ -522,7 +478,7 @@ namespace cuckoo_search {
             back_tracker = back_tracker->prior;
         }
         if (context.path.size() > (MAX_SEARCH_DEPTH + 1)) {
-            ALERT("a-star", "path too long going to crash now lengths %d",context.path.size());
+            ALERT("a-star", "path too long going to crash now lengths %d",(int)context.path.size());
         }
         assert(context.path.size() <= (MAX_SEARCH_DEPTH+1));
     }
@@ -654,7 +610,7 @@ namespace cuckoo_search {
                 }
                 //TODO don't delete this is also protecting a segfault
                 search_depth++;
-                if(search_depth > context.max_search_depth) [[unlikely]]{
+                if(search_depth > context.max_search_depth) {
                     // ALERT("a-star", "search depth exceeded %d moving to the next target \n", context.max_search_depth);
                     break;
                 }
@@ -763,7 +719,7 @@ namespace cuckoo_search {
             }
             //TODO don't delete this is also protecting a segfault
             search_depth++;
-            if(search_depth > MAX_SEARCH_DEPTH) [[unlikely]]{
+            if(search_depth > MAX_SEARCH_DEPTH) {
                 // ALERT("search depth exceeded %d moving to the next target \n", MAX_SEARCH_DEPTH);
                 break;
             }
@@ -833,7 +789,6 @@ namespace cuckoo_search {
                 if (table.bucket_has_empty(index)){
                     unsigned int offset = table.get_first_empty_index(index);
                     fast_path_element open_pe = fast_path_element(&(table.get_entry_pointer(index,offset)->key), table_index, index, offset);
-                    unsigned int distance = search_element.distance + 1;
                     unsigned int f_score = fast_fscore(search_element, target, table_rows);
                     // cout << "found target: " << index << endl;
                     // cout << "setting prior to " << prior_aspe->pe.to_string() << endl;
@@ -874,7 +829,7 @@ namespace cuckoo_search {
 
                 //TODO don't delete this is also protecting a segfault
                 search_depth++;
-                if(search_depth > FAST_A_STAR_MAX_DEPTH) [[unlikely]]{
+                if(search_depth > FAST_A_STAR_MAX_DEPTH) {
                     // ALERT("search depth exceeded %d moving to the next target \n", MAX_SEARCH_DEPTH);
                     break;
                 }
@@ -926,7 +881,7 @@ namespace cuckoo_search {
         //now we need to choose a random entry in the bucket
         unsigned int static_rand_seed = time(NULL);
         int starting_index = rand_r(&static_rand_seed) % context.table->get_buckets_per_row();
-        for (int i = 0; i < context.table->get_buckets_per_row(); i++){
+        for (unsigned int i = 0; i < context.table->get_buckets_per_row(); i++){
             int bucket_index = (starting_index + i) % context.table->get_buckets_per_row();
             Key * child_key = &(context.table->get_entry_pointer(index, bucket_index)->key);
             if (std::find(context.visited_buckets.begin(), context.visited_buckets.end(), child_key->to_uint64_t()) != context.visited_buckets.end()){
@@ -995,7 +950,7 @@ namespace cuckoo_search {
                 break;
             }
 
-            for (int i = 0; i < context.table->get_buckets_per_row(); i++){
+            for (unsigned int i = 0; i < context.table->get_buckets_per_row(); i++){
                 // printf("appending keys\n");
                 int bucket_index = i;
                 Key * child_key = &(context.table->get_entry_pointer(index, bucket_index)->key);
@@ -1111,18 +1066,6 @@ namespace cuckoo_search {
 
     std::vector<path_element> bucket_cuckoo_a_star_insert(cuckoo_tables::Table table, hash_locations (*location_func) (std::string, unsigned int), cuckoo_tables::Key key, std::vector<unsigned int> open_buckets){
         std::vector<path_element> path = a_star_search(table, location_func, key, open_buckets);
-        return path;
-    }
-
-    std::vector<path_element> bucket_cuckoo_random_insert(cuckoo_tables::Table table, hash_locations (*location_func) (std::string, unsigned int), cuckoo_tables::Key key, std::vector<unsigned int> open_buckets){
-        cout << "bucket_cuckoo_random_insert not implemented" << endl;
-        std::vector<path_element> path;
-        return path;
-    }
-
-    std::vector<path_element> bucket_cuckoo_random_insert(cuckoo_tables::Table & table, hash_locations (*location_func) (cuckoo_tables::Key, unsigned int), cuckoo_tables::Key key, std::vector<unsigned int> open_buckets){
-        cout << "bucket_cuckoo_random_insert not implemented" << endl;
-        std::vector<path_element> path;
         return path;
     }
 

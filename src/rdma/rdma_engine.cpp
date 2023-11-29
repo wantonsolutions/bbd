@@ -136,11 +136,12 @@ void rcuckoo_stat_collection(State_Machine ** state_machines, unordered_map<stri
     SUCCESS("RDMA Engine", "Throughput: %f\n", throughput);
     ALERT("Final Tput", "%d,%f\n", num_clients, throughput);
 
-    memory_stats *ms;
+    // memory_stats *ms;
+    // ms->fill=0.13371337;
 
     
     unordered_map<string,string> memory_statistics;
-    memory_statistics["fill"]= to_string(ms->fill);
+    memory_statistics["fill"]="0.13371337";
     write_statistics(config, system_statistics, client_statistics, memory_statistics);
     // free(thread_ids);
     VERBOSE("RDMA Engine", "done running state machine!");
@@ -164,11 +165,10 @@ void slogger_stat_collection(State_Machine ** state_machines, unordered_map<stri
     unordered_map<string,string> system_statistics;
     system_statistics["runtime_ms"] = to_string(ms_int.count());
     system_statistics["runtime_s"]= to_string(ms_int.count() / 1000.0);
-    ALERT("RDMA Engine", "Runtime ms %d\n",ms_int.count());
+    ALERT("RDMA Engine", "Runtime ms %d\n",(int)ms_int.count());
 
-    memory_stats *ms;
     unordered_map<string,string> memory_statistics;
-    memory_statistics["fill"]= to_string(ms->fill);
+    memory_statistics["fill"]="0.13371337666";
     ALERT("RDMA Engine", "Writing out statistics\n");
     write_statistics(config, system_statistics, client_statistics, memory_statistics);
     // free(thread_ids);
@@ -226,11 +226,10 @@ void corrupter_stat_collection(State_Machine ** state_machines, unordered_map<st
     unordered_map<string,string> system_statistics;
     system_statistics["runtime_ms"] = to_string(ms_int.count());
     system_statistics["runtime_s"]= to_string(ms_int.count() / 1000.0);
-    ALERT("RDMA Engine", "Runtime ms %d\n",ms_int.count());
+    ALERT("RDMA Engine", "Runtime ms %d\n",(int)ms_int.count());
 
-    memory_stats *ms;
     unordered_map<string,string> memory_statistics;
-    memory_statistics["fill"]= to_string(ms->fill);
+    memory_statistics["fill"]="0.13371337616";
     ALERT("RDMA Engine", "Writing out statistics\n");
     write_statistics(config, system_statistics, client_statistics, memory_statistics);
     // free(thread_ids);
@@ -471,6 +470,7 @@ namespace rdma_engine {
         ALERT("RDMA Engine", "Experiment Complete\n");
 
         collect_stats(state_machine_holder,_config, _num_clients, ms_int);
+        return true;
     }
 
 }

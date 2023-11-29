@@ -56,7 +56,7 @@ namespace cuckoo_rcuckoo {
 
     bool RCuckoo::path_valid() {
         //Check that all the entries in the path are the same as in the table
-        for (int i=0;i<_search_context.path.size()-1;i++) {
+        for (size_t i=0;i<_search_context.path.size()-1;i++) {
             Entry current_table_entry = _table.get_entry(_search_context.path[i].bucket_index, _search_context.path[i].offset);
             if (!(current_table_entry.key == _search_context.path[i].key)) {
                 return false;
@@ -314,7 +314,7 @@ namespace cuckoo_rcuckoo {
 
         _table_config = memcached_get_table_config();
         assert(_table_config != NULL);
-        assert(_table_config->table_size_bytes == get_table_size_bytes());
+        assert((unsigned int)_table_config->table_size_bytes == get_table_size_bytes());
         INFO(log_id(),"got a table config from the memcached server and it seems to line up\n");
 
         INFO(log_id(), "Registering table with RDMA device size %d, location %p\n", get_table_size_bytes(), get_table_pointer()[0]);
@@ -469,10 +469,10 @@ namespace cuckoo_rcuckoo {
         bool inside_rows = read_message.row < _table.get_row_count();
         bool inside_buckets = read_message.offset < _table.get_buckets_per_row();
         if (!inside_rows) {
-            ALERT(log_id(),"row %lu is not inside rows %lu\n", read_message.row, _table.get_row_count());
+            ALERT(log_id(),"row %d is not inside rows %d\n", read_message.row, _table.get_row_count());
         }
         if (!inside_buckets) {
-            printf(log_id(),"offset %lu is not inside buckets %lu\n", read_message.offset, _table.get_buckets_per_row());
+            printf(log_id(),"offset %d is not inside buckets %d\n", read_message.offset, _table.get_buckets_per_row());
         }
         assert(inside_rows);
         assert(inside_buckets);
@@ -523,7 +523,7 @@ namespace cuckoo_rcuckoo {
         struct ibv_sge sg [MAX_READ_PACKETS];
         struct ibv_exp_send_wr wr [MAX_READ_PACKETS];
 
-        for(int i=0;i<reads.size();i++) {
+        for(size_t i=0;i<reads.size();i++) {
             uint64_t local_address = (uint64_t) get_entry_pointer(reads[i].row, reads[i].offset);
             uint64_t remote_server_address = local_to_remote_table_address(local_address);
 
@@ -544,7 +544,7 @@ namespace cuckoo_rcuckoo {
         send_bulk(reads.size(), _qp, wr);
         #ifdef MEASURE_ESSENTIAL
         uint64_t read_bytes = RDMA_READ_REQUSET_SIZE * reads.size();
-        for(int i=0;i<reads.size();i++) {
+        for(size_t i=0;i<reads.size();i++) {
             read_bytes += RDMA_READ_RESPONSE_BASE_SIZE + reads[i].size;
         }
         _read_operation_messages+=reads.size();
@@ -568,10 +568,10 @@ namespace cuckoo_rcuckoo {
             ALERT(log_id(), "insert_messages.size() %lu\n", insert_messages.size());
             ALERT(log_id(), "unlock_messages.size() %lu\n", unlock_messages.size());
             for (auto message : insert_messages) {
-                ALERT(log_id(), "insert_messages %lu %lu %lu\n", message.row, message.offset, message.new_value);
+                ALERT(log_id(), "insert_messages %d %d %lu\n", message.row, message.offset, message.new_value);
             }
             for (auto message : unlock_messages) {
-                ALERT(log_id(), "unlock_messages %lu %llX %llX\n", message.min_lock_index, message.old, message.new_value);
+                ALERT(log_id(), "unlock_messages %d %lX %lX\n", message.min_lock_index, message.old, message.new_value);
             }
             exit(1);
         }
@@ -678,8 +678,6 @@ namespace cuckoo_rcuckoo {
         bool locking_complete = false;
         bool failed_last_request = false;
 
-        hash_locations both_buckets =(_location_function)(_current_insert_key, _table.get_row_count());
-
         unsigned int message_index = 0;
         while (!locking_complete) {
 
@@ -694,9 +692,8 @@ namespace cuckoo_rcuckoo {
             }
 
             _wr_id++;
-            int outstanding_cas_wr_id = _wr_id;
+            uint64_t outstanding_cas_wr_id = _wr_id;
             _wr_id++;
-            int outstanding_read_wr_id = _wr_id;
 
             send_lock_and_cover_message(lock, read, outstanding_cas_wr_id);
             // auto t1 = high_resolution_clock::now();
@@ -714,13 +711,13 @@ namespace cuckoo_rcuckoo {
 
             _outstanding_read_requests--;
             assert(n == outstanding_messages); //This is just a safty for now.
-            if (_wc[0].status != IBV_WC_SUCCESS) [[unlikely]] {
+            if (_wc[0].status != IBV_WC_SUCCESS) {
                 ALERT("lock aquire", " masked cas failed somehow\n");
                 ALERT("lock aquire", " masked cas %s\n", lock.to_string().c_str());
                 exit(1);
             }
 
-            if (_wc[1].status != IBV_WC_SUCCESS) [[unlikely]] {
+            if (_wc[1].status != IBV_WC_SUCCESS) {
                 ALERT(log_id(), " [lock aquire] spanning read failed somehow\n");
 
                 ALERT(log_id(), " errno: %d \n", -errno);
@@ -733,10 +730,10 @@ namespace cuckoo_rcuckoo {
             uint64_t mask = lock.mask;
             int lock_index = lock.min_lock_index;
 
-            if (!(lock_index >= 0 && lock_index < _table.get_underlying_lock_table_size_bytes())) {
+            if (!(lock_index >= 0 && lock_index < (int)_table.get_underlying_lock_table_size_bytes())) {
                 WARNING(log_id(), "assert about to fail, lock_index = %d, lock_table_size = %d\n", lock_index, _table.get_underlying_lock_table_size_bytes());
             }
-            assert(lock_index >= 0 && lock_index < _table.get_underlying_lock_table_size_bytes());
+            assert(lock_index >= 0 && lock_index < (int)_table.get_underlying_lock_table_size_bytes());
             assert(get_lock_pointer(lock_index));
 
             uint64_t received_locks = *((uint64_t*) get_lock_pointer(lock_index));
@@ -831,7 +828,6 @@ namespace cuckoo_rcuckoo {
 
 
         //Bulk poll to receive all messages
-        int n=0;
         bulk_poll(_completion_queue, 1, _wc + 1);
         _locks_held.clear();
 
@@ -859,7 +855,7 @@ namespace cuckoo_rcuckoo {
         //Search failed
         //Search path is now set
 
-        if (!successful_search) [[unlikely]] {
+        if (!successful_search)  {
             ALERT(log_id(), "Search Failed for key %s unable to continue client %d is done\n", _current_insert_key.to_string().c_str(), _id);
             _complete=true;
             _state = IDLE;
@@ -956,7 +952,6 @@ namespace cuckoo_rcuckoo {
 
 
         //Bulk poll to receive all messages
-        int n=0;
         bulk_poll(_completion_queue, 1, _wc + 1);
         _locks_held.clear();
         complete_update(success);

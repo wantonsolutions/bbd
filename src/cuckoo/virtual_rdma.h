@@ -110,9 +110,6 @@ namespace cuckoo_virtual_rdma {
 
     vector<Entry> read_table_entry(Table &table, uint32_t bucket_id, uint32_t bucket_offset, uint32_t size);
 
-    CasOperationReturn cas_table_entry(Table &table, uint32_t bucket_id, uint32_t bucket_offset, uint64_t old, uint64_t new_value);
-    CasOperationReturn masked_cas_lock_table(Table &table, uint32_t lock_index, uint64_t old, uint64_t new_value, uint64_t mask);
-
     unsigned int single_read_size_bytes(hash_locations buckets, unsigned int row_size_bytes);
     void lock_indexes_to_buckets(vector<unsigned int> &buckets, vector<unsigned int>& lock_indexes, unsigned int buckets_per_lock);
     void lock_indexes_to_buckets_context(vector<unsigned int> &buckets, vector<unsigned int>& lock_indexes, LockingContext &context);

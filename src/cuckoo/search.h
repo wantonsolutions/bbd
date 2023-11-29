@@ -130,7 +130,6 @@ namespace cuckoo_search {
     std::vector<unsigned int> search_path_to_buckets(std::vector<path_element> path);
     void search_path_to_buckets_fast(vector<path_element> &path, vector<unsigned int> &buckets);
     std::vector<path_element> random_dfs_search(cuckoo_tables::Key key, unsigned int table_size);
-    std::vector<path_element> bucket_cuckoo_insert(cuckoo_tables::Table table, hash_locations (*location_func) (std::string, unsigned int), cuckoo_tables::Key key, std::vector<unsigned int>  open_buckets);
     // unsigned int next_search_index(path_element pe, hash_locations (*location_func) (std::string, unsigned int), cuckoo_tables::Table table);
 
     unsigned int next_search_index(path_element pe, hash_locations (*location_func) (Key, unsigned int), Table &table);
@@ -152,9 +151,7 @@ namespace cuckoo_search {
     std::vector<path_element> a_star_search_fast(cuckoo_tables::Table &table, hash_locations (*location_func) (std::string, unsigned int), cuckoo_tables::Key key, std::vector<unsigned int> open_buckets);
     void bucket_cuckoo_a_star_insert_fast_context(search_context &context);
     std::vector<path_element> bucket_cuckoo_a_star_insert(cuckoo_tables::Table table, hash_locations (*location_func) (std::string, unsigned int), cuckoo_tables::Key key, std::vector<unsigned int> open_buckets);
-    std::vector<path_element> bucket_cuckoo_random_insert(cuckoo_tables::Table table, hash_locations (*location_func) (std::string, unsigned int), cuckoo_tables::Key key, std::vector<unsigned int> open_buckets);
     std::vector<path_element> bucket_cuckoo_a_star_insert_fast(cuckoo_tables::Table &table, hash_locations (*location_func) (Key, unsigned int), cuckoo_tables::Key key, std::vector<unsigned int> open_buckets);
-    std::vector<path_element> bucket_cuckoo_random_insert(cuckoo_tables::Table & table, hash_locations (*location_func) (cuckoo_tables::Key, unsigned int), cuckoo_tables::Key key, std::vector<unsigned int> open_buckets);
 
 
     void bucket_cuckoo_random_insert_fast_context(search_context &context);

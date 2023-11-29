@@ -34,6 +34,9 @@ namespace cuckoo_virtual_rdma {
             case PUT:
                 s += "PUT";
                 break;
+            case UPDATE:
+                s += "UPDATE";
+                break;
             case DELETE:
                 s += "DELETE";
                 break;
@@ -83,33 +86,12 @@ namespace cuckoo_virtual_rdma {
         vector<Entry> entries;
         uint32_t base = bucket_id * table.get_buckets_per_row() + bucket_offset;
 
-        for (int i=0; i<total_indexes; i++) {
+        for (uint32_t i=0; i<total_indexes; i++) {
             uint32_t bucket = table.absolute_index_to_bucket_index(base + i);
             uint32_t offset = table.absolute_index_to_bucket_offset(base + i);
             entries.push_back(table.get_entry(bucket, offset));
         }
         return entries;
-    }
-
-    CasOperationReturn cas_table_entry(Table &table, uint32_t bucket_id, uint32_t bucket_offset, uint64_t old, uint64_t new_value) {
-        Entry e = table.get_entry(bucket_id, bucket_offset);
-        uint64_t ret_val = e.get_as_uint64_t();
-        bool success = false;
-        Entry new_entry;
-
-        SUCCESS("virtual_rdma", "cas compairision table %08llx == guess %08llx (success=%d -- row %06d, col %06d)\n", ret_val, old, ret_val == old, bucket_id, bucket_offset);
-
-        if (ret_val == old) {
-            SUCCESS("virtual_rdma", "success cas compairision table %08llx == guess %08llx (success=%d -- row %06d, col %06d)\n", ret_val, old, ret_val == old, bucket_id, bucket_offset);
-            new_entry.set_as_uint64_t(new_value);
-            table.set_entry(bucket_id, bucket_offset, new_entry);
-            success = true;
-        } 
-        return CasOperationReturn(success, ret_val);
-    }
-
-    CasOperationReturn masked_cas_lock_table(Table &table, uint32_t lock_index, uint64_t old, uint64_t new_value, uint64_t mask) {
-        return table.lock_table_masked_cas(lock_index, old, new_value, mask);
     }
 
     unsigned int lock_message_to_lock_indexes(VRMaskedCasData lock_message, unsigned int * lock_indexes) {
@@ -138,12 +120,12 @@ namespace cuckoo_virtual_rdma {
         buckets.clear();
         // const uint8_t bits_in_byte = 8;
         //Translate locks by multiplying by the buckets per lock
-        for (int i=0; i<lock_indexes.size(); i++) {
+        for (size_t i=0; i<lock_indexes.size(); i++) {
             unsigned int lock_index = lock_indexes[i];
             unsigned int bucket = lock_index * buckets_per_lock;
             //fill in buckets that are covered by the lock
             //This is every bucket which is covered by the buckets per lock
-            for(int j=0; j<buckets_per_lock; j++) {
+            for(size_t j=0; j<buckets_per_lock; j++) {
                 buckets.push_back(bucket + j);
             }
         }
@@ -154,24 +136,24 @@ namespace cuckoo_virtual_rdma {
         // const uint8_t bits_in_byte = 8;
         //Translate locks by multiplying by the buckets per lock
         if (context.virtual_lock_table) {
-            for (int i=0; i<lock_indexes.size(); i++) {
+            for (size_t i=0; i<lock_indexes.size(); i++) {
                 unsigned int lock_index = lock_indexes[i];
-                for (int j=0;j<context.scale_factor;j++){
+                for (unsigned int j=0;j<context.scale_factor;j++){
                     unsigned int bucket = (lock_index * context.buckets_per_lock) + (j * context.buckets_per_lock * context.total_physical_locks);
                     //fill in buckets that are covered by the lock
                     //This is every bucket which is covered by the buckets per lock
-                    for(int k=0; k<context.buckets_per_lock; k++) {
+                    for(unsigned k=0; k<context.buckets_per_lock; k++) {
                         buckets.push_back(bucket + k);
                     }
                 }
             }
         } else {
-            for (int i=0; i<lock_indexes.size(); i++) {
+            for (size_t i=0; i<lock_indexes.size(); i++) {
                 unsigned int lock_index = lock_indexes[i];
                 unsigned int bucket = lock_index * context.buckets_per_lock;
                 //fill in buckets that are covered by the lock
                 //This is every bucket which is covered by the buckets per lock
-                for(int j=0; j<context.buckets_per_lock; j++) {
+                for(unsigned int j=0; j<context.buckets_per_lock; j++) {
                     buckets.push_back(bucket + j);
                 }
             }
@@ -180,7 +162,7 @@ namespace cuckoo_virtual_rdma {
 
     vector<unsigned int> get_unique_lock_indexes(vector<unsigned int> buckets, unsigned int buckets_per_lock) {
         vector<unsigned int> buckets_chunked_by_lock;
-        for (int i=0; i<buckets.size(); i++) {
+        for (size_t i=0; i<buckets.size(); i++) {
             unsigned int lock_index = buckets[i] / buckets_per_lock;
             buckets_chunked_by_lock.push_back(lock_index);
         }
@@ -199,7 +181,7 @@ namespace cuckoo_virtual_rdma {
 
     unsigned int get_min_sixty_four_aligned_index(vector<unsigned int> &indexes) {
         unsigned int min_index = indexes[0];
-        for (int i=1; i<indexes.size(); i++) {
+        for (size_t i=1; i<indexes.size(); i++) {
             if (indexes[i] < min_index) {
                 printf("new min index\n");
                 min_index = indexes[i];
@@ -225,11 +207,11 @@ namespace cuckoo_virtual_rdma {
         vector<unsigned int> * current_chunk = &context.fast_lock_chunks[chunk_index];
         current_chunk->clear();
         min_lock_index = sixty_four_aligned_index(context.lock_indexes[0]);
-        for(int i=0; i<context.lock_indexes_size; i++) {
+        for(unsigned int i=0; i<context.lock_indexes_size; i++) {
             unsigned int lock = context.lock_indexes[i];
             if (
             ((lock - min_lock_index) < bits_in_uint64_t) &&
-            (current_chunk->size() < context.locks_per_message)) [[likely]]{
+            (current_chunk->size() < context.locks_per_message)){
                 current_chunk->push_back(lock);
             } else {
                 //Fit the vector without reallocating it.
@@ -252,12 +234,12 @@ namespace cuckoo_virtual_rdma {
         // vector<VRMaskedCasData> masked_cas_data;
         masked_cas_data.clear();
         assert(masked_cas_data.size() == 0);
-        for (int i=0; i<lock_chunks.size(); i++) {
+        for (size_t i=0; i<lock_chunks.size(); i++) {
             VRMaskedCasData mcd;
             uint64_t lock = 0;
             uint64_t one = 1;
             unsigned int min_index = get_min_sixty_four_aligned_index(lock_chunks[i]);
-            for (int j=0; j<lock_chunks[i].size(); j++) {
+            for (size_t j=0; j<lock_chunks[i].size(); j++) {
                 unsigned int normal_index = lock_chunks[i][j] - min_index;
                 lock |= (uint64_t)(one << normal_index);
                 VERBOSE("lock_chunks_to_masked_cas", "normalized index %u\n", normal_index);
@@ -281,13 +263,13 @@ namespace cuckoo_virtual_rdma {
     void lock_chunks_to_masked_cas_data_context(LockingContext &context) {
         // vector<VRMaskedCasData> masked_cas_data;
         context.lock_list.clear();
-        for (int i=0; i<context.number_of_chunks; i++) {
+        for (unsigned int i=0; i<context.number_of_chunks; i++) {
             VRMaskedCasData mcd;
             uint64_t lock = 0;
             uint64_t one = 1;
             unsigned int min_index = get_min_sixty_four_aligned_index(context.fast_lock_chunks[i]);
             // unsigned int min_index = sixty_four_aligned_index(context.fast_lock_chunks[i][0]);
-            for (int j=0; j<context.fast_lock_chunks[i].size(); j++) {
+            for (size_t j=0; j<context.fast_lock_chunks[i].size(); j++) {
                 unsigned int normal_index = context.fast_lock_chunks[i][j] - min_index;
                 lock |= (uint64_t)(one << normal_index);
             }
@@ -312,7 +294,7 @@ namespace cuckoo_virtual_rdma {
     void unlock_chunks_to_masked_cas_data_context(LockingContext &context) { 
         VERBOSE(__func__, "ENTRY");
         lock_chunks_to_masked_cas_data_context(context);
-        for (int i=0; i<context.lock_list.size(); i++) {
+        for (size_t i=0; i<context.lock_list.size(); i++) {
             context.lock_list[i].old = context.lock_list[i].new_value;
             context.lock_list[i].new_value = 0;
         }
@@ -324,7 +306,7 @@ namespace cuckoo_virtual_rdma {
         assert(context.locks_per_message <= 64);
         // vector<vector<unsigned int>> fast_lock_chunks;
         context.lock_list.clear();
-        if (context.fast_lock_chunks.size() == 0) [[unlikely]] {
+        if (context.fast_lock_chunks.size() == 0) {
             context.fast_lock_chunks.resize(MAX_LOCKS);
             for (int i=0; i<MAX_LOCKS; i++) {
                 context.fast_lock_chunks[i].resize(context.locks_per_message);
@@ -349,7 +331,7 @@ namespace cuckoo_virtual_rdma {
         // bool virutal_lock_table = true;
 
         if (context.virtual_lock_table) {
-            for (int i=0; i<unique_lock_count; i++) {
+            for (unsigned int i=0; i<unique_lock_count; i++) {
                 virtual_lock_indexes[i] = unique_lock_indexes[i] % (context.total_physical_locks);
             }
             sort(virtual_lock_indexes, virtual_lock_indexes + unique_lock_count);
@@ -358,26 +340,26 @@ namespace cuckoo_virtual_rdma {
             if (unique_virtual_lock_count != unique_lock_count) {
                 ALERT("virutal lock table", "we have a collision in the virtual lock table\n");
                 //print out both the unique lock index and the virtual lock indexes
-                for (int i=0; i<unique_lock_count; i++) {
+                for (unsigned int i=0; i<unique_lock_count; i++) {
                     virtual_lock_indexes[i] = unique_lock_indexes[i] % (context.total_physical_locks);
                 }
                 sort(virtual_lock_indexes, virtual_lock_indexes + unique_lock_count);
 
-                for (int i=0; i<unique_lock_count; i++) {
+                for (unsigned int i=0; i<unique_lock_count; i++) {
                     printf("unique lock index %d virtual lock index %d total physical locks %d\n", unique_lock_indexes[i], virtual_lock_indexes[i], context.total_physical_locks);
                 }
                 exit(0);
             }
             //TODO do this in place to speed it up
             context.lock_indexes_size = unique_virtual_lock_count;
-            for(int i=0;i<unique_virtual_lock_count;i++){
+            for(unsigned int i=0;i<unique_virtual_lock_count;i++){
                 context.lock_indexes[i] = virtual_lock_indexes[i];
             }
 
         } else {
             // break_lock_indexes_into_chunks_fast(unique_lock_indexes, unique_lock_count, context.locks_per_message, context.fast_lock_chunks);
             context.lock_indexes_size = unique_lock_count;
-            for(int i=0;i<unique_lock_count;i++){
+            for(unsigned int i=0;i<unique_lock_count;i++){
                 context.lock_indexes[i] = unique_lock_indexes[i];
             }
         }
@@ -430,14 +412,14 @@ namespace cuckoo_virtual_rdma {
 
     unsigned int get_unique_lock_indexes_fast(vector<unsigned int> &buckets, unsigned int buckets_per_lock, unsigned int *unique_buckets, unsigned int unique_buckets_size)
     {
-        // assert(unique_buckets_size >= buckets.size());
+        assert(unique_buckets_size >= buckets.size());
         assert(unique_buckets);
 
         unique_buckets[0] = buckets[0] / buckets_per_lock;
         unsigned int unique_index = 1;
-        for (int i=1; i< buckets.size(); i++){
+        for (size_t i=1; i< buckets.size(); i++){
             unsigned int lock_index = buckets[i] / buckets_per_lock;
-            if (unique_buckets[unique_index-1] == lock_index) [[unlikely]]{
+            if (unique_buckets[unique_index-1] == lock_index) {
                 continue;
             } 
             unique_buckets[unique_index] = lock_index;
@@ -517,7 +499,7 @@ namespace cuckoo_virtual_rdma {
 
     void get_covering_reads_from_lock_list(vector<VRMaskedCasData> &masked_cas_list, vector<VRReadData> &read_data_list, unsigned int buckets_per_lock, unsigned int row_size_bytes) {
         read_data_list.clear();
-        for (int i=0; i<masked_cas_list.size(); i++) {
+        for (size_t i=0; i<masked_cas_list.size(); i++) {
             read_data_list.push_back(get_covering_read_from_lock(masked_cas_list[i], buckets_per_lock, row_size_bytes));
         }
         return;
@@ -542,7 +524,7 @@ namespace cuckoo_virtual_rdma {
     void gen_cas_data(vector<path_element>& search_path, vector<VRCasData>& cas_messages) {
 
         cas_messages.clear();
-        for (int i=0; i<search_path.size()-1; i++) {
+        for (size_t i=0; i<search_path.size()-1; i++) {
             cas_messages.push_back(next_cas_data(search_path,i));
         }
         INFO("gen_cas_message", "Generated %d cas messages", cas_messages.size());
