@@ -32,6 +32,8 @@ namespace cuckoo_virtual_rdma {
         string to_string();
     } VRMaskedCasData;
 
+    #define MAX_LOCKS 128
+
     typedef struct LockingContext {
         vector<unsigned int> buckets;
         unsigned int number_of_chunks;
@@ -46,10 +48,10 @@ namespace cuckoo_virtual_rdma {
 
         bool locking;
 
-        unsigned int lock_indexes[128];
+        unsigned int lock_indexes[MAX_LOCKS];
         unsigned int lock_indexes_size;
 
-        unsigned int virtual_lock_indexes[128];
+        unsigned int virtual_lock_indexes[MAX_LOCKS];
         unsigned int virtual_lock_indexes_size;
     } LockingContext;
 

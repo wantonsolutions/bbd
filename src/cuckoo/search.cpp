@@ -913,17 +913,6 @@ namespace cuckoo_search {
         int front_index = 0;
         int back_index = 1;
 
-        // for (unsigned int i=0; i<context.open_buckets.size(); i++) {
-        //     if (context.open_buckets[i] > 9000 && context.open_buckets[i] %2 == 1) {
-        //         printf("open bucket %d\n", context.open_buckets[i]);
-        //     }
-        // }
-                for (unsigned int i=0; i<context.open_buckets.size(); i++) {
-                    printf("open bucket %d\n", context.open_buckets[i]);
-                }
-                if (context.open_buckets.size() > 0)
-                    printf("\n");
-
         context.closed_list_bfs_addressable[front_index] = starting_bfs_pe;
         // while(bfs_queue.size() > 0){
         while(front_index < back_index){
@@ -937,13 +926,13 @@ namespace cuckoo_search {
 
             //Move on if we cant search this bucket
             if (context.open_buckets.size() > 0){
+                // printf("open buckets\n");
                 if (std::find(context.open_buckets.begin(), context.open_buckets.end(), index) == context.open_buckets.end()){
                     continue;
                 }
             }
 
             //move on if this bucket is allready visited
-
             if (std::find(context.visited_buckets.begin(), context.visited_buckets.end(), index) != context.visited_buckets.end()){
                 continue;
             } 
@@ -972,8 +961,11 @@ namespace cuckoo_search {
                     for (unsigned int i=0; i<context.open_buckets.size(); i++) {
                         printf("open bucket %d\n", context.open_buckets[i]);
                     }
+                    for(int i =0;i<back_index;i++){
+                        printf("path element %s\n", context.closed_list_bfs_addressable[i].pe.to_string().c_str());
+                    }
 
-                    // context.table->print_table();
+                    context.table->print_table();
                     assert(false);
                 }
                 assert(back_index < MAX_SEARCH_ITEMS);

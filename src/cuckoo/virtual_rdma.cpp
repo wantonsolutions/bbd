@@ -136,18 +136,15 @@ namespace cuckoo_virtual_rdma {
         // const uint8_t bits_in_byte = 8;
         //Translate locks by multiplying by the buckets per lock
         if (context.virtual_lock_table) {
-            for (size_t i=0; i<lock_indexes.size(); i++) {
-                unsigned int lock_index = lock_indexes[i];
-                for (unsigned int j=0;j<context.scale_factor;j++){
-                    unsigned int bucket = (lock_index * context.buckets_per_lock) + (j * context.buckets_per_lock * context.total_physical_locks);
-                    //fill in buckets that are covered by the lock
-                    //This is every bucket which is covered by the buckets per lock
-                    for(unsigned k=0; k<context.buckets_per_lock; k++) {
-                        buckets.push_back(bucket + k);
-                    }
+            for (size_t i=0; i<context.virtual_lock_indexes_size;i++) {
+                unsigned int lock_index = context.virtual_lock_indexes[i];
+                unsigned int bucket = lock_index * context.buckets_per_lock;
+                //fill in buckets that are covered by the lock
+                //This is every bucket which is covered by the buckets per lock
+                for(unsigned int j=0; j<context.buckets_per_lock; j++) {
+                    buckets.push_back(bucket + j);
                 }
             }
-            std::sort(buckets.begin(), buckets.end());
         } else {
             for (size_t i=0; i<lock_indexes.size(); i++) {
                 unsigned int lock_index = lock_indexes[i];
@@ -159,6 +156,7 @@ namespace cuckoo_virtual_rdma {
                 }
             }
         }
+
     }
 
     vector<unsigned int> get_unique_lock_indexes(vector<unsigned int> buckets, unsigned int buckets_per_lock) {
@@ -250,7 +248,7 @@ namespace cuckoo_virtual_rdma {
             lock = reverse_uint64_t(lock);
             mcd.min_set_lock = lock_chunks[i][0] - min_index;
             mcd.max_set_lock = lock_chunks[i][lock_chunks[i].size()-1] - min_index;
-            mcd.min_lock_index = min_index / 8;
+            mcd.min_lock_index = min_index / BITS_PER_BYTE;
             mcd.old = 0;
             mcd.new_value = lock;
             mcd.mask = lock;
@@ -280,7 +278,7 @@ namespace cuckoo_virtual_rdma {
             lock = __builtin_bswap64(lock);
             mcd.min_set_lock = context.fast_lock_chunks[i][0] - min_index;
             mcd.max_set_lock = context.fast_lock_chunks[i][context.fast_lock_chunks[i].size()-1] - min_index;
-            mcd.min_lock_index = min_index / 8;
+            mcd.min_lock_index = min_index / BITS_PER_BYTE;
             mcd.old = 0;
             mcd.new_value = lock;
             mcd.mask = lock;
@@ -318,7 +316,6 @@ namespace cuckoo_virtual_rdma {
         // }
         // assert(context.buckets.size() <= MAX_LOCKS);
         unsigned int unique_lock_indexes[MAX_LOCKS];
-        unsigned int virtual_lock_indexes[MAX_LOCKS];
 
         //Lets make sure that all the buckets are allready sorted
         //I'm 90% sure this will get optimized out in the end
@@ -332,39 +329,31 @@ namespace cuckoo_virtual_rdma {
         // bool virutal_lock_table = true;
 
         if (context.virtual_lock_table) {
-            // ALERT("virtual lock table", "we are using the virtual lock table\n");
+            //Here the original lock indexes are what we consider virtual. Because the table space is bigger than the physical lock space
+            context.virtual_lock_indexes_size = unique_lock_count;
             for (unsigned int i=0; i<unique_lock_count; i++) {
-                virtual_lock_indexes[i] = unique_lock_indexes[i] % (context.total_physical_locks);
+                context.virtual_lock_indexes[i] = unique_lock_indexes[i];
+                context.lock_indexes[i] = unique_lock_indexes[i] % (context.total_physical_locks); // map the virtual lock to a physical lock
             }
-            sort(virtual_lock_indexes, virtual_lock_indexes + unique_lock_count);
+            //At this point we have our virtual lock mappings, we need to track their physical locks as well
+            sort(context.lock_indexes, context.lock_indexes + unique_lock_count);
             //remove duplicates from the virutal lock indexes
-            unsigned int unique_virtual_lock_count = unique(virtual_lock_indexes, virtual_lock_indexes + unique_lock_count) - virtual_lock_indexes;
-            if (unique_virtual_lock_count != unique_lock_count) {
-                ALERT("virutal lock table", "we have a collision in the virtual lock table\n");
-                //print out both the unique lock index and the virtual lock indexes
-                for (unsigned int i=0; i<unique_lock_count; i++) {
-                    virtual_lock_indexes[i] = unique_lock_indexes[i] % (context.total_physical_locks);
-                }
-                sort(virtual_lock_indexes, virtual_lock_indexes + unique_lock_count);
+            context.lock_indexes_size = unique(context.lock_indexes, context.lock_indexes + unique_lock_count) - context.lock_indexes;
 
-                for (unsigned int i=0; i<unique_lock_count; i++) {
-                    printf("unique lock index %d virtual lock index %d total physical locks %d\n", unique_lock_indexes[i], virtual_lock_indexes[i], context.total_physical_locks);
-                }
+            if (context.lock_indexes_size != context.virtual_lock_indexes_size) {
+                ALERT("virutal lock table", "we have a collision in the virtual lock table\n");
                 exit(0);
             }
-            //TODO do this in place to speed it up
-            context.lock_indexes_size = unique_virtual_lock_count;
-            for(unsigned int i=0;i<unique_virtual_lock_count;i++){
-                context.lock_indexes[i] = virtual_lock_indexes[i];
-            }
-
         } else {
-            // break_lock_indexes_into_chunks_fast(unique_lock_indexes, unique_lock_count, context.locks_per_message, context.fast_lock_chunks);
+            //If we are not using the virtual lock table we set both the lock indexes and the virtual lock indexes to the same thing
             context.lock_indexes_size = unique_lock_count;
+            context.virtual_lock_indexes_size = unique_lock_count;
             for(unsigned int i=0;i<unique_lock_count;i++){
                 context.lock_indexes[i] = unique_lock_indexes[i];
+                context.virtual_lock_indexes[i] = unique_lock_indexes[i];
             }
         }
+        // break_lock_indexes_into_chunks_fast(unique_lock_indexes, unique_lock_count, context.locks_per_message, context.fast_lock_chunks);
 
         break_lock_indexes_into_chunks_fast_context(context);
         if (context.locking) {
@@ -465,7 +454,7 @@ namespace cuckoo_virtual_rdma {
         read_data.row = (masked_cas.min_set_lock + (BITS_PER_BYTE * masked_cas.min_lock_index)) * buckets_per_lock;
         // read_data.row = buckets.primary;
         read_data.offset = 0;
-        // ALERT("get_covering_read_from_lock", "min_bucket: %d, max_bucket: %d size %d\n", buckets.primary, buckets.secondary, read_data.size);
+        ALERT("get_covering_read_from_lock", "row: %d min_bucket: %d, max_bucket: %d size %d\n", read_data.row, buckets.primary, buckets.secondary, read_data.size);
         return read_data;
     }
 
@@ -480,7 +469,36 @@ namespace cuckoo_virtual_rdma {
     void get_covering_reads_context(LockingContext context, vector<VRReadData> &read_data_list, Table &table, unsigned int buckets_per_lock){
         read_data_list.clear();
         for (size_t i=0; i<context.lock_list.size(); i++) {
-            read_data_list.push_back(get_covering_read_from_lock(context.lock_list[i], buckets_per_lock, table.row_size_bytes()));
+            VRMaskedCasData cas = context.lock_list[i]; 
+            unsigned int lock_index = (cas.min_set_lock + (BITS_PER_BYTE * cas.min_lock_index)) * buckets_per_lock;
+            int found = 0;
+            unsigned int original_lock;
+
+            for(int j=0;j<context.virtual_lock_indexes_size; j++) {
+                unsigned int vlock = context.virtual_lock_indexes[j];
+                if((vlock % context.total_physical_locks) ==lock_index){
+                    found++;
+                    original_lock = vlock;
+                }
+            }
+
+            //Here we map the physical lock back to its virtual lock index so that we can send it to the correct table index
+            //TODO this does not handel the overlap case
+            if (found == 1) {
+                ALERT("VIRTUAL COVER MAPING", "old min lock index %d\n",cas.min_lock_index);
+                cas.min_lock_index= sixty_four_aligned_index(original_lock) / BITS_PER_BYTE;
+                ALERT("VIRTUAL COVER MAPING", "new min lock index %d\n",cas.min_lock_index);
+            }else if(found > 1){
+                ALERT("Virtual Cover Mapping", "found more than one lock index %d\n",lock_index);
+                exit(0);
+            } else {
+                ALERT("Virtual Cover Mapping", "did not find lock index %d\n",lock_index);
+                for(int j=0;j<context.lock_indexes_size;j++){
+                    printf("lock index %d\n",context.lock_indexes[j]);
+                }
+                exit(0);
+            }
+            read_data_list.push_back(get_covering_read_from_lock(cas, buckets_per_lock, table.row_size_bytes()));
         }
         return;
     }
