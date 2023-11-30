@@ -784,28 +784,27 @@ namespace cuckoo_rcuckoo {
 
         // assert(_buckets_per_lock == 1);
         //Search path is now set
-        print_path(_search_context.path);
         if(!path_valid()) {
             _failed_insert_first_search_this_insert++;
             _failed_insert_first_search_count++;
-            ALERT(log_id(), "Path is not valid\n");
-            ALERT(log_id(), "first path %s\n", path_to_string(_search_context.path).c_str());
+            INFO(log_id(), "Path is not valid\n");
+            INFO(log_id(), "first path %s\n", path_to_string(_search_context.path).c_str());
             // lock_indexes_to_buckets(_search_context.open_buckets, _locks_held, _buckets_per_lock);
             lock_indexes_to_buckets_context(_search_context.open_buckets, _locks_held, _locking_context);
 
-            unsigned int below =0;
-            unsigned int above =0;
-            unsigned int first_half_of_the_buckets = _table.get_row_count() / 2;
-            for(size_t i=0; i<_search_context.open_buckets.size(); i++) {
-                printf("bucket[%d] = %d\n", i, _search_context.open_buckets[i]);
-                printf("lock %d\n", _locking_context.virtual_lock_indexes[i]);
-                if (_search_context.open_buckets[i] > first_half_of_the_buckets) {
-                    above++;
-                } else {
-                    below++;
-                }
-            }
-        ALERT("openbucketsdebug", "below: %d above: %d : %d\n", below, above, first_half_of_the_buckets);
+            // unsigned int below =0;
+            // unsigned int above =0;
+            // unsigned int first_half_of_the_buckets = _table.get_row_count() / 2;
+            // for(size_t i=0; i<_search_context.open_buckets.size(); i++) {
+            //     // printf("bucket[%d] = %d\n", i, _search_context.open_buckets[i]);
+            //     // printf("lock %d\n", _locking_context.virtual_lock_indexes[i]);
+            //     if (_search_context.open_buckets[i] > first_half_of_the_buckets) {
+            //         above++;
+            //     } else {
+            //         below++;
+            //     }
+            // }
+            // ALERT("openbucketsdebug", "below: %d above: %d : %d\n", below, above, first_half_of_the_buckets);
 
 
             bool successful_search = (this->*_table_search_function)();
@@ -848,9 +847,6 @@ namespace cuckoo_rcuckoo {
             insert_cuckoo_path_local(_table, _search_context.path);
         }
         send_insert_and_unlock_messages(_insert_messages, _locking_context.lock_list, _wr_id);
-        for (size_t i=0; i<_insert_messages.size();i++){
-            ALERT("insert row", "inserting row %d\n", _insert_messages[i].row);
-        }
         _wr_id += total_messages;
 
 
@@ -990,7 +986,7 @@ namespace cuckoo_rcuckoo {
 
         //Hold here until the global start flag is set
         while(!*_global_start_flag){
-            ALERT(log_id(), "not globally started");
+            VERBOSE(log_id(), "not globally started");
         };
         INFO(log_id(),"Starting RDMA FSM Start Flag Set\n");
 

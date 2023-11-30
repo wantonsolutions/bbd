@@ -500,7 +500,7 @@ namespace slogger {
     }
 
     void SLogger::set_workload(string workload) {
-        printf("setting workload to %s\n", workload.c_str());
+        ALERT("setting workload to %s\n", workload.c_str());
         if (workload == "ycsb-a"){
             _workload = A;
         } else if (workload == "ycsb-b"){

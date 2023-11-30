@@ -454,7 +454,7 @@ namespace cuckoo_virtual_rdma {
         read_data.row = (masked_cas.min_set_lock + (BITS_PER_BYTE * masked_cas.min_lock_index)) * buckets_per_lock;
         // read_data.row = buckets.primary;
         read_data.offset = 0;
-        ALERT("get_covering_read_from_lock", "row: %d min_bucket: %d, max_bucket: %d size %d\n", read_data.row, buckets.primary, buckets.secondary, read_data.size);
+        // ALERT("get_covering_read_from_lock", "row: %d min_bucket: %d, max_bucket: %d size %d\n", read_data.row, buckets.primary, buckets.secondary, read_data.size);
         return read_data;
     }
 
@@ -485,9 +485,9 @@ namespace cuckoo_virtual_rdma {
             //Here we map the physical lock back to its virtual lock index so that we can send it to the correct table index
             //TODO this does not handel the overlap case
             if (found == 1) {
-                ALERT("VIRTUAL COVER MAPING", "old min lock index %d\n",cas.min_lock_index);
+                // ALERT("VIRTUAL COVER MAPING", "old min lock index %d\n",cas.min_lock_index);
                 cas.min_lock_index= sixty_four_aligned_index(original_lock) / BITS_PER_BYTE;
-                ALERT("VIRTUAL COVER MAPING", "new min lock index %d\n",cas.min_lock_index);
+                // ALERT("VIRTUAL COVER MAPING", "new min lock index %d\n",cas.min_lock_index);
             }else if(found > 1){
                 ALERT("Virtual Cover Mapping", "found more than one lock index %d\n",lock_index);
                 exit(0);
