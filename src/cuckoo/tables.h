@@ -20,6 +20,8 @@ namespace cuckoo_tables {
     #define VALUE_SIZE 4
     #endif
 
+    #define ROW_CRC
+
     // std::vector<char> HexToBytes(const std::string& hex) {
     //     std::vector<char> bytes;
     //     for (unsigned int i = 0; i < hex.length(); i += 2) {
@@ -173,19 +175,6 @@ namespace cuckoo_tables {
         }
     } Entry;
 
-    typedef struct CasOperationReturn {
-        bool success;
-        uint64_t original_value;
-        CasOperationReturn(){
-            this->success = false;
-            this->original_value = 0;
-        }
-        CasOperationReturn(bool success, uint64_t original_value) {
-            this->success = success;
-            this->original_value = original_value;
-        }
-    } CasOperationReturn;
-
     typedef struct Duplicate_Entry {
         Entry first_entry;
         int first_entry_row;
@@ -202,8 +191,6 @@ namespace cuckoo_tables {
             Lock_Table(unsigned int memory_size, unsigned int bucket_size, unsigned int buckets_per_lock);
             // ~Lock_Table();
             void unlock_all();
-            CasOperationReturn masked_cas(unsigned int index, uint64_t old, uint64_t new_value, uint64_t mask);
-            void fill_masked_cas(unsigned int index, bool success, uint64_t new_value, uint64_t mask);
             void * get_lock_table_address();
             unsigned int get_total_locks();
             unsigned int get_lock_table_size_bytes();
@@ -232,8 +219,6 @@ namespace cuckoo_tables {
             void print_lock_table();
             Entry ** get_underlying_table();
             void set_underlying_table(Entry ** table);
-            CasOperationReturn lock_table_masked_cas(unsigned int lock_index, uint64_t old, uint64_t new_value, uint64_t mask);
-            void fill_lock_table_masked_cas(unsigned int lock_index, bool success, uint64_t value, uint64_t mask);
             unsigned int get_table_size_bytes() const;
             unsigned int get_buckets_per_row() const;
             unsigned int get_row_count() const;
@@ -253,6 +238,8 @@ namespace cuckoo_tables {
             float get_fill_percentage_fast();
             float get_fill_percentage();
             bool full();
+
+            unsigned int get_entries_per_row() const;
             Entry ** generate_bucket_cuckoo_hash_index(unsigned int memory_size, unsigned int bucket_size);
             unsigned int absolute_index_to_bucket_index(unsigned int absolute_index);
             unsigned int absolute_index_to_bucket_offset(unsigned int absolute_index);
@@ -273,6 +260,7 @@ namespace cuckoo_tables {
             unsigned int _bucket_size;
             unsigned int _table_size;
             unsigned int _buckets_per_lock;
+            unsigned int _entries_per_row;
             Entry **_table;
             Lock_Table _lock_table;
             unsigned int _fill;

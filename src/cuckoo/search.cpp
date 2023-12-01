@@ -405,7 +405,7 @@ namespace cuckoo_search {
                 }
 
                 vector<a_star_pe> child_list;
-                for (unsigned int i = 0; i < table.get_buckets_per_row(); i++){
+                for (unsigned int i = 0; i < table.get_entries_per_row(); i++){
                     path_element child_pe = path_element(table.get_entry(index, i).key, table_index, index, i);
                     unsigned int distance = search_element.distance + 1;
                     a_star_pe child = a_star_pe(child_pe, prior_aspe, distance, 0);
@@ -585,12 +585,12 @@ namespace cuckoo_search {
                 bool row_has_been_visited = row_has_been_visited_before(context, index);
                 if (!row_has_been_visited) {
                     context.visited_buckets.push_back(index);
-                    for (unsigned int i = 0; i < context.table->get_buckets_per_row(); i++){
+                    for (unsigned int i = 0; i < context.table->get_entries_per_row(); i++){
                         fast_a_star_pe child = get_child(context, table_index, index, i, target, table_rows, prior_aspe, search_element);
                         fast_push_list(context.open_list, child);
                     }
                 } else {
-                    for (unsigned int i = 0; i < context.table->get_buckets_per_row(); i++){
+                    for (unsigned int i = 0; i < context.table->get_entries_per_row(); i++){
                         fast_a_star_pe child = get_child(context, table_index, index, i, target, table_rows, prior_aspe, search_element);
                         //If the child is in the closed list just continue
                         if (fast_list_contains_vector(context.closed_list, child.pe.key)){
@@ -694,12 +694,12 @@ namespace cuckoo_search {
             bool row_has_been_visited = row_has_been_visited_before(context, index);
             if (!row_has_been_visited) {
                 context.visited_buckets.push_back(index);
-                for (unsigned int i = 0; i < context.table->get_buckets_per_row(); i++){
+                for (unsigned int i = 0; i < context.table->get_entries_per_row(); i++){
                     fast_a_star_pe child = get_child_multi(context, table_index, index, i, context.targets, table_rows, prior_aspe, search_element);
                     fast_push_list(context.open_list, child);
                 }
             } else {
-                for (unsigned int i = 0; i < context.table->get_buckets_per_row(); i++){
+                for (unsigned int i = 0; i < context.table->get_entries_per_row(); i++){
                     fast_a_star_pe child = get_child_multi(context, table_index, index, i, context.targets, table_rows, prior_aspe, search_element);
                     //If the child is in the closed list just continue
                     if (fast_list_contains_vector(context.closed_list, child.pe.key)){
@@ -799,7 +799,7 @@ namespace cuckoo_search {
                     break;
                 }
 
-                for (unsigned int i = 0; i < table.get_buckets_per_row(); i++){
+                for (unsigned int i = 0; i < table.get_entries_per_row(); i++){
                     Key * child_key = &(table.get_entry_pointer(index, i))->key;
                     if (fast_list_contains_vector(closed_list,child_key)){
                         continue;
@@ -880,9 +880,9 @@ namespace cuckoo_search {
 
         //now we need to choose a random entry in the bucket
         unsigned int static_rand_seed = time(NULL);
-        int starting_index = rand_r(&static_rand_seed) % context.table->get_buckets_per_row();
-        for (unsigned int i = 0; i < context.table->get_buckets_per_row(); i++){
-            int bucket_index = (starting_index + i) % context.table->get_buckets_per_row();
+        int starting_index = rand_r(&static_rand_seed) % context.table->get_entries_per_row();
+        for (unsigned int i = 0; i < context.table->get_entries_per_row(); i++){
+            int bucket_index = (starting_index + i) % context.table->get_entries_per_row();
             Key * child_key = &(context.table->get_entry_pointer(index, bucket_index)->key);
             if (std::find(context.visited_buckets.begin(), context.visited_buckets.end(), child_key->to_uint64_t()) != context.visited_buckets.end()){
                 continue;
@@ -949,7 +949,7 @@ namespace cuckoo_search {
                 break;
             }
 
-            for (unsigned int i = 0; i < context.table->get_buckets_per_row(); i++){
+            for (unsigned int i = 0; i < context.table->get_entries_per_row(); i++){
                 // printf("appending keys\n");
                 int bucket_index = i;
                 Key * child_key = &(context.table->get_entry_pointer(index, bucket_index)->key);
@@ -1011,50 +1011,6 @@ namespace cuckoo_search {
             context.path.clear();
         }
     }
-
-
-// def random_dfs_search(table, location_func, path, open_buckets, visited):
-//     if len(path) > DEPTH_LIMIT:
-//         return False, path
-
-//     pe = path[-1]
-//     if pe.key in visited:
-//         return False, path
-//     else:
-//         visited[pe.key] = True
-//     index = next_search_index(pe, location_func, table)
-//     table_index = next_table_index(pe.table_index)
-
-//     if open_buckets != None:
-//         if not index in open_buckets:
-//             return False, path
-
-//     if table.bucket_has_empty(index):
-//         # print("Found Slot:" + str(search_element.pe))
-//         bucket_index = table.get_first_empty_index(index)
-//         pe = path_element(table.get_entry(index,bucket_index),table_index,index,bucket_index)
-//         path.append(pe)
-//         return True, path
-    
-//     #here we have a full bucket we need to evict a candidate
-//     #randomly select an eviction candidate
-//     indicies = list(range(0, table.get_buckets_per_row()))
-//     random.shuffle(indicies)
-//     for evict_index in indicies:
-//         pe = path_element(table.get_entry(index,evict_index), table_index, index, evict_index)
-//         if not key_in_path(path, pe.key):
-//             path.append(pe)
-//         else:
-//             continue
-        
-//         success, path = random_dfs_search(table, location_func, path, open_buckets, visited)
-
-//         if success:
-//             return True, path
-//         else:
-//             path.pop()
-        
-//     return False, path
 
 
     std::vector<path_element> bucket_cuckoo_a_star_insert_fast(cuckoo_tables::Table &table, hash_locations (*location_func) (cuckoo_tables::Key, unsigned int), cuckoo_tables::Key key, std::vector<unsigned int> open_buckets){

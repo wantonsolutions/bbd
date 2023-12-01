@@ -40,24 +40,12 @@ namespace cuckoo_tables {
         for (int i = 0; i < KEY_SIZE; i++){
             val |= (uint64_t) bytes[i] << (8 * i);
         }
-        // for (int i = KEY_SIZE; i < 8; i++){
-        //     val |= (uint64_t) 0 << (8 * i);
-        // }
         return val;
     }
 
     bool Key::is_empty(){
-        // assert(KEY_SIZE == 4);
-        // printf("byte location %p\n", bytes);
         uint32_t b_val = *(uint32_t *)bytes;
-        // printf("byte value %x\n", b_val);
         return !(b_val || 0x00000000);
-        // for (int i = 0; i < KEY_SIZE; i++){
-        //     if (bytes[i] != 0){
-        //         return false;
-        //     }
-        // }
-        // return true;
     }
 
     string Value::to_string(){
@@ -88,8 +76,6 @@ namespace cuckoo_tables {
     void * Lock_Table::get_lock_table_address() {
         return (void*) _locks;
     }
-
-
 
     unsigned int Lock_Table::get_lock_table_size_bytes(){
         return _total_lock_entries;
@@ -149,45 +135,6 @@ namespace cuckoo_tables {
         }
     }
 
-    CasOperationReturn Lock_Table::masked_cas(unsigned int index, uint64_t old, uint64_t new_value, uint64_t mask){
-        assert(index <= _total_lock_entries + 4);
-        // cout << "indexing into lock table: " << index << endl;
-        uint64_t *va = (uint64_t *) &(_locks[index]);
-
-        CasOperationReturn atomic_response;
-        atomic_response.original_value = *va;
-        atomic_response.success = false;
-
-        #ifdef DEBUG
-        cout << to_string() << endl;
-        cout << "original value pre operation  " << std::hex << atomic_response.original_value << endl;
-        cout << "pointer value pre operation   " << std::hex << *va << endl;
-        #endif
-
-        if (!((old ^ *va) & mask)) {
-            *va = (*va & ~(mask)) | (new_value & mask);
-            atomic_response.success = true;
-        }
-
-
-        #ifdef DEBUG
-        cout << "original value post operation " << std::hex << atomic_response.original_value << endl;
-        cout << "pointer value post operation  " << std::hex << *va << endl;
-        cout << to_string() << endl;
-        #endif
-
-        return atomic_response;
-    }
-
-    void Lock_Table::fill_masked_cas(unsigned int index, bool success, uint64_t new_value, uint64_t mask){
-        //todo implement
-        uint64_t *va = (uint64_t *) &_locks[index];
-        *va = (*va & ~(mask)) | (new_value & mask);
-        if (!success) {
-            cout << "fill_masked_cas failed" << endl;
-        }
-    }
-
     string pad_string(string s, unsigned int length){
         while (s.length() < length){
             s = " " + s;
@@ -237,6 +184,13 @@ namespace cuckoo_tables {
         _table_size = int(memory_size / bucket_size) / sizeof(Entry);
         _table = this->generate_bucket_cuckoo_hash_index(memory_size, bucket_size);
         _lock_table = Lock_Table(memory_size, bucket_size, buckets_per_lock);
+
+
+        #ifdef ROW_CRC
+            _entries_per_row= _bucket_size - 1;
+        #else
+            _entries_per_row = _bucket_size;
+        #endif
 
     }
 
@@ -329,15 +283,6 @@ namespace cuckoo_tables {
         return;
     }
 
-    CasOperationReturn Table::lock_table_masked_cas(unsigned int lock_index, uint64_t old, uint64_t new_value, uint64_t mask){
-        return _lock_table.masked_cas(lock_index, old, new_value, mask);
-    }
-
-    void Table::fill_lock_table_masked_cas(unsigned int lock_index, bool success, uint64_t value, uint64_t mask){
-        
-        _lock_table.fill_masked_cas(lock_index, success, value, mask);
-    }
-
     unsigned int Table::get_table_size_bytes() const {
         return _memory_size;
     }
@@ -348,6 +293,10 @@ namespace cuckoo_tables {
 
     unsigned int Table::get_buckets_per_row() const{
         return _bucket_size;
+    }
+
+    unsigned int Table::get_entries_per_row() const {
+        return _entries_per_row;
     }
 
     unsigned int Table::get_bucket_size(){
@@ -376,17 +325,10 @@ namespace cuckoo_tables {
         // printf("table row is   %p\n", _table[bucket_index]);
         // printf("table entry is %p\n", &(_table[bucket_index][offset]));
 
-        // uint64_t entry_pointer = (uint64_t) _table;
-        // printf("entry_pointer is %p\n", (void* )entry_pointer);
-        // entry_pointer += (bucket_index * row_size_bytes()) + (offset * sizeof(Entry));
-        // printf("entry_pointer post math is %p\n", (void* )entry_pointer);
-        // return (Entry *) entry_pointer;
         return _table[bucket_index] + offset;
-        // return &(_table[bucket_index][offset]);
     }
 
     void Table::set_entry(unsigned int bucket_index, unsigned int offset, Entry entry){
-        // printf("setting entry %d %d\n", bucket_index, offset);
         Entry old = _table[bucket_index][offset];
         _table[bucket_index][offset] = entry;
         if (old.is_empty()){
@@ -399,11 +341,8 @@ namespace cuckoo_tables {
     }
 
     bool Table::bucket_has_empty(unsigned int bucket_index){
-        // for (unsigned int i = 0; i < _bucket_size; i++){
-        for (int i = _bucket_size-1; i >= 0; i--){
-            // printf("bucket_index %d, i %d\n", bucket_index, i);
+        for (int i = _entries_per_row-1; i >= 0; i--){
             if (_table[bucket_index][i].is_empty()){
-                // printf("returning true\n");
                 return true;
             }
         }
@@ -412,7 +351,7 @@ namespace cuckoo_tables {
 
     unsigned int Table::get_first_empty_index(unsigned int bucket_index){
         unsigned int empty_index = -1;
-        for (unsigned int i = 0; i < _bucket_size; i++){
+        for (unsigned int i = 0; i < _entries_per_row; i++){
             if (_table[bucket_index][i].is_empty()){
                 empty_index = i;
                 break;
@@ -423,7 +362,7 @@ namespace cuckoo_tables {
     }
 
     bool Table::bucket_contains(unsigned int bucket_index, Key &key){
-        for (unsigned int i = 0; i < _bucket_size; i++){
+        for (unsigned int i = 0; i < _entries_per_row; i++){
             if (_table[bucket_index][i].key == key){
                 return true;
             }
@@ -441,10 +380,10 @@ namespace cuckoo_tables {
     }
 
     float Table::get_fill_percentage(){
-        unsigned int max_fill = _table_size * _bucket_size;
         unsigned int current_fill = 0;
+        unsigned int max_fill = _table_size * _entries_per_row;
         for (unsigned int i = 0; i < _table_size; i++){
-            for (unsigned int j = 0; j < _bucket_size; j++){
+            for (unsigned int j = 0; j < _entries_per_row; j++){
                 if (!_table[i][j].is_empty()){
                     current_fill++;
                 }
@@ -455,12 +394,12 @@ namespace cuckoo_tables {
     }
 
     float Table::get_fill_percentage_fast() {
-        unsigned int max_fill = _table_size * _bucket_size;
+        unsigned int max_fill = _table_size * _entries_per_row;
         return float(_fill) / float(max_fill);
     }
 
     bool Table::full(){
-        return _fill == _table_size * _bucket_size;
+        return _fill == _table_size * _entries_per_row;
     }
 
     Entry ** Table::generate_bucket_cuckoo_hash_index(unsigned int memory_size, unsigned int bucket_size){

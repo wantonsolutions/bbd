@@ -203,6 +203,7 @@ int main(int argc, char **argv)
     moniter_run(num_qps, 1 ,prime, runtime, use_runtime, msm);
 
     ALERT("RDMA memory server", "Sending results to the memcached server\n");
+    msm.print_table();
     send_final_memory_stats_to_memcached_server(msm);
 
     ret = disconnect_and_cleanup(num_qps);
