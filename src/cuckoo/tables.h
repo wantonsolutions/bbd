@@ -9,6 +9,7 @@
 
 using namespace std;
 
+#define ROW_CRC
 
 namespace cuckoo_tables {
 
@@ -19,19 +20,6 @@ namespace cuckoo_tables {
     #ifndef VALUE_SIZE
     #define VALUE_SIZE 4
     #endif
-
-    #define ROW_CRC
-
-    // std::vector<char> HexToBytes(const std::string& hex) {
-    //     std::vector<char> bytes;
-    //     for (unsigned int i = 0; i < hex.length(); i += 2) {
-    //         std::string byteString = hex.substr(i, 2);
-    //         char byte = (char) strtol(byteString.c_str(), NULL, 16);
-    //         bytes.push_back(byte);
-    //     }
-    //     return bytes;
-    // }
-
 
     typedef struct Key { 
         uint8_t bytes[KEY_SIZE];
@@ -53,18 +41,7 @@ namespace cuckoo_tables {
                 return true;
             }
         }
-        // bool operator=(const Key& rhs) {
-        //     for (int i = 0; i < KEY_SIZE; i++){
-        //         bytes[i] = rhs.bytes[i];
-        //     }
-        //     return true;
-        // }
-        // bool operator=(const Key rhs) {
-        //     for (int i = 0; i < KEY_SIZE; i++){
-        //         bytes[i] = rhs.bytes[i];
-        //     }
-        //     return true;
-        // }
+
         template <typename T>
         void set(T val) {
             for (long unsigned int i = 0; i < KEY_SIZE && i < sizeof(val); i++){
@@ -84,10 +61,7 @@ namespace cuckoo_tables {
                 bytes[i] = 0;
             }
         }
-
     } Key;
-
-
 
     typedef struct Value { 
         uint8_t bytes[VALUE_SIZE];
@@ -231,6 +205,8 @@ namespace cuckoo_tables {
             Entry * get_entry_pointer(unsigned int bucket_index, unsigned int offset);
             bool bucket_has_empty(unsigned int bucket_index);
             unsigned int get_first_empty_index(unsigned int bucket_index);
+
+            uint64_t crc64_row(unsigned int row_index);
 
             bool contains(Key key);
             bool bucket_contains(unsigned int bucket_index, Key &key);

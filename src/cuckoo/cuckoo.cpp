@@ -65,7 +65,6 @@ namespace cuckoo_rcuckoo {
         return true;
     }
 
-
     void RCuckoo::insert_cuckoo_path_local(Table &table, vector<path_element> &path) {
         assert(path.size() >= 2);
         for (int i=path.size()-2; i >=0; i--){
@@ -74,7 +73,6 @@ namespace cuckoo_rcuckoo {
             table.set_entry(path[i].bucket_index, path[i].offset, e);
         }
     }
-
 
     unsigned int RCuckoo::get_table_size_bytes() {
         return _table.get_table_size_bytes();
@@ -296,16 +294,7 @@ namespace cuckoo_rcuckoo {
     }
 
     void RCuckoo::fill_current_unlock_list() {
-        // lock_indexes_to_buckets(_locking_context.buckets,_locks_held, _buckets_per_lock);
-
-        // lock_indexes_to_buckets_context(_locking_context.buckets, _locks_held, _locking_context);
-        // sort(_locking_context.buckets.begin(), _locking_context.buckets.end());
-        // get_unlock_list_fast_context(_locking_context);
-
-
         get_unlock_list_from_lock_indexes(_locking_context);
-        // get_unlock_list_fast(buckets, _fast_lock_chunks, _lock_list, _buckets_per_lock, _locks_per_message);
-        //_lock_list is now full of locks
     }
 
 
@@ -592,6 +581,12 @@ namespace cuckoo_rcuckoo {
         for ( unsigned int i=0; i < insert_messages.size(); i++) {
             uint64_t local_address = (uint64_t) get_entry_pointer(insert_messages[i].row, insert_messages[i].offset);
             uint64_t remote_server_address = local_to_remote_table_address(local_address);
+
+            char * row_pointer = (char *) get_entry_pointer(insert_messages[i].row, 0);
+            uint64_t crc = _table.crc64_row(insert_messages[i].row);
+
+            printf("row %d crc %lX\n", insert_messages[i].row, crc);
+
             // setRdmaCompareAndSwapExp(
             //     &sg[i],
             //     &wr[i],
@@ -618,8 +613,6 @@ namespace cuckoo_rcuckoo {
                 false,
                 wr_id + 1
             );
-
-
             wr_id++;
         }
         bool signal = false;

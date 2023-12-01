@@ -8,7 +8,9 @@
 #include <stdexcept>
 #include <bitset>
 #include "../slib/log.h"
-// #include "spdlog/spdlog.h" //sudo apt install libspdlog-dev
+#include "../slib/crc64.h"
+
+using namespace std;
 
 template<typename ... Args>
 std::string string_format( const std::string& format, Args ... args )
@@ -22,9 +24,6 @@ std::string string_format( const std::string& format, Args ... args )
 }
 
 namespace cuckoo_tables {
-
-    using namespace std;
-
 
     string Key::to_string(){
         string s = "";
@@ -85,7 +84,6 @@ namespace cuckoo_tables {
         return (void*) &(_locks[lock_index]);
     }
 
-
     void Lock_Table::set_lock_table_address(void * address) {
         _locks = (uint8_t*) address;
     }
@@ -94,7 +92,6 @@ namespace cuckoo_tables {
         return _total_locks;
     }
 
-
     /*lock table functions*/
     Lock_Table::Lock_Table(){
         _total_locks = 0;
@@ -102,6 +99,7 @@ namespace cuckoo_tables {
         _locks = NULL;
 
     }
+
     Lock_Table::Lock_Table(unsigned int memory_size, unsigned int bucket_size, unsigned int buckets_per_lock){
 
         INFO("Lock Table", "memory_size: %d\n", memory_size);
@@ -126,7 +124,6 @@ namespace cuckoo_tables {
         INFO("Lock Table", "_total_lock_entries: %d\n", _total_lock_entries);
         _locks = new uint8_t[_total_lock_entries];
         this->unlock_all();
-
     }
 
     void Lock_Table::unlock_all(){
@@ -185,7 +182,6 @@ namespace cuckoo_tables {
         _table = this->generate_bucket_cuckoo_hash_index(memory_size, bucket_size);
         _lock_table = Lock_Table(memory_size, bucket_size, buckets_per_lock);
 
-
         #ifdef ROW_CRC
             _entries_per_row= _bucket_size - 1;
         #else
@@ -193,7 +189,6 @@ namespace cuckoo_tables {
         #endif
 
     }
-
 
     bool Table::operator==(const Table& rhs) const {
         if (get_table_size_bytes() != rhs.get_table_size_bytes()){
@@ -211,7 +206,6 @@ namespace cuckoo_tables {
         }
         return true;
     }
-
 
     void * Table::get_lock_pointer(unsigned int lock_index) {
         return _lock_table.get_lock_pointer(lock_index);
@@ -259,7 +253,6 @@ namespace cuckoo_tables {
         output_string += std::to_string(get_fill_percentage()) + "% full\n";
         return output_string;
     }
-
 
     string Table::row_to_string(unsigned int row) {
         assert(row < _table_size);
@@ -320,11 +313,6 @@ namespace cuckoo_tables {
     }
 
     Entry * Table::get_entry_pointer(unsigned int bucket_index, unsigned int offset){
-        // printf("Entry at %d, %d is %s\n", bucket_index, offset, _table[bucket_index][offset].to_string().c_str());
-        // printf("table base is  %p\n", _table);
-        // printf("table row is   %p\n", _table[bucket_index]);
-        // printf("table entry is %p\n", &(_table[bucket_index][offset]));
-
         return _table[bucket_index] + offset;
     }
 
@@ -334,10 +322,15 @@ namespace cuckoo_tables {
         if (old.is_empty()){
             _fill++;
         }
-
         if (entry.is_empty()){
             _fill--;
         }
+    }
+
+    uint64_t Table::crc64_row(unsigned int row) {
+        const unsigned char * row_pointer = (const unsigned char *) &(_table[row][0]);
+        return  crc64(0,row_pointer, n_buckets_size(_entries_per_row));
+
     }
 
     bool Table::bucket_has_empty(unsigned int bucket_index){
@@ -358,7 +351,6 @@ namespace cuckoo_tables {
             }
         }
         return empty_index;
-
     }
 
     bool Table::bucket_contains(unsigned int bucket_index, Key &key){
@@ -390,7 +382,6 @@ namespace cuckoo_tables {
             }
         } 
         return float(current_fill) / float(max_fill);
-        // return float(_fill) / float(max_fill);
     }
 
     float Table::get_fill_percentage_fast() {
