@@ -374,7 +374,7 @@ namespace state_machines {
     }
 
     void Client_Workload_Driver::set_workload(string workload) {
-        printf("setting workload to %s\n", workload.c_str());
+        INFO("Workload Driver", "setting workload to %s\n", workload.c_str());
         if (workload == "ycsb-a"){
             _workload = A;
         } else if (workload == "ycsb-b"){

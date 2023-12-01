@@ -342,7 +342,8 @@ namespace cuckoo_virtual_rdma {
 
             if (context.lock_indexes_size != context.virtual_lock_indexes_size) {
                 ALERT("virutal lock table", "we have a collision in the virtual lock table\n");
-                exit(0);
+                ALERT("virutal lock table", "we can tie break this by only giving the min lock or by issuing two read requests.\n");
+                // exit(0);
             }
         } else {
             //If we are not using the virtual lock table we set both the lock indexes and the virtual lock indexes to the same thing
@@ -489,8 +490,9 @@ namespace cuckoo_virtual_rdma {
                 cas.min_lock_index= sixty_four_aligned_index(original_lock) / BITS_PER_BYTE;
                 // ALERT("VIRTUAL COVER MAPING", "new min lock index %d\n",cas.min_lock_index);
             }else if(found > 1){
-                ALERT("Virtual Cover Mapping", "found more than one lock index %d\n",lock_index);
-                exit(0);
+                ALERT("SHOULD KILL Virtual Cover Mapping", "found more than one lock index %d, for now picking the highest lock should send two reads\n",lock_index);
+                cas.min_lock_index= sixty_four_aligned_index(original_lock) / BITS_PER_BYTE;
+                // exit(0);
             } else {
                 ALERT("Virtual Cover Mapping", "did not find lock index %d\n",lock_index);
                 for(int j=0;j<context.lock_indexes_size;j++){

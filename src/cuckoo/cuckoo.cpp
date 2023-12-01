@@ -103,6 +103,7 @@ namespace cuckoo_rcuckoo {
         clear_statistics();
         //try to parse state machine config
         bool use_virtual_lock_table;
+        unsigned virtual_lock_scale_factor;
         try{
             _read_threshold_bytes = stoi(config["read_threshold_bytes"]);
             _buckets_per_lock = stoi(config["buckets_per_lock"]);
@@ -113,6 +114,7 @@ namespace cuckoo_rcuckoo {
             _id = stoi(config["id"]) + _starting_id;
             _use_mask = (config["use_mask"] == "true");
             use_virtual_lock_table = (config["use_virtual_lock_table"] == "true");
+            virtual_lock_scale_factor = stoi(config["virtual_lock_scale_factor"]);
 
         } catch (exception& e) {
             printf("ERROR: RCuckoo config missing required field\n");
@@ -134,8 +136,9 @@ namespace cuckoo_rcuckoo {
         _locking_context.buckets_per_lock = _buckets_per_lock;
         _locking_context.locks_per_message = _locks_per_message;
         _locking_context.virtual_lock_table = use_virtual_lock_table;
+
         if (_locking_context.virtual_lock_table) {
-            _locking_context.scale_factor = 32;
+            _locking_context.scale_factor = virtual_lock_scale_factor;
             _locking_context.total_physical_locks = _table.get_total_locks() / _locking_context.scale_factor;
             for (int i=0;i<50;i++){
                 ALERT("virutal lock table", "we are using an artifically sized virtual lock table\n");
@@ -791,21 +794,6 @@ namespace cuckoo_rcuckoo {
             INFO(log_id(), "first path %s\n", path_to_string(_search_context.path).c_str());
             // lock_indexes_to_buckets(_search_context.open_buckets, _locks_held, _buckets_per_lock);
             lock_indexes_to_buckets_context(_search_context.open_buckets, _locks_held, _locking_context);
-
-            // unsigned int below =0;
-            // unsigned int above =0;
-            // unsigned int first_half_of_the_buckets = _table.get_row_count() / 2;
-            // for(size_t i=0; i<_search_context.open_buckets.size(); i++) {
-            //     // printf("bucket[%d] = %d\n", i, _search_context.open_buckets[i]);
-            //     // printf("lock %d\n", _locking_context.virtual_lock_indexes[i]);
-            //     if (_search_context.open_buckets[i] > first_half_of_the_buckets) {
-            //         above++;
-            //     } else {
-            //         below++;
-            //     }
-            // }
-            // ALERT("openbucketsdebug", "below: %d above: %d : %d\n", below, above, first_half_of_the_buckets);
-
 
             bool successful_search = (this->*_table_search_function)();
             _search_path_index = _search_context.path.size() -1;
