@@ -584,11 +584,13 @@ namespace cuckoo_rcuckoo {
         assert(total_messages <= MAX_INSERT_AND_UNLOCK_MESSAGE_COUNT);
 
         for ( unsigned int i=0; i < insert_messages_with_crc; i+=2) {
-            uint64_t local_address = (uint64_t) get_entry_pointer(insert_messages[i].row, insert_messages[i].offset);
+            // printf("Row, Offset %d %d\n", insert_messages[i].row, insert_messages[i].offset);
+            unsigned int index = i/2;
+            uint64_t local_address = (uint64_t) get_entry_pointer(insert_messages[index].row, insert_messages[index].offset);
             uint64_t remote_server_address = local_to_remote_table_address(local_address);
 
 
-            printf("local_address %lX remote_server_address %lX\n", local_address, remote_server_address);
+            // printf("local_address %lX remote_server_address %lX\n", local_address, remote_server_address);
             int32_t imm = -1;
             setRdmaWriteExp(
                 &sg[i],
@@ -604,14 +606,14 @@ namespace cuckoo_rcuckoo {
             );
             wr_id++;
 
-            uint64_t crc = _table.crc64_row(insert_messages[i].row);
+            uint64_t crc = _table.crc64_row(insert_messages[index].row);
             Entry crc_entry;
             crc_entry.set_as_uint64_t(crc);
-            _table.set_entry(insert_messages[i].row, _table.get_entries_per_row(), crc_entry);
-            uint64_t crc_address = (uint64_t) get_entry_pointer(insert_messages[i].row, _table.get_entries_per_row());
+            _table.set_entry(insert_messages[index].row, _table.get_entries_per_row(), crc_entry);
+            uint64_t crc_address = (uint64_t) get_entry_pointer(insert_messages[index].row, _table.get_entries_per_row());
 
             uint64_t remote_server_crc_address = local_to_remote_table_address(crc_address);
-            printf("crc_address %lX remote_server_crc_address %lX\n", crc_address, remote_server_crc_address);
+            // printf("crc_address %lX remote_server_crc_address %lX\n", crc_address, remote_server_crc_address);
             setRdmaWriteExp(
                 &sg[i+1],
                 &wr[i+1],

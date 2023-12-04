@@ -313,6 +313,7 @@ namespace cuckoo_tables {
     }
 
     Entry * Table::get_entry_pointer(unsigned int bucket_index, unsigned int offset){
+        // printf("get_entry_pointer: bucket_index: %d, offset: %d\n", bucket_index, offset);
         return _table[bucket_index] + offset;
     }
 
