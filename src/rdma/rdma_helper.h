@@ -73,6 +73,8 @@ namespace rdma_helper {
 
     void setRdmaWriteExp(struct ibv_sge * sg, struct ibv_exp_send_wr * wr, uint64_t source, uint64_t dest, uint64_t size,
         uint32_t lkey, uint32_t remoteRKey, int32_t imm, bool signal, uint64_t wrID);
+
+    void set_signal(struct ibv_exp_send_wr * wr);
 }
 
 #endif

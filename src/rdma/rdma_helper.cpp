@@ -314,7 +314,9 @@ namespace rdma_helper {
     }
 
 
-
+    void set_signal(struct ibv_exp_send_wr * wr) {
+        wr->exp_send_flags |= IBV_EXP_SEND_SIGNALED;
+    }
 
     void setRdmaCompareAndSwapMask(struct ibv_sge* sg, struct ibv_exp_send_wr *wr, uint64_t source, uint64_t dest,
                                 uint64_t compare, uint64_t swap, uint32_t lkey,
