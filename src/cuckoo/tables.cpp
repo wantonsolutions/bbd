@@ -334,6 +334,10 @@ namespace cuckoo_tables {
 
     }
 
+    bool Table:: crc_valid_row(unsigned int row) {
+        return crc64_row(row) == get_entry(row,get_entries_per_row()).get_as_uint64_t();
+    }
+
     bool Table::bucket_has_empty(unsigned int bucket_index){
         for (int i = _entries_per_row-1; i >= 0; i--){
             if (_table[bucket_index][i].is_empty()){

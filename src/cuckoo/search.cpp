@@ -965,7 +965,8 @@ namespace cuckoo_search {
                         printf("path element %s\n", context.closed_list_bfs_addressable[i].pe.to_string().c_str());
                     }
 
-                    context.table->print_table();
+                    // context.table->print_table();
+                    ALERT("MAX SEARCH ITEMS REACHED", "table is probably really full");
                     assert(false);
                 }
                 assert(back_index < MAX_SEARCH_ITEMS);

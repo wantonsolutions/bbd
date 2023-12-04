@@ -50,16 +50,26 @@ XXH64_hash_t h1(Key &key) {
 
 XXH64_hash_t h2(Key &key){
     assert(KEY_SIZE >= 4);
+    uint8_t first = key.bytes[0];
+    uint8_t second = key.bytes[1];
     key.bytes[0] = ~key.bytes[0];
     key.bytes[1] = ~key.bytes[1];
-    return xxhash_value(key);
+    XXH64_hash_t val = xxhash_value(key);
+    key.bytes[0] = first;
+    key.bytes[1] = second;
+    return val;
 }
 
 XXH64_hash_t h3(Key &key){
     assert(KEY_SIZE >= 4);
+    uint8_t first = key.bytes[2];
+    uint8_t second = key.bytes[3];
     key.bytes[2] = ~key.bytes[2];
     key.bytes[3] = ~key.bytes[3];
-    return xxhash_value(key);
+    XXH64_hash_t val = xxhash_value(key);
+    key.bytes[2] = first;
+    key.bytes[3] = second;
+    return val;
 }
 
 unsigned int rcuckoo_primary_location(Key &key, unsigned int table_size){

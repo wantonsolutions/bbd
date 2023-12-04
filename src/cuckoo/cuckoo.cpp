@@ -556,13 +556,65 @@ namespace cuckoo_rcuckoo {
 
     }
 
+    void RCuckoo::send_insert_and_crc(VRCasData insert_message, ibv_sge *sg, ibv_exp_send_wr *wr, uint64_t *wr_id) {
+        #ifndef ROW_CRC
+        ALERT("ROW CRC", "dont run this code unless we are running row CRC");
+        assert(false);
+        #endif
+
+        uint64_t local_address = (uint64_t) get_entry_pointer(insert_message.row, insert_message.offset);
+        uint64_t remote_server_address = local_to_remote_table_address(local_address);
+
+
+        // printf("local_address %lX remote_server_address %lX\n", local_address, remote_server_address);
+        int32_t imm = -1;
+        setRdmaWriteExp(
+            &sg[0],
+            &wr[0],
+            local_address,
+            remote_server_address,
+            sizeof(Entry),
+            _table_mr->lkey,
+            _table_config->remote_key,
+            imm,
+            false,
+            *wr_id
+        );
+        (*wr_id)++;
+
+        uint64_t crc = _table.crc64_row(insert_message.row);
+        Entry crc_entry;
+        crc_entry.set_as_uint64_t(crc);
+        _table.set_entry(insert_message.row, _table.get_entries_per_row(), crc_entry);
+        uint64_t crc_address = (uint64_t) get_entry_pointer(insert_message.row, _table.get_entries_per_row());
+
+        uint64_t remote_server_crc_address = local_to_remote_table_address(crc_address);
+        // printf("crc_address %lX remote_server_crc_address %lX\n", crc_address, remote_server_crc_address);
+        setRdmaWriteExp(
+            &sg[1],
+            &wr[1],
+            crc_address,
+            remote_server_crc_address,
+            sizeof(uint64_t),
+            _table_mr->lkey,
+            _table_config->remote_key,
+            imm,
+            false,
+            *wr_id
+        );
+        (*wr_id)++;
+
+
+    }
+
+
     void RCuckoo::send_insert_crc_and_unlock_messages(vector<VRCasData> &insert_messages, vector<VRMaskedCasData> & unlock_messages, uint64_t wr_id) {
         #define MAX_INSERT_CRC_AND_UNLOCK_MESSAGE_COUNT 64
         struct ibv_sge sg [MAX_INSERT_CRC_AND_UNLOCK_MESSAGE_COUNT];
         struct ibv_exp_send_wr wr [MAX_INSERT_CRC_AND_UNLOCK_MESSAGE_COUNT];
 
         #ifndef ROW_CRC
-        ALERT("We should not be running row based CRC unless this feature is on");
+        ALERT("ROW CRC", "dont run this code unless we are running row CRC (send_insert_crc_and_unlock_messages)");
         assert(false);
         #endif
 
@@ -583,78 +635,14 @@ namespace cuckoo_rcuckoo {
         }
         assert(total_messages <= MAX_INSERT_AND_UNLOCK_MESSAGE_COUNT);
 
-        for ( unsigned int i=0; i < insert_messages_with_crc; i+=2) {
-            // printf("Row, Offset %d %d\n", insert_messages[i].row, insert_messages[i].offset);
-            unsigned int index = i/2;
-            uint64_t local_address = (uint64_t) get_entry_pointer(insert_messages[index].row, insert_messages[index].offset);
-            uint64_t remote_server_address = local_to_remote_table_address(local_address);
-
-
-            // printf("local_address %lX remote_server_address %lX\n", local_address, remote_server_address);
-            int32_t imm = -1;
-            setRdmaWriteExp(
-                &sg[i],
-                &wr[i],
-                local_address,
-                remote_server_address,
-                sizeof(Entry),
-                _table_mr->lkey,
-                _table_config->remote_key,
-                imm,
-                false,
-                wr_id
-            );
-            wr_id++;
-
-            uint64_t crc = _table.crc64_row(insert_messages[index].row);
-            Entry crc_entry;
-            crc_entry.set_as_uint64_t(crc);
-            _table.set_entry(insert_messages[index].row, _table.get_entries_per_row(), crc_entry);
-            uint64_t crc_address = (uint64_t) get_entry_pointer(insert_messages[index].row, _table.get_entries_per_row());
-
-            uint64_t remote_server_crc_address = local_to_remote_table_address(crc_address);
-            // printf("crc_address %lX remote_server_crc_address %lX\n", crc_address, remote_server_crc_address);
-            setRdmaWriteExp(
-                &sg[i+1],
-                &wr[i+1],
-                crc_address,
-                remote_server_crc_address,
-                sizeof(uint64_t),
-                _table_mr->lkey,
-                _table_config->remote_key,
-                imm,
-                false,
-                wr_id
-            );
-            wr_id++;
+        for ( unsigned int i=0; i < insert_messages.size(); i++) {
+            send_insert_and_crc(insert_messages[i], &sg[i*2], &wr[i*2], &wr_id);
         }
-
-
-        bool signal = false;
         for ( unsigned int i=0; i < unlock_messages.size(); i++) {
-            if (i == unlock_messages.size() - 1) {
-                signal = true;
-            }
-            uint64_t local_lock_address = (uint64_t) get_lock_pointer(unlock_messages[i].min_lock_index);
-            uint64_t remote_lock_address = (uint64_t) _table_config->lock_table_address + unlock_messages[i].min_lock_index;
-            uint64_t compare = __builtin_bswap64(unlock_messages[i].old);
-            uint64_t swap = __builtin_bswap64(unlock_messages[i].new_value);
-            uint64_t mask = __builtin_bswap64(unlock_messages[i].mask);
-
-            setRdmaCompareAndSwapMask(
-                &sg[i + insert_messages_with_crc],
-                &wr[i + insert_messages_with_crc],
-                local_lock_address,
-                remote_lock_address,
-                compare,
-                swap,
-                _lock_table_mr->lkey,
-                _table_config->lock_table_key,
-                mask,
-                signal,
-                wr_id);
-            wr_id++;
+            set_unlock_message(unlock_messages[i], &sg[i + insert_messages_with_crc], &wr[i + insert_messages_with_crc], &wr_id);
         }
+        set_signal(&wr[total_messages-1]);
+
         send_bulk(total_messages, _qp, wr);
         #ifdef MEASURE_ESSENTIAL
         //TODO WRITE SIZES ARE WRONG
@@ -676,7 +664,50 @@ namespace cuckoo_rcuckoo {
 
 
     }
+    
 
+    void RCuckoo::set_insert(VRCasData &insert_message, struct ibv_sge *sg, struct ibv_exp_send_wr *wr, uint64_t *wr_id) {
+
+            uint64_t local_address = (uint64_t) get_entry_pointer(insert_message.row, insert_message.offset);
+            uint64_t remote_server_address = local_to_remote_table_address(local_address);
+
+            int32_t imm = -1;
+            setRdmaWriteExp(
+                sg,
+                wr,
+                local_address,
+                remote_server_address,
+                sizeof(Entry),
+                _table_mr->lkey,
+                _table_config->remote_key,
+                imm,
+                false,
+                (*wr_id)
+            );
+            (*wr_id)++;
+    }
+
+    void RCuckoo::set_unlock_message(VRMaskedCasData &unlock_message, struct ibv_sge *sg, struct ibv_exp_send_wr *wr, uint64_t *wr_id) {
+        uint64_t local_lock_address = (uint64_t) get_lock_pointer(unlock_message.min_lock_index);
+        uint64_t remote_lock_address = (uint64_t) _table_config->lock_table_address + unlock_message.min_lock_index;
+        uint64_t compare = __builtin_bswap64(unlock_message.old);
+        uint64_t swap = __builtin_bswap64(unlock_message.new_value);
+        uint64_t mask = __builtin_bswap64(unlock_message.mask);
+
+        setRdmaCompareAndSwapMask(
+            sg,
+            wr,
+            local_lock_address,
+            remote_lock_address,
+            compare,
+            swap,
+            _lock_table_mr->lkey,
+            _table_config->lock_table_key,
+            mask,
+            false,
+            *wr_id);
+        (*wr_id)++;
+    }
 
     void RCuckoo::send_insert_and_unlock_messages(vector<VRCasData> &insert_messages, vector<VRMaskedCasData> & unlock_messages, uint64_t wr_id) {
         struct ibv_sge sg [MAX_INSERT_AND_UNLOCK_MESSAGE_COUNT];
@@ -699,51 +730,14 @@ namespace cuckoo_rcuckoo {
 
 
         int total_messages = insert_messages.size() + unlock_messages.size();
-
         for ( unsigned int i=0; i < insert_messages.size(); i++) {
-            uint64_t local_address = (uint64_t) get_entry_pointer(insert_messages[i].row, insert_messages[i].offset);
-            uint64_t remote_server_address = local_to_remote_table_address(local_address);
-
-            int32_t imm = -1;
-            setRdmaWriteExp(
-                &sg[i],
-                &wr[i],
-                local_address,
-                remote_server_address,
-                sizeof(Entry),
-                _table_mr->lkey,
-                _table_config->remote_key,
-                imm,
-                false,
-                wr_id + 1
-            );
-            wr_id++;
+            set_insert(insert_messages[i], &sg[i], &wr[i], &wr_id);
         }
-        bool signal = false;
         for ( unsigned int i=0; i < unlock_messages.size(); i++) {
-            if (i == unlock_messages.size() - 1) {
-                signal = true;
-            }
-            uint64_t local_lock_address = (uint64_t) get_lock_pointer(unlock_messages[i].min_lock_index);
-            uint64_t remote_lock_address = (uint64_t) _table_config->lock_table_address + unlock_messages[i].min_lock_index;
-            uint64_t compare = __builtin_bswap64(unlock_messages[i].old);
-            uint64_t swap = __builtin_bswap64(unlock_messages[i].new_value);
-            uint64_t mask = __builtin_bswap64(unlock_messages[i].mask);
-
-            setRdmaCompareAndSwapMask(
-                &sg[i + insert_messages.size()],
-                &wr[i + insert_messages.size()],
-                local_lock_address,
-                remote_lock_address,
-                compare,
-                swap,
-                _lock_table_mr->lkey,
-                _table_config->lock_table_key,
-                mask,
-                signal,
-                wr_id);
-            wr_id++;
+            set_unlock_message(unlock_messages[i], &sg[i + insert_messages.size()], &wr[i + insert_messages.size()], &wr_id);
         }
+        set_signal(&wr[total_messages - 1]);
+
         send_bulk(total_messages, _qp, wr);
         #ifdef MEASURE_ESSENTIAL
         uint64_t cas_bytes = (RDMA_CAS_REQUEST_SIZE + RDMA_CAS_RESPONSE_SIZE) * insert_messages.size();
@@ -996,6 +990,7 @@ namespace cuckoo_rcuckoo {
 
         int outstanding_messages = _reads.size();
         int n = bulk_poll(_completion_queue, outstanding_messages, _wc);
+        ALERT(log_id(), "get direct 1 - getting key %s\n", _current_read_key.to_string().c_str());
 
         while (n < 1) {
             //We only signal a single read, so we should only get a single completion
@@ -1004,9 +999,27 @@ namespace cuckoo_rcuckoo {
 
         //At this point we should have the values
         hash_locations buckets = _location_function(_current_read_key, _table.get_row_count());
+        ALERT(log_id(), "get direct 2 - getting key %s\n", _current_read_key.to_string().c_str());
 
         bool success = (_table.bucket_contains(buckets.primary, _current_read_key) || _table.bucket_contains(buckets.secondary, _current_read_key));
-        success = true;
+        if (success) {
+            SUCCESS(log_id(), "%2d found key %s \n", _id, _current_read_key.to_string().c_str());
+        } else {
+            ALERT("[get-direct]", "%2d did not find key %s \n", _id, _current_read_key.to_string().c_str());
+            complete_read(success);
+            return;
+        }
+
+        success |= _table.crc_valid_row(buckets.primary);
+        success |= _table.crc_valid_row(buckets.secondary);
+
+        if (success) {
+            SUCCESS(log_id(), "%2d found key %s in vaild row\n", _id, _current_read_key.to_string().c_str());
+        } else {
+            ALERT("[get-direct]", "%2d did not find key %s in vaild row\n", _id, _current_read_key.to_string().c_str());
+        }
+
+        // success = true;
         if  (success) {
             //We found the key
             SUCCESS("[get-direct]", "%2d found key %s \n", _id, _current_read_key.to_string().c_str());
@@ -1114,6 +1127,7 @@ namespace cuckoo_rcuckoo {
                         put_direct();
                     } else if (next_request.op == GET) {
                         _operation_start_time = get_current_ns();
+                        ALERT(log_id(), "trying to read %s\n", next_request.key.to_string().c_str());
                         _current_read_key = next_request.key;
                         // ALERT("[gen key]","trying to read %s\n", _current_read_key.to_string().c_str());
                         // throw logic_error("ERROR: GET not implemented");

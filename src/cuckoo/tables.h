@@ -207,6 +207,7 @@ namespace cuckoo_tables {
             unsigned int get_first_empty_index(unsigned int bucket_index);
 
             uint64_t crc64_row(unsigned int row_index);
+            bool crc_valid_row(unsigned int row);
 
             bool contains(Key key);
             bool bucket_contains(unsigned int bucket_index, Key &key);
