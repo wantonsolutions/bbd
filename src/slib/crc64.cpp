@@ -38,6 +38,10 @@
  * POSSIBILITY OF SUCH DAMAGE. */
 
 #include <stdint.h>
+#include <stdio.h>
+// #include <intrin.h>
+// #include <immintrin.h>
+#include <nmmintrin.h>
 #include "crc64.h"
 
 static const uint64_t crc64_tab[256] = {
@@ -171,9 +175,20 @@ static const uint64_t crc64_tab[256] = {
     UINT64_C(0x536fa08fdfd90e51), UINT64_C(0x29b7d047efec8728),
 };
 
-uint64_t crc64(uint64_t crc, const unsigned char *s, uint64_t l) {
-    uint64_t j;
+uint32_t crc32(uint32_t acc, unsigned char* buf, uint64_t l) {
+    for (unsigned char* end = buf + l; buf < end; buf += 8) {
+        acc = _mm_crc32_u64(acc, *(uint64_t*)buf);
+    }
+    return acc;
+}
 
+uint64_t crc64(uint64_t crc, unsigned char *s, uint64_t l) {
+    //use hardware
+    uint64_t hw_output = crc32(0, s, l);
+    return hw_output;
+
+    //use software
+    uint64_t j;
     for (j = 0; j < l; j++) {
         uint8_t byte = s[j];
         crc = crc64_tab[(uint8_t)crc ^ byte] ^ (crc >> 8);

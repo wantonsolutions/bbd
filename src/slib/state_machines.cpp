@@ -426,7 +426,6 @@ namespace state_machines {
         Value val = Value();
         Request req = Request{PUT, key, val};
         _last_request = req;
-        ALERT("DEBUG", "next_put: %s\n", req.to_string().c_str());
         return req;
 
     }
@@ -446,7 +445,6 @@ namespace state_machines {
         Key key = unique_get(next_key_index, _client_id, _global_clients, _random_factor);
         Request req = Request{GET, key, Value()};
         _last_request = req;
-        ALERT("DEBUG", "next_get: %s\n", req.to_string().c_str());
         return req;
     }
 

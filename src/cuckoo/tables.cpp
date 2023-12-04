@@ -329,7 +329,7 @@ namespace cuckoo_tables {
     }
 
     uint64_t Table::crc64_row(unsigned int row) {
-        const unsigned char * row_pointer = (const unsigned char *) &(_table[row][0]);
+        unsigned char * row_pointer = (unsigned char *) &(_table[row][0]);
         return  crc64(0,row_pointer, n_buckets_size(_entries_per_row));
 
     }

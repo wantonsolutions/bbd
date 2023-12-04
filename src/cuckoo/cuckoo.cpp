@@ -989,9 +989,7 @@ namespace cuckoo_rcuckoo {
         send_read(_reads, _wr_id);
 
         int outstanding_messages = _reads.size();
-        int n = bulk_poll(_completion_queue, outstanding_messages, _wc);
-        ALERT(log_id(), "get direct 1 - getting key %s\n", _current_read_key.to_string().c_str());
-
+        int n =0;
         while (n < 1) {
             //We only signal a single read, so we should only get a single completion
             n = bulk_poll(_completion_queue, outstanding_messages - n, _wc + n);
@@ -999,7 +997,6 @@ namespace cuckoo_rcuckoo {
 
         //At this point we should have the values
         hash_locations buckets = _location_function(_current_read_key, _table.get_row_count());
-        ALERT(log_id(), "get direct 2 - getting key %s\n", _current_read_key.to_string().c_str());
 
         bool success = (_table.bucket_contains(buckets.primary, _current_read_key) || _table.bucket_contains(buckets.secondary, _current_read_key));
         if (success) {
@@ -1017,22 +1014,12 @@ namespace cuckoo_rcuckoo {
             SUCCESS(log_id(), "%2d found key %s in vaild row\n", _id, _current_read_key.to_string().c_str());
         } else {
             ALERT("[get-direct]", "%2d did not find key %s in vaild row\n", _id, _current_read_key.to_string().c_str());
+            complete_read(success);
+            return;
         }
 
-        // success = true;
-        if  (success) {
-            //We found the key
-            SUCCESS("[get-direct]", "%2d found key %s \n", _id, _current_read_key.to_string().c_str());
-            // receive_successful_get_messege(_current_read_key);
-        } else {
-            ALERT("[get-direct]", "%2d did not find key %s \n", _id, _current_read_key.to_string().c_str());
-            ALERT("[get-direct]", "primany,seconday [%d,%d]\n", buckets.primary, buckets.secondary);
-            // _table.print_table();
-            // receive_failed_get_message(_current_read_key);
-        }
+        SUCCESS("[get-direct]", "%2d found key %s \n", _id, _current_read_key.to_string().c_str());
         complete_read(success);
-        INFO("[get-direct]", "read completed");
-        
         return;
     }
 
@@ -1127,7 +1114,6 @@ namespace cuckoo_rcuckoo {
                         put_direct();
                     } else if (next_request.op == GET) {
                         _operation_start_time = get_current_ns();
-                        ALERT(log_id(), "trying to read %s\n", next_request.key.to_string().c_str());
                         _current_read_key = next_request.key;
                         // ALERT("[gen key]","trying to read %s\n", _current_read_key.to_string().c_str());
                         // throw logic_error("ERROR: GET not implemented");
