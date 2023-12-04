@@ -193,6 +193,7 @@ namespace state_machines {
             int _completed_requests;
             int _completed_puts;
             int _completed_gets;
+            int _completed_updates;
             unsigned int _time_seed;
             ycsb_workload _workload;
             Request _last_request;

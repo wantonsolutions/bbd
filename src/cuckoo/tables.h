@@ -211,6 +211,7 @@ namespace cuckoo_tables {
 
             bool contains(Key key);
             bool bucket_contains(unsigned int bucket_index, Key &key);
+            int get_keys_offset_in_row(unsigned int row, Key &key);
 
             float get_fill_percentage_fast();
             float get_fill_percentage();

@@ -264,7 +264,6 @@ namespace cuckoo_rcuckoo {
     void RCuckoo::complete_update(bool success) {
         INFO(log_id(), "[complete_update] key %s\n", _current_read_key.to_string().c_str());
         _state = IDLE;
-        _reading = false;
         _operation_end_time = get_current_ns();
         complete_update_stats(success);
         return;
@@ -1034,32 +1033,39 @@ namespace cuckoo_rcuckoo {
         bool b1 = _table.bucket_contains(buckets.primary, _current_update_key);
         bool b2 = _table.bucket_contains(buckets.secondary, _current_update_key);
         bool success = b1 || b2;
-        if  (success) {
-            //We found the key
-            SUCCESS("[update-direct]", "%2d found key %s \n", _id, _current_update_key.to_string().c_str());
-            // receive_successful_get_messege(_current_read_key);
+
+        unsigned int bucket;
+        if (b1) {
+            SUCCESS("[update-direct]", "%2d found key %s in primay bucket\n", _id, _current_update_key.to_string().c_str());
+            bucket = buckets.primary;
+        } else if (b2) {
+            SUCCESS("[update-direct]", "%2d found key %s in secondary bucket\n", _id, _current_update_key.to_string().c_str());
+            bucket = buckets.secondary;
         } else {
             ALERT("[update-direct]", "%2d did not find key %s \n", _id, _current_update_key.to_string().c_str());
             ALERT("[update-direct]", "primany,seconday [%d,%d]\n", buckets.primary, buckets.secondary);
-            // _table.print_table();
-            // receive_failed_get_message(_current_read_key);
+            return;
         }
+
+        VRCasData insert;
+        insert.row = bucket;
+        insert.offset = _table.get_keys_offset_in_row(bucket, _current_update_key);
+        insert.new_value = 1337;
+        _insert_messages.clear();
+        _insert_messages.push_back(insert);
+        //get offset
 
         _locking_message_index = 0;
         fill_current_unlock_list();
 
         INFO("update direct", "about to unlock a total of %d lock messages\n", _locking_context.lock_list.size());
         unsigned int total_messages = _locking_context.lock_list.size();
-        if (success) {
-            printf("TODO here is where we make a packet that actually does the update");
-            _insert_messages.clear();
-            printf("TODO add the update message to the insert messages");
-            total_messages += _insert_messages.size();
-        } else {
-            _insert_messages.clear();
-        }
 
+        #ifdef ROW_CRC
+        send_insert_crc_and_unlock_messages(_insert_messages, _locking_context.lock_list, _wr_id);
+        #else
         send_insert_and_unlock_messages(_insert_messages, _locking_context.lock_list, _wr_id);
+        #endif
         _wr_id += total_messages;
 
         //Bulk poll to receive all messages

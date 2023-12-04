@@ -321,6 +321,7 @@ namespace state_machines {
         _completed_requests = 0;
         _completed_puts = 0;
         _completed_gets = 0;
+        _completed_updates = 0;
         _workload = A;
         _last_request = Request();
     }
@@ -329,6 +330,7 @@ namespace state_machines {
         _completed_requests = 0;
         _completed_puts = 0;
         _completed_gets = 0;
+        _completed_updates = 0;
         _last_request = Request();
         _time_seed = time(NULL);
 
@@ -360,6 +362,7 @@ namespace state_machines {
         stats["completed_requests"] = to_string(_completed_requests);
         stats["completed_puts"] = to_string(_completed_puts);
         stats["completed_gets"] = to_string(_completed_gets);
+        stats["completed_updates"] = to_string(_completed_updates);
         stats["workload"] = to_string(_workload);
         stats["total_requests"] = to_string(_total_requests);
         stats["client_id"] = to_string(_client_id);
@@ -394,6 +397,8 @@ namespace state_machines {
             _completed_puts++;
         } else if (_last_request.op == GET) {
             _completed_gets++;
+        } else if (_last_request.op == UPDATE) {
+            _completed_updates++;
         } else if (_last_request.op == DELETE) {
             ALERT("ERROR", "Delete not implemented\n");
             throw logic_error("ERROR: not implemented operation DELETE");
@@ -467,9 +472,9 @@ namespace state_machines {
 
     operation Client_Workload_Driver::gen_next_operation() {
         if (_workload == A) {
-            return (rand_r(&_time_seed) % 100) < 50 ? GET : PUT;
+            return (rand_r(&_time_seed) % 100) < 50 ? GET : UPDATE;
         } else if (_workload == B) {
-            return (rand_r(&_time_seed) % 100) < 95 ? GET : PUT;
+            return (rand_r(&_time_seed) % 100) < 95 ? GET : UPDATE;
         } else if (_workload == C) {
             return GET;
         } else if (_workload == W) {

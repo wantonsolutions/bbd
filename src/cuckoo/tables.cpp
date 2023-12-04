@@ -276,6 +276,7 @@ namespace cuckoo_tables {
         return;
     }
 
+
     unsigned int Table::get_table_size_bytes() const {
         return _memory_size;
     }
@@ -365,6 +366,19 @@ namespace cuckoo_tables {
             }
         }
         return false;
+    }
+
+
+    int Table::get_keys_offset_in_row(unsigned int row, Key &key) {
+        unsigned int index;
+        for (int i=0; i < _entries_per_row; i++) {
+            if(_table[row][i].key == key) {
+                return i;
+            }
+        }
+        ALERT("DEATH!", "Key not found in row, don't call this function like this.");
+        assert(false);
+        return -1;
     }
 
     bool Table::contains(Key key){
