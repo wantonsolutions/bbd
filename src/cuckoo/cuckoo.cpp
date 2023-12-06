@@ -918,6 +918,18 @@ namespace cuckoo_rcuckoo {
                 _failed_lock_aquisition_this_insert++;
                 #endif
                 failed_last_request = true;
+
+
+
+                //Here we are going to try to triage which lock is the one that is set for too long
+                // ALERT(log_id(),"Failed to grab the lock, this is where we will start to do fault recovery\n");
+                ALERT(log_id(),"Failed to get the lock %s\n", lock.to_string().c_str(), mask);
+                ALERT(log_id(),"unable to set %lX\n", mask & received_locks);
+                unsigned int locks[64];
+                unsigned int total_locks = lock_message_to_lock_indexes(lock,locks);
+                for (int i=0;i<total_locks;i++) {
+                    ALERT(log_id(), "Unable to aquire lock %d\n",locks[i]);
+                }
             }
 
             if (_locking_context.lock_list.size() == message_index) {

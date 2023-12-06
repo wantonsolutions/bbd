@@ -459,6 +459,8 @@ namespace cuckoo_virtual_rdma {
         return read_data;
     }
 
+
+
     void get_covering_reads_from_lock_list(vector<VRMaskedCasData> &masked_cas_list, vector<VRReadData> &read_data_list, unsigned int buckets_per_lock, unsigned int row_size_bytes) {
         read_data_list.clear();
         for (size_t i=0; i<masked_cas_list.size(); i++) {
@@ -466,6 +468,7 @@ namespace cuckoo_virtual_rdma {
         }
         return;
     }
+
 
     void get_covering_reads_context(LockingContext context, vector<VRReadData> &read_data_list, Table &table, unsigned int buckets_per_lock){
         read_data_list.clear();

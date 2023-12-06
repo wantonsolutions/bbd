@@ -102,6 +102,7 @@ void moniter_run(int num_qps, int print_frequency, bool prime, int runtime, bool
             printf("Printing table after %d seconds\n", print_step * print_frequency);
             print_step++;
             msm.print_table();
+
             copy_device_memory_to_host_lock_table(msm);
             msm.print_lock_table();
             printf("%2.3f/%2.3f Full\n", fill_percentage, msm.get_max_fill());
