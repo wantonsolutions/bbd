@@ -71,7 +71,6 @@ void * rcuckoo_thread_init(void * arg) {
     std::copy(rcuckoo_arg->config.begin(), rcuckoo_arg->config.end(), std::inserter(config, config.end()));
     
 
-    ALERT("RDMA Engine", "Rcuckoo instace %i\n", rcuckoo_arg->id);
     config["id"]=to_string(rcuckoo_arg->id);
     RCuckoo * rcuckoo = new RCuckoo(config);
 
@@ -119,9 +118,11 @@ void rcuckoo_stat_collection(State_Machine ** state_machines, unordered_map<stri
 
     uint64_t puts = 0;
     uint64_t gets = 0;
+    uint64_t updates = 0;
     for (int i=0;i<num_clients;i++) {
         puts += stoull(client_statistics[i]["completed_puts"]);
         gets += stoull(client_statistics[i]["completed_gets"]);
+        updates += stoull(client_statistics[i]["completed_update_count"]);
     }
 
     unordered_map<string,string> system_statistics;
@@ -129,10 +130,11 @@ void rcuckoo_stat_collection(State_Machine ** state_machines, unordered_map<stri
     system_statistics["runtime_s"]= to_string(ms_int.count() / 1000.0);
     system_statistics["put_throughput"] = to_string(puts / (ms_int.count() / 1000.0));
     system_statistics["get_throughput"] = to_string(gets / (ms_int.count() / 1000.0));
-    system_statistics["throughput"]= to_string((puts + gets) / (ms_int.count() / 1000.0));
+    system_statistics["update_throughput"] = to_string(updates / (ms_int.count() / 1000.0));
+    system_statistics["throughput"]= to_string((puts + gets + updates) / (ms_int.count() / 1000.0));
 
 
-    float throughput = puts / (ms_int.count() / 1000.0);
+    float throughput = (puts + gets + updates) / (ms_int.count() / 1000.0);
     SUCCESS("RDMA Engine", "Throughput: %f\n", throughput);
     ALERT("Final Tput", "%d,%f\n", num_clients, throughput);
 
@@ -323,12 +325,11 @@ namespace rdma_engine {
             exit(1);
             return;
         }
-
+        ALERT("RDMA Engine", "Created %d Threads. Waiting for them to init...\n",_num_clients);  
         for (i=0;i<_num_clients;i++) {
-            ALERT("RDMA Engine", "Joinging Thread %d\n",i);
             pthread_join(thread_ids[i], NULL);
         }
-        ALERT("RDMA Engine", "State Machine Threads Joined\n");
+        ALERT("RDMA Engine", "Joined %d Threads\n",_num_clients);
 
     }
 
