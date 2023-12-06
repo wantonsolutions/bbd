@@ -28,6 +28,8 @@ using namespace rdma_helper;
 
 #define MAX_INSERT_AND_UNLOCK_MESSAGE_COUNT 64
 
+#define INJECT_FAULT FAULT_CASE_0
+
 
 namespace cuckoo_rcuckoo {
 
@@ -606,15 +608,72 @@ namespace cuckoo_rcuckoo {
 
     }
 
-
-    void RCuckoo::send_insert_crc_and_unlock_messages(vector<VRCasData> &insert_messages, vector<VRMaskedCasData> & unlock_messages, uint64_t wr_id) {
-        #define MAX_INSERT_CRC_AND_UNLOCK_MESSAGE_COUNT 64
+    void RCuckoo::send_insert_crc_and_unlock_messages_with_fault(vector<VRCasData> &insert_messages, vector<VRMaskedCasData> & unlock_messages, unsigned int fault) {
         struct ibv_sge sg [MAX_INSERT_CRC_AND_UNLOCK_MESSAGE_COUNT];
         struct ibv_exp_send_wr wr [MAX_INSERT_CRC_AND_UNLOCK_MESSAGE_COUNT];
 
         #ifndef ROW_CRC
         ALERT("ROW CRC", "dont run this code unless we are running row CRC (send_insert_crc_and_unlock_messages)");
         assert(false);
+        #endif
+
+        //There are 5 distinct fault scenarios
+        assert(fault >=0 && fault <= 4);
+        ALERT(log_id(), "Executing insert fault %d\n", fault);
+
+        //Make sure that we are actually doing something here.
+        assert(insert_messages.size() >= 1 && unlock_messages.size() >= 1);
+
+        int insert_messages_with_crc = insert_messages.size()*2;
+        int total_messages = (insert_messages_with_crc) + unlock_messages.size();
+
+        if (total_messages > MAX_INSERT_AND_UNLOCK_MESSAGE_COUNT) {
+            ALERT(log_id(),"Too many messages to send\n");
+            ALERT(log_id(), "insert_messages.size() %lu\n", insert_messages.size());
+            ALERT(log_id(), "unlock_messages.size() %lu\n", unlock_messages.size());
+            for (auto message : insert_messages) {
+                ALERT(log_id(), "insert_messages %d %d %lu\n", message.row, message.offset, message.new_value);
+            }
+            for (auto message : unlock_messages) {
+                ALERT(log_id(), "unlock_messages %d %lX %lX\n", message.min_lock_index, message.old, message.new_value);
+            }
+            exit(1);
+        }
+        assert(total_messages <= MAX_INSERT_AND_UNLOCK_MESSAGE_COUNT);
+
+        //Fault case 0 is that no insert, cas or unlock messages are sent.
+        //We leave the table in a locked state
+        if (fault == FAULT_CASE_0) {
+            ALERT(log_id(), "Fault Case 0: %d locks are left set\n", _locking_context.lock_indexes_size);
+            for (int i=0;i<_locking_context.lock_indexes_size;i++) {
+                ALERT(log_id(), "Lock %d left in set state\n", _locking_context.lock_indexes[i]);
+            }
+            vector<unsigned int> locked_buckets;
+            lock_indexes_to_buckets_context(locked_buckets, _locks_held, _locking_context);
+            for (int i=0;i<locked_buckets.size(); i++){
+                ALERT(log_id(), "Bucket %d Locked\n",locked_buckets[i]);
+            }
+            ALERT(log_id(), "Spinning Forever to simulate a failure... (todo report statistics some other time)\n");
+            while(true){}
+        }
+
+    }
+
+
+    void RCuckoo::send_insert_crc_and_unlock_messages(vector<VRCasData> &insert_messages, vector<VRMaskedCasData> & unlock_messages, uint64_t wr_id) {
+
+        struct ibv_sge sg [MAX_INSERT_CRC_AND_UNLOCK_MESSAGE_COUNT];
+        struct ibv_exp_send_wr wr [MAX_INSERT_CRC_AND_UNLOCK_MESSAGE_COUNT];
+
+        #ifndef ROW_CRC
+        ALERT("ROW CRC", "dont run this code unless we are running row CRC (send_insert_crc_and_unlock_messages)");
+        assert(false);
+        #endif
+
+        #ifdef INJECT_FAULT
+        if (_id == 0){
+            send_insert_crc_and_unlock_messages_with_fault(insert_messages,unlock_messages,INJECT_FAULT);
+        }
         #endif
 
         int insert_messages_with_crc = insert_messages.size()*2;

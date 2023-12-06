@@ -18,6 +18,13 @@ using namespace cuckoo_search;
 #define MAX_CONCURRENT_CUCKOO_MESSAGES 32
 #define ID_SIZE 64
 
+#define MAX_INSERT_CRC_AND_UNLOCK_MESSAGE_COUNT 64
+#define FAULT_CASE_0 0
+#define FAULT_CASE_1 1
+#define FAULT_CASE_2 2
+#define FAULT_CASE_3 3
+#define FAULT_CASE_4 4
+
 namespace cuckoo_rcuckoo {
 
 
@@ -70,6 +77,7 @@ namespace cuckoo_rcuckoo {
 
             void send_insert_and_crc(VRCasData insert_message, ibv_sge *sg, ibv_exp_send_wr *wr, uint64_t *wr_id);
             void send_insert_crc_and_unlock_messages(vector<VRCasData> &insert_messages, vector<VRMaskedCasData> & unlock_messages, uint64_t wr_id);
+            void send_insert_crc_and_unlock_messages_with_fault(vector<VRCasData> &insert_messages, vector<VRMaskedCasData> & unlock_messages, unsigned int fault);
             void send_read(vector <VRReadData> reads, uint64_t wr_id);
 
             void rdma_fsm(void);
