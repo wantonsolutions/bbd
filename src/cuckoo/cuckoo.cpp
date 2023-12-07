@@ -857,6 +857,20 @@ namespace cuckoo_rcuckoo {
         return 0;
     }
 
+    void RCuckoo::repair_table(Entry broken_entry, unsigned int error_state){
+        if (error_state == FAULT_CASE_0 || error_state == FAULT_CASE_4){
+            ALERT(log_id(), "In uncorrupted falt case %d or %d, just unlock\n", FAULT_CASE_0, FAULT_CASE_4);
+        } else if (error_state == FAULT_CASE_1) {
+            ALERT(log_id(), "TODO recover from fault case 1\n");
+        } else if (error_state == FAULT_CASE_2) {
+            ALERT(log_id(), "TODO recover from fault case 2\n");
+        } else if (error_state == FAULT_CASE_3) {
+            ALERT(log_id(), "TODO recover from fault case 3\n");
+        } else {
+            ALERT(log_id(), "Attempting to recover from an error state we dont know %d", error_state);
+        }
+    }
+
     void RCuckoo::reclaim_lock(unsigned int lock) {
         unsigned int repair_lease_id = aquire_repair_lease(lock);
 
@@ -864,14 +878,115 @@ namespace cuckoo_rcuckoo {
 
         //Step 0 is to determine which state we are in. In order to do so we need first determine if we have any duplicates.
         //We own the lock now so the first step is to get a covering read for the lock.
+        _locking_context.clear_operation_state();
+        vector<unsigned int> lock_arr;
+        lock_arr.push_back(lock);
+        lock_indexes_to_buckets_context(_locking_context.buckets,lock_arr,_locking_context);
+        vector<VRReadData> reads;
+
+        for (int i=0;i < _locking_context.buckets.size(); i++){
+            ALERT(log_id(), "Sending a read to bucket %d\n", _locking_context.buckets[i]);
+            VRReadData read;
+            read.row = _locking_context.buckets[i];
+            read.size = _table.row_size_bytes();
+            read.offset = 0;
+            reads.push_back(read);
+        }
+        send_read(reads,_wr_id);
+        int outstanding_messages = reads.size();
+        int n =0;
+        while (n < 1) {
+            //We only signal a single read, so we should only get a single completion
+            n = bulk_poll(_completion_queue, outstanding_messages - n, _wc + n);
+        }
+
+        ALERT(log_id(), "We have read all the buckets covered by the lock\n");
+
+        //Step 1 now we need to walk through each of the buckets that we read and check each entry to detect if they have duplicates.
+        vector<Entry> entries_to_check;
+        for(int i=0;i<_locking_context.buckets.size();i++){
+            unsigned row = _locking_context.buckets[i];
+            //If this row has never been used, just keep moving.
+            if (_table.bucket_is_empty(row)) {
+                continue;
+            }
+            if (!_table.crc_valid_row(row)) {
+                ALERT(log_id(), "Bucket %d is corrupted, in recovery state %d or %d",row, FAULT_CASE_1, FAULT_CASE_3);
+                ALERT(log_id(), "add some logic here to handle this case (for now exiting)");
+                ALERT(log_id(), "We gotta check for duplicates before we can differentiate.");
+                exit(0);
+            }
+            for (int j=0;j<_table.get_buckets_per_row();j++){
+                Entry e = _table.get_entry(row,j);
+                if (!e.is_empty()){
+                    entries_to_check.push_back(e);
+                }
+            }
+            //I need to check here if the crc is set, but there are no entries in the row. This is a special case of 
+            //state 3, where a delete occured but the CRC was wrong. At this point I should check if the CRC is wrong on 
+            //each and every bucket
+        }
+
+
+        //Step 2 go through each entry and perform a read to get duplicate information.
+        bool found_duplicates = false;
+        hash_locations dup_entry;
+        Entry broken_entry;
+        unsigned int error_state = FAULT_CASE_0;
+        for(int i=0;i<entries_to_check.size();i++){
+            //TODO I can issue these in bulk and deduplicate read rows for better performance.
+            //TODO I'm issuing one read at a time because it's a bit easier for me
+            Entry e = entries_to_check[i];
+            read_theshold_message(reads,_location_function,e.key,0,_table.get_row_count(), _table.get_buckets_per_row());
+            ALERT(log_id(), "Checking for duplicates in buckets %d, %d\n", reads[0].row, reads[1].row);
+            send_read(reads,_wr_id);
+            int outstanding_messages = reads.size();
+            int n =0;
+            while (n < 1) {
+                //We only signal a single read, so we should only get a single completion
+                n = bulk_poll(_completion_queue, outstanding_messages - n, _wc + n);
+            }
+            dup_entry = _location_function(e.key,_table.get_row_count());
+
+            bool bad_crc = (!_table.crc_valid_row(dup_entry.primary) || !_table.crc_valid_row(dup_entry.secondary));
+            bool duplicates = _table.bucket_contains(dup_entry.primary,e.key) && _table.bucket_contains(dup_entry.secondary, e.key);
+            //Now that I'm here I can check for duplicates
+
+            //Here we attempt to detect the error
+            if(found_duplicates && bad_crc){
+                broken_entry = entries_to_check[i];
+                error_state = FAULT_CASE_1;
+                break;
+            } else if (found_duplicates) {
+                broken_entry = entries_to_check[i];
+                error_state = FAULT_CASE_2;
+                break;
+            } else if (bad_crc) {
+                broken_entry = entries_to_check[i];
+                error_state = FAULT_CASE_3;
+                break;
+            }
+        }
+
+        //At this point we have the error code corretly determined
+        ALERT(log_id(), "Error Detection Complete We are in error state %d",error_state);
+        ALERT(log_id(), "The next step is to repair the table for the broken entry\n");
+
+        repair_table(broken_entry,error_state);
+
+
+
+
+
+
 
 
         //Final step is to release the lock
         ALERT(log_id(), "We have done the triage and can now release one or more locks\n.");
         ALERT(log_id(), "Currently releaseing only one lock\n.");
         ALERT(log_id(), "Warning dont try to reverse a lock without knowing exactlyy how it maps!\n");
+        _locking_context.clear_operation_state();
         assert(_buckets_per_lock ==1 && _locking_context.virtual_lock_table == false);
-
         unsigned int original_lock_bucket = lock * _buckets_per_lock;
         _locking_context.buckets.clear();
         _locking_context.buckets.push_back(original_lock_bucket);
@@ -889,7 +1004,7 @@ namespace cuckoo_rcuckoo {
     }
 
     //Precondition _locking_context.buckets contains the locks we want to get
-    void RCuckoo::top_level_aquire_locks() {
+    bool RCuckoo::top_level_aquire_locks() {
         get_lock_list_fast_context(_locking_context);
         INFO(log_id(), "[aquire_locks] gathering locks for buckets %s\n", vector_to_string(_locking_context.buckets).c_str());
         //TODO make this one thing
@@ -912,6 +1027,7 @@ namespace cuckoo_rcuckoo {
 
         #ifdef INJECT_FAULT
         unsigned int retries[BITS_IN_MASKED_CAS];
+        clear_retry_counter(retries);
         #endif
 
         while (!locking_complete) {
@@ -1011,6 +1127,7 @@ namespace cuckoo_rcuckoo {
 
                 uint64_t timed_out_lock = retry_crossed_threshold(retries,1000);
                 if (timed_out_lock > 0) {
+                    clear_retry_counter(retries);
 
                     ALERT(log_id(), "We have crossed the line on lock %d\n", timed_out_lock);
                     VRMaskedCasData lock_to_unlock = lock;
@@ -1026,7 +1143,8 @@ namespace cuckoo_rcuckoo {
                     ALERT(log_id(), "Locks released -- Going to reclaim lock %d\n", lock_we_will_reclaim);
                     reclaim_lock(lock_we_will_reclaim);
 
-                    exit(0);
+
+                    return false;
                 }
 
                 #endif
@@ -1038,6 +1156,7 @@ namespace cuckoo_rcuckoo {
                 break;
             }
         }
+        return true;
 
     }
 
@@ -1149,7 +1268,10 @@ namespace cuckoo_rcuckoo {
 
         search_path_to_buckets_fast(_search_context.path, _locking_context.buckets);
         // assert(_locking_context.buckets.size() < 64);
-        top_level_aquire_locks();
+        bool have_locks = top_level_aquire_locks();
+        while(!have_locks) {
+            have_locks = top_level_aquire_locks();
+        }
 
         return insert_direct();
     }
@@ -1199,7 +1321,11 @@ namespace cuckoo_rcuckoo {
         _locking_context.buckets.clear();
         _locking_context.buckets.push_back(buckets.primary);
         _locking_context.buckets.push_back(buckets.secondary);
-        top_level_aquire_locks();
+
+        bool have_locks = top_level_aquire_locks();
+        while(!have_locks) {
+            have_locks = top_level_aquire_locks();
+        }
 
         bool b1 = _table.bucket_contains(buckets.primary, _current_update_key);
         bool b2 = _table.bucket_contains(buckets.secondary, _current_update_key);

@@ -82,7 +82,7 @@ namespace cuckoo_rcuckoo {
 
             void rdma_fsm(void);
             void init_rdma_structures(rdma_info info);
-            void top_level_aquire_locks();
+            bool top_level_aquire_locks();
             void put_direct();
             void get_direct(void);
             void insert_direct();
@@ -100,6 +100,7 @@ namespace cuckoo_rcuckoo {
             int aquire_repair_lease(unsigned int lock);
             int release_repair_lease(unsigned int lease_id);
 
+            void repair_table(Entry broken_entry, unsigned int error_state);
             void reclaim_lock(unsigned int lock);
 
 

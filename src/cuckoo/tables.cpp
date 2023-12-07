@@ -348,6 +348,15 @@ namespace cuckoo_tables {
         return false;
     }
 
+    bool Table::bucket_is_empty(unsigned int row) {
+        for(int i=0;i<_bucket_size;i++){
+            if(!_table[row][i].is_empty()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     unsigned int Table::get_first_empty_index(unsigned int bucket_index){
         unsigned int empty_index = -1;
         for (unsigned int i = 0; i < _entries_per_row; i++){

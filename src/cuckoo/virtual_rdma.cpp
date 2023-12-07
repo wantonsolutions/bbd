@@ -94,6 +94,24 @@ namespace cuckoo_virtual_rdma {
         return entries;
     }
 
+    //Clear removes all dynamic data in the locking context.
+    //This is the data that changes when we get locks, not
+    //Cached info like the dimensions or configuration of the table
+    void LockingContext::clear_operation_state(){
+        locking = false;
+        buckets.clear();
+        number_of_chunks=0;
+        fast_lock_chunks.clear();
+        lock_list.clear();
+
+        lock_indexes_size=0;
+        virtual_lock_indexes_size=0;
+        for (int i=0;i<MAX_LOCKS;i++){
+            lock_indexes[i]=0;
+            virtual_lock_indexes[i]=0;
+        }
+    }
+
     unsigned int lock_message_to_lock_indexes(VRMaskedCasData lock_message, unsigned int * lock_indexes) {
         // uint64_t mask = reverse_uint64_t(lock_message.mask);
         uint64_t mask = __builtin_bswap64(lock_message.mask);
@@ -182,7 +200,6 @@ namespace cuckoo_virtual_rdma {
         unsigned int min_index = indexes[0];
         for (size_t i=1; i<indexes.size(); i++) {
             if (indexes[i] < min_index) {
-                printf("new min index\n");
                 min_index = indexes[i];
             }
         }

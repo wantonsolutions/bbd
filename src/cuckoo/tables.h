@@ -204,6 +204,8 @@ namespace cuckoo_tables {
             void set_entry(unsigned int bucket_index, unsigned int offset, Entry entry);
             Entry * get_entry_pointer(unsigned int bucket_index, unsigned int offset);
             bool bucket_has_empty(unsigned int bucket_index);
+
+            bool bucket_is_empty(unsigned int bucket_index);
             unsigned int get_first_empty_index(unsigned int bucket_index);
 
             uint64_t crc64_row(unsigned int row_index);

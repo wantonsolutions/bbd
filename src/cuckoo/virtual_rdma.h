@@ -35,24 +35,26 @@ namespace cuckoo_virtual_rdma {
     #define MAX_LOCKS 128
 
     typedef struct LockingContext {
-        vector<unsigned int> buckets;
-        unsigned int number_of_chunks;
-        vector<vector<unsigned int>> fast_lock_chunks;
-        vector<VRMaskedCasData> lock_list;
+        //Table configuration info
         unsigned int buckets_per_lock;
         unsigned int locks_per_message;
-
         bool virtual_lock_table;
         unsigned int total_physical_locks;
         unsigned int scale_factor; //This is how many times smaller the virtual lock table is than the physical table.
 
+        //Per lock aqusition state
         bool locking;
+        vector<unsigned int> buckets;
+        unsigned int number_of_chunks;
+        vector<vector<unsigned int>> fast_lock_chunks;
+        vector<VRMaskedCasData> lock_list;
 
         unsigned int lock_indexes[MAX_LOCKS];
         unsigned int lock_indexes_size;
 
         unsigned int virtual_lock_indexes[MAX_LOCKS];
         unsigned int virtual_lock_indexes_size;
+        void clear_operation_state();
     } LockingContext;
 
     typedef struct Request {
@@ -132,6 +134,7 @@ namespace cuckoo_virtual_rdma {
     void lock_chunks_to_masked_cas_data_context(LockingContext &context);
 
 
+    VRReadData get_covering_read_from_lock(VRMaskedCasData masked_cas, unsigned int buckets_per_lock, unsigned int row_size_bytes);
     unsigned int byte_aligned_index(unsigned int index);
     unsigned int sixty_four_aligned_index(unsigned int index);
     unsigned int get_min_sixty_four_aligned_index(vector<unsigned int> &indexes);
