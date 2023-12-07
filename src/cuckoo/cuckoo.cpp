@@ -28,7 +28,8 @@ using namespace rdma_helper;
 
 #define MAX_INSERT_AND_UNLOCK_MESSAGE_COUNT 64
 
-#define INJECT_FAULT FAULT_CASE_0
+// #define INJECT_FAULT FAULT_CASE_0
+#define INJECT_FAULT FAULT_CASE_1
 
 
 namespace cuckoo_rcuckoo {
@@ -612,6 +613,11 @@ namespace cuckoo_rcuckoo {
         struct ibv_sge sg [MAX_INSERT_CRC_AND_UNLOCK_MESSAGE_COUNT];
         struct ibv_exp_send_wr wr [MAX_INSERT_CRC_AND_UNLOCK_MESSAGE_COUNT];
 
+        if (insert_messages.size() < 2) {
+            ALERT(log_id(), "trying to insert a fault %d, but we want to have a path longer than 2",fault);
+            return;
+        }
+
         #ifndef ROW_CRC
         ALERT("ROW CRC", "dont run this code unless we are running row CRC (send_insert_crc_and_unlock_messages)");
         assert(false);
@@ -620,9 +626,6 @@ namespace cuckoo_rcuckoo {
         //There are 5 distinct fault scenarios
         assert(fault >=0 && fault <= 4);
         ALERT(log_id(), "Executing insert fault %d\n", fault);
-
-        //Make sure that we are actually doing something here.
-        assert(insert_messages.size() >= 1 && unlock_messages.size() >= 1);
 
         int insert_messages_with_crc = insert_messages.size()*2;
         int total_messages = (insert_messages_with_crc) + unlock_messages.size();
@@ -641,22 +644,49 @@ namespace cuckoo_rcuckoo {
         }
         assert(total_messages <= MAX_INSERT_AND_UNLOCK_MESSAGE_COUNT);
 
-        //Fault case 0 is that no insert, cas or unlock messages are sent.
-        //We leave the table in a locked state
+        for ( unsigned int i=0; i < insert_messages.size(); i++) {
+            send_insert_and_crc(insert_messages[i], &sg[i*2], &wr[i*2], &_wr_id);
+        }
+        for ( unsigned int i=0; i < unlock_messages.size(); i++) {
+            set_unlock_message(unlock_messages[i], &sg[i + insert_messages_with_crc], &wr[i + insert_messages_with_crc], &_wr_id);
+        }
+
+        ALERT(log_id(), "Reached fault case generator case %d\n",fault);
+        for (int i=0;i<_locking_context.lock_indexes_size;i++) {
+            ALERT(log_id(), "Lock %d left in set state\n", _locking_context.lock_indexes[i]);
+        }
+        vector<unsigned int> locked_buckets;
+        lock_indexes_to_buckets_context(locked_buckets, _locks_held, _locking_context);
+        for (int i=0;i<locked_buckets.size(); i++){
+            ALERT(log_id(), "Bucket %d Locked\n",locked_buckets[i]);
+        }
+
         if (fault == FAULT_CASE_0) {
-            ALERT(log_id(), "Fault Case 0: %d locks are left set\n", _locking_context.lock_indexes_size);
-            for (int i=0;i<_locking_context.lock_indexes_size;i++) {
-                ALERT(log_id(), "Lock %d left in set state\n", _locking_context.lock_indexes[i]);
-            }
-            vector<unsigned int> locked_buckets;
-            lock_indexes_to_buckets_context(locked_buckets, _locks_held, _locking_context);
-            for (int i=0;i<locked_buckets.size(); i++){
-                ALERT(log_id(), "Bucket %d Locked\n",locked_buckets[i]);
-            }
-            ALERT(log_id(), "Spinning Forever to simulate a failure... (todo report statistics some other time)\n");
+            ALERT(log_id(),"Fault Case 0, we are just going to spin forever\n");
             while(true){}
         }
 
+        if (fault == FAULT_CASE_1) {
+            ALERT(log_id(),"Fault Case 1, we are going to send an insert but not a crc\n");
+            ALERT(log_id(),"The broken crc will be in row %d",insert_messages[0].row);
+            total_messages=1;
+        }
+
+        if (fault == FAULT_CASE_2) {
+            total_messages=2;
+        }
+
+        if (fault == FAULT_CASE_3) {
+            total_messages=3;
+        }
+
+        set_signal(&wr[total_messages-1]);
+        send_bulk(total_messages, _qp, wr);
+
+        bulk_poll(_completion_queue,1,_wc);
+
+        ALERT(log_id(), "The fault has been injected. Spinning forever\n");
+        while(true){};
     }
 
 
@@ -854,6 +884,8 @@ namespace cuckoo_rcuckoo {
 
     int RCuckoo::release_repair_lease(unsigned int lease_id){
         ALERT("TODO", "Return the lease to remote memory");
+        ALERT(log_id(), "Exiting after lease release. The reason it to check table validity");
+        exit(0);
         return 0;
     }
 
@@ -876,6 +908,12 @@ namespace cuckoo_rcuckoo {
         struct ibv_sge sg [MAX_REPAIR_MESSAGES];
         struct ibv_exp_send_wr wr [MAX_REPAIR_MESSAGES];
         int message_count=0;
+
+        if (error_state == FAULT_CASE_0 || error_state == FAULT_CASE_4) {
+            ALERT(log_id(), "No table repairs needed case %d and %d only require unlock\n", FAULT_CASE_0, FAULT_CASE_4);
+            return;
+        }
+
         if (error_state == FAULT_CASE_1) {
             ALERT(log_id(), "recovering from fault case 1\n");
             //To transition from fault case 1 to fault case 2 we need to write a new CRC to the bucket of the broken entry
@@ -1041,7 +1079,7 @@ namespace cuckoo_rcuckoo {
             //TODO I'm issuing one read at a time because it's a bit easier for me
             Entry e = entries_to_check[i];
             read_theshold_message(reads,_location_function,e.key,0,_table.get_row_count(), _table.get_buckets_per_row());
-            ALERT(log_id(), "Checking for duplicates in buckets %d, %d\n", reads[0].row, reads[1].row);
+            ALERT(log_id(), "Checking for duplicate of %s in buckets %d, %d\n",e.key.to_string(), reads[0].row, reads[1].row);
             send_read(reads,_wr_id);
             int outstanding_messages = reads.size();
             int n =0;
@@ -1050,7 +1088,12 @@ namespace cuckoo_rcuckoo {
                 n = bulk_poll(_completion_queue, outstanding_messages - n, _wc + n);
             }
             dup_entry = _location_function(e.key,_table.get_row_count());
-            bool duplicates = _table.bucket_contains(dup_entry.primary,e.key) && _table.bucket_contains(dup_entry.secondary, e.key);
+
+            ALERT(log_id(), "Checking local table for duplicate of %s in buckets %d, %d\n",e.key.to_string().c_str(), dup_entry.primary, dup_entry.secondary);
+            found_duplicates = _table.bucket_contains(dup_entry.primary,e.key) && _table.bucket_contains(dup_entry.secondary, e.key);
+            if (found_duplicates) {
+                ALERT(log_id(), "Duplicates of %s found!",e.key.to_string().c_str());
+            }
             //Now that I'm here I can check for duplicates
 
             //Here we attempt to detect the error
