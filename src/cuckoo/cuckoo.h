@@ -102,6 +102,7 @@ namespace cuckoo_rcuckoo {
 
             void repair_table(Entry broken_entry, unsigned int error_state);
             void reclaim_lock(unsigned int lock);
+            int get_broken_row(Entry broken_entry);
 
 
 

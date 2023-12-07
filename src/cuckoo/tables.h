@@ -147,6 +147,10 @@ namespace cuckoo_tables {
                 this->value.bytes[i - KEY_SIZE] = (entry64 >> (8 * i)) & 0xFF;
             }
         }
+        void zero_out() {
+            key.set(0);
+            value.set(0);
+        }
     } Entry;
 
     typedef struct Duplicate_Entry {

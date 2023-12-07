@@ -857,18 +857,117 @@ namespace cuckoo_rcuckoo {
         return 0;
     }
 
-    void RCuckoo::repair_table(Entry broken_entry, unsigned int error_state){
-        if (error_state == FAULT_CASE_0 || error_state == FAULT_CASE_4){
-            ALERT(log_id(), "In uncorrupted falt case %d or %d, just unlock\n", FAULT_CASE_0, FAULT_CASE_4);
-        } else if (error_state == FAULT_CASE_1) {
-            ALERT(log_id(), "TODO recover from fault case 1\n");
-        } else if (error_state == FAULT_CASE_2) {
-            ALERT(log_id(), "TODO recover from fault case 2\n");
-        } else if (error_state == FAULT_CASE_3) {
-            ALERT(log_id(), "TODO recover from fault case 3\n");
+    int RCuckoo::get_broken_row(Entry broken_entry) {
+        hash_locations hloc = _location_function(broken_entry.key,_table.get_row_count());
+        int broken_row;
+        if (!_table.crc_valid_row(hloc.primary)) {
+            broken_row = hloc.primary;
+        } else if (!_table.crc_valid_row(hloc.secondary)){
+            broken_row = hloc.secondary;
         } else {
-            ALERT(log_id(), "Attempting to recover from an error state we dont know %d", error_state);
+            ALERT(log_id(), "We are attemptying to repair, however neither of the rows has a bad CRC crashing...");
+            exit(0);
         }
+        return broken_row;
+    }
+
+    void RCuckoo::repair_table(Entry broken_entry, unsigned int error_state){
+        #define MAX_REPAIR_MESSAGES 3
+        struct ibv_sge sg [MAX_REPAIR_MESSAGES];
+        struct ibv_exp_send_wr wr [MAX_REPAIR_MESSAGES];
+        int message_count=0;
+        if (error_state == FAULT_CASE_1) {
+            ALERT(log_id(), "recovering from fault case 1\n");
+            //To transition from fault case 1 to fault case 2 we need to write a new CRC to the bucket of the broken entry
+            int broken_row = get_broken_row(broken_entry);
+
+            ALERT(log_id(), "Setting up a CRC to correct the broken crc and transition to state 2, broken row is %d",broken_row);
+            uint64_t step_1_repair_crc = _table.crc64_row(broken_row);
+            Entry crc_entry;
+            crc_entry.set_as_uint64_t(step_1_repair_crc);
+            _table.set_entry(broken_row,_table.get_entries_per_row(), crc_entry);
+            uint64_t crc_address = (uint64_t) get_entry_pointer(broken_row, _table.get_entries_per_row());
+            uint64_t remote_server_crc_address = local_to_remote_table_address(crc_address);
+            // printf("crc_address %lX remote_server_crc_address %lX\n", crc_address, remote_server_crc_address);
+            setRdmaWriteExp(
+                &sg[message_count],
+                &wr[message_count],
+                crc_address,
+                remote_server_crc_address,
+                sizeof(uint64_t),
+                _table_mr->lkey,
+                _table_config->remote_key,
+                -1,
+                false,
+                _wr_id++
+            );
+            message_count++;
+            error_state = FAULT_CASE_2;
+        }
+        
+        if (error_state == FAULT_CASE_2) {
+            ALERT(log_id(), "Setting up packet to repair fault state 2\n");
+            hash_locations hloc = _location_function(broken_entry.key,_table.get_row_count());
+            unsigned int delete_row = hloc.secondary;
+            unsigned int entry_location = _table.get_keys_offset_in_row(delete_row,broken_entry.key);
+            Entry zero_entry;
+            zero_entry.zero_out();
+            //Its important that we set the entry so that we reach FAULT_CASE_3 locally as well
+            _table.set_entry(delete_row,entry_location,zero_entry);
+            uint64_t zero_entry_location = (uint64_t) get_entry_pointer(delete_row,entry_location);
+            uint64_t remote_server_address = local_to_remote_table_address(zero_entry_location);
+            setRdmaWriteExp(
+                &sg[message_count],
+                &wr[message_count],
+                zero_entry_location,
+                remote_server_address,
+                sizeof(Entry),
+                _table_mr->lkey,
+                _table_config->remote_key,
+                -1,
+                false,
+                _wr_id++
+            );
+            message_count++;
+            error_state = FAULT_CASE_3;
+        }
+
+        if (error_state == FAULT_CASE_3) {
+            //TODO basically the same as fault case 1. We could dedup some of this code.
+            ALERT(log_id(), "recovering from fault case 3 moving\n");
+            int broken_row = get_broken_row(broken_entry);
+            uint64_t step_3_repair_crc = _table.crc64_row(broken_row);
+            Entry crc_entry;
+            crc_entry.set_as_uint64_t(step_3_repair_crc);
+            _table.set_entry(broken_row,_table.get_entries_per_row(), crc_entry);
+            uint64_t crc_address = (uint64_t) get_entry_pointer(broken_row, _table.get_entries_per_row());
+            uint64_t remote_server_crc_address = local_to_remote_table_address(crc_address);
+            // printf("crc_address %lX remote_server_crc_address %lX\n", crc_address, remote_server_crc_address);
+            setRdmaWriteExp(
+                &sg[message_count],
+                &wr[message_count],
+                crc_address,
+                remote_server_crc_address,
+                sizeof(uint64_t),
+                _table_mr->lkey,
+                _table_config->remote_key,
+                -1,
+                false,
+                _wr_id++
+            );
+            message_count++;
+        }
+
+        //At this point we should have message buffers filled with the nessisary writes to repair the table.
+        set_signal(&wr[message_count-1]);
+        send_bulk(message_count,_qp,wr);
+        int n = bulk_poll(_completion_queue, 1, _wc);
+        assert(n==1);
+
+        //At this point we have repaired the remote table and can unlock one or more of the entries
+        ALERT(log_id(), "Table Repair messages sent and recieved. Proceeding...");
+        return;
+
     }
 
     void RCuckoo::reclaim_lock(unsigned int lock) {
@@ -903,6 +1002,7 @@ namespace cuckoo_rcuckoo {
         ALERT(log_id(), "We have read all the buckets covered by the lock\n");
 
         //Step 1 now we need to walk through each of the buckets that we read and check each entry to detect if they have duplicates.
+        bool bad_crc = false;
         vector<Entry> entries_to_check;
         for(int i=0;i<_locking_context.buckets.size();i++){
             unsigned row = _locking_context.buckets[i];
@@ -910,11 +1010,14 @@ namespace cuckoo_rcuckoo {
             if (_table.bucket_is_empty(row)) {
                 continue;
             }
+            //If we find that the CRC is bad here, we know that we are in state 1 or 3
             if (!_table.crc_valid_row(row)) {
                 ALERT(log_id(), "Bucket %d is corrupted, in recovery state %d or %d",row, FAULT_CASE_1, FAULT_CASE_3);
-                ALERT(log_id(), "add some logic here to handle this case (for now exiting)");
-                ALERT(log_id(), "We gotta check for duplicates before we can differentiate.");
-                exit(0);
+                if(bad_crc) {
+                    ALERT(log_id(), "We have found more than one corrupted CRC behind a lock. This is an unknown error condition. Crashing...");
+                    exit(0);
+                }
+                bad_crc=true;
             }
             for (int j=0;j<_table.get_buckets_per_row();j++){
                 Entry e = _table.get_entry(row,j);
@@ -947,8 +1050,6 @@ namespace cuckoo_rcuckoo {
                 n = bulk_poll(_completion_queue, outstanding_messages - n, _wc + n);
             }
             dup_entry = _location_function(e.key,_table.get_row_count());
-
-            bool bad_crc = (!_table.crc_valid_row(dup_entry.primary) || !_table.crc_valid_row(dup_entry.secondary));
             bool duplicates = _table.bucket_contains(dup_entry.primary,e.key) && _table.bucket_contains(dup_entry.secondary, e.key);
             //Now that I'm here I can check for duplicates
 
@@ -979,12 +1080,12 @@ namespace cuckoo_rcuckoo {
         ALERT(log_id(), "We have done the triage and can now release one or more locks\n.");
         _locking_context.clear_operation_state();
 
-        if (error_state == FAULT_CASE_0 || error_state == FAULT_CASE_4) {
+        if (error_state == FAULT_CASE_0 || error_state == FAULT_CASE_3 || error_state == FAULT_CASE_4) {
             ALERT(log_id(), "Unlocking single lock\n");
             unsigned int original_lock_bucket = lock * _buckets_per_lock;
             _locking_context.buckets.push_back(original_lock_bucket);
-        } else if (error_state == FAULT_CASE_1 || error_state == FAULT_CASE_2 || error_state == FAULT_CASE_3) {
-            ALERT(log_id(), "Unlocking multiple buckets including one we did not time out on\n");
+        } else if (error_state == FAULT_CASE_1 || error_state == FAULT_CASE_2) {
+            ALERT(log_id(), "Unlocking multiple buckets including one we did not time out on because we found a duplicate\n");
             _locking_context.buckets.push_back(dup_entry.primary);
             _locking_context.buckets.push_back(dup_entry.secondary);
         }
