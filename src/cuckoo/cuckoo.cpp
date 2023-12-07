@@ -975,29 +975,24 @@ namespace cuckoo_rcuckoo {
         repair_table(broken_entry,error_state);
 
 
-
-
-
-
-
-
         //Final step is to release the lock
         ALERT(log_id(), "We have done the triage and can now release one or more locks\n.");
-        ALERT(log_id(), "Currently releaseing only one lock\n.");
-        ALERT(log_id(), "Warning dont try to reverse a lock without knowing exactlyy how it maps!\n");
         _locking_context.clear_operation_state();
-        assert(_buckets_per_lock ==1 && _locking_context.virtual_lock_table == false);
-        unsigned int original_lock_bucket = lock * _buckets_per_lock;
-        _locking_context.buckets.clear();
-        _locking_context.buckets.push_back(original_lock_bucket);
+
+        if (error_state == FAULT_CASE_0 || error_state == FAULT_CASE_4) {
+            ALERT(log_id(), "Unlocking single lock\n");
+            unsigned int original_lock_bucket = lock * _buckets_per_lock;
+            _locking_context.buckets.push_back(original_lock_bucket);
+        } else if (error_state == FAULT_CASE_1 || error_state == FAULT_CASE_2 || error_state == FAULT_CASE_3) {
+            ALERT(log_id(), "Unlocking multiple buckets including one we did not time out on\n");
+            _locking_context.buckets.push_back(dup_entry.primary);
+            _locking_context.buckets.push_back(dup_entry.secondary);
+        }
+
         get_unlock_list_fast_context(_locking_context);
         _insert_messages.clear();
-        //Print the unlock list for good measure
-
         send_insert_crc_and_unlock_messages(_insert_messages, _locking_context.lock_list, _wr_id);
         ALERT(log_id(), "Done releasing locks");
-
-
 
         release_repair_lease(repair_lease_id);
 
