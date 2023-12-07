@@ -97,6 +97,12 @@ namespace cuckoo_rcuckoo {
             void complete_update_stats(bool success);
 
 
+            int aquire_repair_lease(unsigned int lock);
+            int release_repair_lease(unsigned int lease_id);
+
+            void reclaim_lock(unsigned int lock);
+
+
 
             vector<VRMaskedCasData> get_current_unlock_list();
 

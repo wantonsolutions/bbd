@@ -816,6 +816,78 @@ namespace cuckoo_rcuckoo {
         
     }
 
+    void set_retry_counter(unsigned int * retries, uint64_t set_locks) {
+        uint64_t one = 1;
+        for (uint64_t i=0;i<BITS_IN_MASKED_CAS;i++){
+            bool set = (set_locks & (one << i));
+            if (set) {
+                retries[i]++;
+            } else {
+                retries[i]=0;
+            }
+        }
+    }
+
+    //return a single bit for the lock we need to get
+    uint64_t retry_crossed_threshold(unsigned int * retries, unsigned int threshold){
+        uint64_t one = 1;
+        for (uint64_t i=0;i<BITS_IN_MASKED_CAS;i++){
+            if (retries[i] > threshold) {
+                return (one << i);
+            }
+        }
+        return 0;
+    }
+
+    void clear_retry_counter(unsigned int * retries) {
+        for (int i=0;i<BITS_IN_MASKED_CAS;i++){
+            retries[i]=0;
+        }
+    }
+
+
+    //Returns the ID of the repair lock
+    int RCuckoo::aquire_repair_lease(unsigned int lock) {
+        ALERT("TODO", "Go to remote memory and actually grab the repair lease");
+        return 0;
+    }
+
+    int RCuckoo::release_repair_lease(unsigned int lease_id){
+        ALERT("TODO", "Return the lease to remote memory");
+        return 0;
+    }
+
+    void RCuckoo::reclaim_lock(unsigned int lock) {
+        unsigned int repair_lease_id = aquire_repair_lease(lock);
+
+        ALERT(log_id(), "Enter Critical section for lease %d, lock %d\n", repair_lease_id, lock);
+
+        //Step 0 is to determine which state we are in. In order to do so we need first determine if we have any duplicates.
+        //We own the lock now so the first step is to get a covering read for the lock.
+
+
+        //Final step is to release the lock
+        ALERT(log_id(), "We have done the triage and can now release one or more locks\n.");
+        ALERT(log_id(), "Currently releaseing only one lock\n.");
+        ALERT(log_id(), "Warning dont try to reverse a lock without knowing exactlyy how it maps!\n");
+        assert(_buckets_per_lock ==1 && _locking_context.virtual_lock_table == false);
+
+        unsigned int original_lock_bucket = lock * _buckets_per_lock;
+        _locking_context.buckets.clear();
+        _locking_context.buckets.push_back(original_lock_bucket);
+        get_unlock_list_fast_context(_locking_context);
+        _insert_messages.clear();
+        //Print the unlock list for good measure
+
+        send_insert_crc_and_unlock_messages(_insert_messages, _locking_context.lock_list, _wr_id);
+        ALERT(log_id(), "Done releasing locks");
+
+
+
+        release_repair_lease(repair_lease_id);
+
+    }
+
     //Precondition _locking_context.buckets contains the locks we want to get
     void RCuckoo::top_level_aquire_locks() {
         get_lock_list_fast_context(_locking_context);
@@ -836,10 +908,15 @@ namespace cuckoo_rcuckoo {
 
         bool locking_complete = false;
         bool failed_last_request = false;
-
         unsigned int message_index = 0;
+
+        #ifdef INJECT_FAULT
+        unsigned int retries[BITS_IN_MASKED_CAS];
+        #endif
+
         while (!locking_complete) {
 
+            //TODO we need to make sure we have not crossed the timeout limit here.
             assert(message_index < _locking_context.lock_list.size());
 
             VRMaskedCasData lock = _locking_context.lock_list[message_index];
@@ -858,13 +935,7 @@ namespace cuckoo_rcuckoo {
             // auto t1 = high_resolution_clock::now();
             int outstanding_messages = 1; //It's two because we send the read and CAS
             int n = bulk_poll(_completion_queue, outstanding_messages, _wc);
-
             while (n < outstanding_messages) {
-                VERBOSE(log_id(), "first poll missed the read, polling again\n");
-                assert(_wc);
-                assert(_completion_queue);
-                assert(_wc + n);
-                assert(outstanding_messages - n > 0);
                 n += bulk_poll(_completion_queue, outstanding_messages - n, _wc + n);
             }
 
@@ -910,6 +981,12 @@ namespace cuckoo_rcuckoo {
                 if (failed_last_request) {
                     failed_last_request = false;
                 }
+
+                #ifdef INJECT_FAULT
+                clear_retry_counter(retries);
+                #endif
+
+
             } else {
                 // printf("%2d [fail lock]   r%016" PRIx64 ", m%016" PRIx64 ", o%016" PRIx64 "\n", _id, received_locks, mask, old_value);
                 #ifdef MEASURE_ESSENTIAL
@@ -920,16 +997,39 @@ namespace cuckoo_rcuckoo {
                 failed_last_request = true;
 
 
-
+                #ifdef INJECT_FAULT
                 //Here we are going to try to triage which lock is the one that is set for too long
                 // ALERT(log_id(),"Failed to grab the lock, this is where we will start to do fault recovery\n");
-                ALERT(log_id(),"Failed to get the lock %s\n", lock.to_string().c_str(), mask);
-                ALERT(log_id(),"unable to set %lX\n", mask & received_locks);
+                // ALERT(log_id(),"Failed to get the lock %s\n", lock.to_string().c_str(), mask);
+                // ALERT(log_id(),"unable to set %lX\n", mask & received_locks);
                 unsigned int locks[64];
                 unsigned int total_locks = lock_message_to_lock_indexes(lock,locks);
-                for (int i=0;i<total_locks;i++) {
-                    ALERT(log_id(), "Unable to aquire lock %d\n",locks[i]);
+                // for (int i=0;i<total_locks;i++) {
+                //     ALERT(log_id(), "Unable to aquire lock %d\n",locks[i]);
+                // }
+                set_retry_counter(retries, mask & received_locks);
+
+                uint64_t timed_out_lock = retry_crossed_threshold(retries,1000);
+                if (timed_out_lock > 0) {
+
+                    ALERT(log_id(), "We have crossed the line on lock %d\n", timed_out_lock);
+                    VRMaskedCasData lock_to_unlock = lock;
+                    lock_to_unlock.mask = timed_out_lock;
+                    lock_to_unlock.old = timed_out_lock;
+                    total_locks = lock_message_to_lock_indexes(lock_to_unlock,locks);
+                    assert(total_locks == 1);
+                    unsigned int lock_we_will_reclaim = locks[0];
+
+                    ALERT(log_id(), "Releasing my locks so that I don't cause more timeouts");
+                    _insert_messages.clear();
+                    send_insert_crc_and_unlock_messages(_insert_messages, _locking_context.lock_list, _wr_id);
+                    ALERT(log_id(), "Locks released -- Going to reclaim lock %d\n", lock_we_will_reclaim);
+                    reclaim_lock(lock_we_will_reclaim);
+
+                    exit(0);
                 }
+
+                #endif
             }
 
             if (_locking_context.lock_list.size() == message_index) {
