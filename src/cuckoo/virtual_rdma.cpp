@@ -99,10 +99,15 @@ namespace cuckoo_virtual_rdma {
     //Cached info like the dimensions or configuration of the table
     void LockingContext::clear_operation_state(){
         locking = false;
-        buckets.clear();
         number_of_chunks=0;
-        fast_lock_chunks.clear();
+        buckets.clear();
         lock_list.clear();
+        if (fast_lock_chunks.size() == 0) {
+            fast_lock_chunks.resize(MAX_LOCKS);
+            for (int i=0; i<MAX_LOCKS; i++) {
+                fast_lock_chunks[i].resize(locks_per_message);
+            }
+        }
 
         lock_indexes_size=0;
         virtual_lock_indexes_size=0;

@@ -28,8 +28,8 @@ using namespace rdma_helper;
 
 #define MAX_INSERT_AND_UNLOCK_MESSAGE_COUNT 64
 
+#define INJECT_FAULT FAULT_CASE_0
 // #define INJECT_FAULT FAULT_CASE_0
-#define INJECT_FAULT FAULT_CASE_1
 
 
 namespace cuckoo_rcuckoo {
@@ -884,8 +884,8 @@ namespace cuckoo_rcuckoo {
 
     int RCuckoo::release_repair_lease(unsigned int lease_id){
         ALERT("TODO", "Return the lease to remote memory");
-        ALERT(log_id(), "Exiting after lease release. The reason it to check table validity");
-        exit(0);
+        // ALERT(log_id(), "Exiting after lease release. The reason it to check table validity");
+        // exit(0);
         return 0;
     }
 
@@ -1009,8 +1009,9 @@ namespace cuckoo_rcuckoo {
     }
 
     void RCuckoo::reclaim_lock(unsigned int lock) {
+        hash_locations dup_entry;
         unsigned int repair_lease_id = aquire_repair_lease(lock);
-
+        unsigned int error_state = FAULT_CASE_0;
         ALERT(log_id(), "Enter Critical section for lease %d, lock %d\n", repair_lease_id, lock);
 
         //Step 0 is to determine which state we are in. In order to do so we need first determine if we have any duplicates.
@@ -1038,6 +1039,7 @@ namespace cuckoo_rcuckoo {
         }
 
         ALERT(log_id(), "We have read all the buckets covered by the lock\n");
+        _table.print_table();
 
         //Step 1 now we need to walk through each of the buckets that we read and check each entry to detect if they have duplicates.
         bool bad_crc = false;
@@ -1063,23 +1065,19 @@ namespace cuckoo_rcuckoo {
                     entries_to_check.push_back(e);
                 }
             }
-            //I need to check here if the crc is set, but there are no entries in the row. This is a special case of 
-            //state 3, where a delete occured but the CRC was wrong. At this point I should check if the CRC is wrong on 
-            //each and every bucket
         }
 
 
         //Step 2 go through each entry and perform a read to get duplicate information.
         bool found_duplicates = false;
-        hash_locations dup_entry;
         Entry broken_entry;
-        unsigned int error_state = FAULT_CASE_0;
         for(int i=0;i<entries_to_check.size();i++){
             //TODO I can issue these in bulk and deduplicate read rows for better performance.
             //TODO I'm issuing one read at a time because it's a bit easier for me
             Entry e = entries_to_check[i];
             read_theshold_message(reads,_location_function,e.key,0,_table.get_row_count(), _table.get_buckets_per_row());
-            ALERT(log_id(), "Checking for duplicate of %s in buckets %d, %d\n",e.key.to_string(), reads[0].row, reads[1].row);
+            ALERT(log_id(), "Checking for duplicate of %s in buckets %d, %d\n",e.key.to_string().c_str(), reads[0].row, reads[1].row);
+
             send_read(reads,_wr_id);
             int outstanding_messages = reads.size();
             int n =0;
@@ -1117,6 +1115,8 @@ namespace cuckoo_rcuckoo {
         ALERT(log_id(), "The next step is to repair the table for the broken entry\n");
 
         repair_table(broken_entry,error_state);
+        ALERT(log_id(), "Repair complete, printing table");
+        _table.print_table();
 
 
         //Final step is to release the lock
@@ -1124,8 +1124,8 @@ namespace cuckoo_rcuckoo {
         _locking_context.clear_operation_state();
 
         if (error_state == FAULT_CASE_0 || error_state == FAULT_CASE_3 || error_state == FAULT_CASE_4) {
-            ALERT(log_id(), "Unlocking single lock\n");
             unsigned int original_lock_bucket = lock * _buckets_per_lock;
+            ALERT(log_id(), "Unlocking single lock %d\n",original_lock_bucket);
             _locking_context.buckets.push_back(original_lock_bucket);
         } else if (error_state == FAULT_CASE_1 || error_state == FAULT_CASE_2) {
             ALERT(log_id(), "Unlocking multiple buckets including one we did not time out on because we found a duplicate\n");
@@ -1137,6 +1137,7 @@ namespace cuckoo_rcuckoo {
         _insert_messages.clear();
         send_insert_crc_and_unlock_messages(_insert_messages, _locking_context.lock_list, _wr_id);
         ALERT(log_id(), "Done releasing locks");
+        _locking_context.clear_operation_state();
 
         release_repair_lease(repair_lease_id);
 
@@ -1257,7 +1258,7 @@ namespace cuckoo_rcuckoo {
                 // ALERT(log_id(),"Failed to grab the lock, this is where we will start to do fault recovery\n");
                 // ALERT(log_id(),"Failed to get the lock %s\n", lock.to_string().c_str(), mask);
                 // ALERT(log_id(),"unable to set %lX\n", mask & received_locks);
-                unsigned int locks[64];
+                unsigned int locks[BITS_IN_MASKED_CAS];
                 unsigned int total_locks = lock_message_to_lock_indexes(lock,locks);
                 // for (int i=0;i<total_locks;i++) {
                 //     ALERT(log_id(), "Unable to aquire lock %d\n",locks[i]);
@@ -1268,7 +1269,9 @@ namespace cuckoo_rcuckoo {
                 if (timed_out_lock > 0) {
                     clear_retry_counter(retries);
 
-                    ALERT(log_id(), "We have crossed the line on lock %d\n", timed_out_lock);
+                    ALERT(log_id(), "We have crossed the line on lock %lX\n", timed_out_lock);
+                    ALERT(log_id(), "Taking a short break from inserting %s to repair table\n", _current_insert_key.to_string().c_str());
+                    ALERT(log_id(), "Currently holding %d locks\n", message_index);
                     VRMaskedCasData lock_to_unlock = lock;
                     lock_to_unlock.mask = timed_out_lock;
                     lock_to_unlock.old = timed_out_lock;
@@ -1278,7 +1281,7 @@ namespace cuckoo_rcuckoo {
 
                     ALERT(log_id(), "Releasing my locks so that I don't cause more timeouts");
                     _insert_messages.clear();
-                    send_insert_crc_and_unlock_messages(_insert_messages, _locking_context.lock_list, _wr_id);
+                    // send_insert_crc_and_unlock_messages(_insert_messages, _locks_held, _wr_id);
                     ALERT(log_id(), "Locks released -- Going to reclaim lock %d\n", lock_we_will_reclaim);
                     reclaim_lock(lock_we_will_reclaim);
 
@@ -1409,6 +1412,9 @@ namespace cuckoo_rcuckoo {
         // assert(_locking_context.buckets.size() < 64);
         bool have_locks = top_level_aquire_locks();
         while(!have_locks) {
+            //we can delete the locking context if we recover. Reconstruct the locking context buckets for the next insert
+            ALERT(log_id(), "Going back for a second round on this lock\n");
+            search_path_to_buckets_fast(_search_context.path, _locking_context.buckets);
             have_locks = top_level_aquire_locks();
         }
 
