@@ -466,7 +466,6 @@ namespace cuckoo_rcuckoo {
             mask,
             false,
             _wr_id);
-        ALERT("send lock and cover", "sending lock with wr_id %d\n", _wr_id);
         _wr_id++;
 
 
@@ -498,11 +497,8 @@ namespace cuckoo_rcuckoo {
             true,
             _wr_id
         );
-        ALERT("send lock and cover", "sending read with wr_id %d\n", _wr_id);
-        ALERT("send lock and cover", "read: row, offset, size %d, %d, %d\n", read_message.row, read_message.offset, read_message.size);
         _wr_id++;
-
-        // print_work_request(wr, READ_AND_COVER_MESSAGE_COUNT);
+        INFO("send lock and cover", "read: row, offset, size %d, %d, %d\n", read_message.row, read_message.offset, read_message.size);
         
         send_bulk(READ_AND_COVER_MESSAGE_COUNT, _qp, wr);
 
@@ -550,7 +546,6 @@ namespace cuckoo_rcuckoo {
                 signal,
                 _wr_id
             );
-            ALERT("send_read", "sending read with wr_id %d", _wr_id);
             _wr_id++;
         }
         send_bulk(reads.size(), _qp, wr);
@@ -618,7 +613,6 @@ namespace cuckoo_rcuckoo {
         uint64_t crc_address = (uint64_t) get_entry_pointer(insert_message.row, _table.get_entries_per_row());
 
         uint64_t remote_server_crc_address = local_to_remote_table_address(crc_address);
-        _table.print_row(insert_message.row);
 
         setRdmaWriteExp(
             &sg[1],
@@ -1187,7 +1181,6 @@ namespace cuckoo_rcuckoo {
 
     //Precondition _locking_context.buckets contains the locks we want to get
     bool RCuckoo::top_level_aquire_locks() {
-        ALERT("top_level_aquire_locks", "entry");
         get_lock_list_fast_context(_locking_context);
         INFO(log_id(), "[aquire_locks] gathering locks for buckets %s\n", vector_to_string(_locking_context.buckets).c_str());
         //TODO make this one thing
@@ -1405,9 +1398,9 @@ namespace cuckoo_rcuckoo {
 
 
         if (_state == INSERTING) {
-            ALERT("insert direct", "inserting key %s\n", _current_insert_key.to_string().c_str());
-            ALERT("insert path local", "inserting key %s\n", path_to_string(_search_context.path).c_str());
-            _current_insert_key = _current_insert_key;
+            // ALERT("insert direct", "inserting key %s\n", _current_insert_key.to_string().c_str());
+            // ALERT("insert path local", "inserting key %s\n", path_to_string(_search_context.path).c_str());
+            // _current_insert_key = _current_insert_key;
             insert_cuckoo_path_local(_table, _search_context.path);
         }
         #ifdef ROW_CRC
@@ -1452,9 +1445,9 @@ namespace cuckoo_rcuckoo {
             return;
         }
 
-        hash_locations hl = _location_function(_current_insert_key,_table.get_row_count());
-        ALERT("DEBUG", "key %s hash locations %s\n", _current_insert_key.to_string().c_str(),hl.to_string().c_str());
-        ALERT("search", "Successful local search for [key %s] -> [path %s]\n", _current_insert_key.to_string().c_str(), path_to_string(_search_context.path).c_str());
+        // hash_locations hl = _location_function(_current_insert_key,_table.get_row_count());
+        // ALERT("DEBUG", "key %s hash locations %s\n", _current_insert_key.to_string().c_str(),hl.to_string().c_str());
+        // ALERT("search", "Successful local search for [key %s] -> [path %s]\n", _current_insert_key.to_string().c_str(), path_to_string(_search_context.path).c_str());
         _state = AQUIRE_LOCKS;
 
 
@@ -1464,8 +1457,7 @@ namespace cuckoo_rcuckoo {
         
 
         search_path_to_buckets_fast(_search_context.path, _locking_context.buckets);
-        ALERT("locally computed path", "key %s path %s\n", _current_insert_key.to_string().c_str(), path_to_string(_search_context.path).c_str());
-        // assert(_locking_context.buckets.size() < 64);
+        VERBOSE("locally computed path", "key %s path %s\n", _current_insert_key.to_string().c_str(), path_to_string(_search_context.path).c_str());
 
         bool have_locks = top_level_aquire_locks();
         if(!have_locks){
@@ -1517,9 +1509,7 @@ namespace cuckoo_rcuckoo {
 
     void RCuckoo::update_direct(void) {
         // assert(_locking_context.buckets.size() < 64);
-        ALERT("update enter", "entry");
         hash_locations buckets = _location_function(_current_update_key, _table.get_row_count());
-        ALERT("update enter", "buckets %s", buckets.to_string().c_str());
         _locking_context.clear_operation_state();
         _locking_context.buckets.push_back(buckets.min_bucket());
         _locking_context.buckets.push_back(buckets.max_bucket());
