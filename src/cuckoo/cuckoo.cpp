@@ -1045,117 +1045,116 @@ namespace cuckoo_rcuckoo {
         ALERT(log_id(), "Enter Critical section for lease %d, lock %d\n", repair_lease_id, lock);
 
 
-        // //Step 0 is to determine which state we are in. In order to do so we need first determine if we have any duplicates.
-        // //We own the lock now so the first step is to get a covering read for the lock.
-        // _locking_context.clear_operation_state();
-        // vector<unsigned int> lock_arr;
-        // lock_arr.push_back(lock);
-        // lock_indexes_to_buckets_context(_locking_context.buckets,lock_arr,_locking_context);
-        // vector<VRReadData> reads;
+        //Step 0 is to determine which state we are in. In order to do so we need first determine if we have any duplicates.
+        //We own the lock now so the first step is to get a covering read for the lock.
 
-        // for (int i=0;i < _locking_context.buckets.size(); i++){
-        //     ALERT(log_id(), "Sending a read to bucket %d\n", _locking_context.buckets[i]);
-        //     VRReadData read;
-        //     read.row = _locking_context.buckets[i];
-        //     read.size = _table.row_size_bytes();
-        //     read.offset = 0;
-        //     reads.push_back(read);
-        // }
-        // send_read(reads,_wr_id);
-        // int outstanding_messages = reads.size();
-        // int n =0;
-        // while (n < 1) {
-        //     //We only signal a single read, so we should only get a single completion
-        //     n = bulk_poll(_completion_queue, outstanding_messages - n, _wc + n);
-        // }
+        LockingContext repair_context = copy_context(_locking_context);
+        vector<unsigned int> lock_arr;
+        lock_arr.push_back(lock);
+        lock_indexes_to_buckets_context(repair_context.buckets,lock_arr,repair_context);
+        vector<VRReadData> reads;
 
-        // ALERT(log_id(), "We have read all the buckets covered by the lock\n");
-        // _table.print_table();
+        for (int i=0;i < repair_context.buckets.size(); i++){
+            ALERT(log_id(), "Sending a read to bucket %d\n", repair_context.buckets[i]);
+            VRReadData read;
+            read.row = repair_context.buckets[i];
+            read.size = _table.row_size_bytes();
+            read.offset = 0;
+            reads.push_back(read);
+        }
+        send_read(reads);
+        int outstanding_messages = reads.size();
+        int n =0;
+        while (n < 1) {
+            //We only signal a single read, so we should only get a single completion
+            n = bulk_poll(_completion_queue, outstanding_messages - n, _wc + n);
+        }
 
-        // //Step 1 now we need to walk through each of the buckets that we read and check each entry to detect if they have duplicates.
-        // bool bad_crc = false;
-        // vector<Entry> entries_to_check;
-        // for(int i=0;i<_locking_context.buckets.size();i++){
-        //     unsigned row = _locking_context.buckets[i];
-        //     //If this row has never been used, just keep moving.
-        //     if (_table.bucket_is_empty(row)) {
-        //         continue;
-        //     }
-        //     //If we find that the CRC is bad here, we know that we are in state 1 or 3
-        //     if (!_table.crc_valid_row(row)) {
-        //         ALERT(log_id(), "Bucket %d is corrupted, in recovery state %d or %d",row, FAULT_CASE_1, FAULT_CASE_3);
-        //         if(bad_crc) {
-        //             ALERT(log_id(), "We have found more than one corrupted CRC behind a lock. This is an unknown error condition. Crashing...");
-        //             exit(0);
-        //         }
-        //         bad_crc=true;
-        //     }
-        //     for (int j=0;j<_table.get_buckets_per_row();j++){
-        //         Entry e = _table.get_entry(row,j);
-        //         if (!e.is_empty()){
-        //             entries_to_check.push_back(e);
-        //         }
-        //     }
-        // }
+        ALERT(log_id(), "We have read all the buckets covered by the lock\n");
+        _table.print_table();
+
+        //Step 1 now we need to walk through each of the buckets that we read and check each entry to detect if they have duplicates.
+        bool bad_crc = false;
+        vector<Entry> entries_to_check;
+        for(int i=0;i<repair_context.buckets.size();i++){
+            unsigned row = repair_context.buckets[i];
+            //If this row has never been used, just keep moving.
+            if (_table.bucket_is_empty(row)) {
+                continue;
+            }
+            //If we find that the CRC is bad here, we know that we are in state 1 or 3
+            if (!_table.crc_valid_row(row)) {
+                ALERT(log_id(), "Bucket %d is corrupted, in recovery state %d or %d",row, FAULT_CASE_1, FAULT_CASE_3);
+                if(bad_crc) {
+                    ALERT(log_id(), "We have found more than one corrupted CRC behind a lock. This is an unknown error condition. Crashing...");
+                    exit(0);
+                }
+                bad_crc=true;
+            }
+            for (int j=0;j<_table.get_buckets_per_row();j++){
+                Entry e = _table.get_entry(row,j);
+                if (!e.is_empty()){
+                    entries_to_check.push_back(e);
+                }
+            }
+        }
 
 
-        // //Step 2 go through each entry and perform a read to get duplicate information.
-        // bool found_duplicates = false;
-        // Entry broken_entry;
-        // for(int i=0;i<entries_to_check.size();i++){
-        //     //TODO I can issue these in bulk and deduplicate read rows for better performance.
-        //     //TODO I'm issuing one read at a time because it's a bit easier for me
-        //     Entry e = entries_to_check[i];
-        //     read_theshold_message(reads,_location_function,e.key,0,_table.get_row_count(), _table.get_buckets_per_row());
-        //     ALERT(log_id(), "Checking for duplicate of %s in buckets %d, %d\n",e.key.to_string().c_str(), reads[0].row, reads[1].row);
+        //Step 2 go through each entry and perform a read to get duplicate information.
+        bool found_duplicates = false;
+        Entry broken_entry;
+        for(int i=0;i<entries_to_check.size();i++){
+            //TODO I can issue these in bulk and deduplicate read rows for better performance.
+            //TODO I'm issuing one read at a time because it's a bit easier for me
+            Entry e = entries_to_check[i];
+            read_theshold_message(reads,_location_function,e.key,0,_table.get_row_count(), _table.get_buckets_per_row());
+            ALERT(log_id(), "Checking for duplicate of %s in buckets %d, %d\n",e.key.to_string().c_str(), reads[0].row, reads[1].row);
 
-        //     send_read(reads,_wr_id);
-        //     int outstanding_messages = reads.size();
-        //     int n =0;
-        //     while (n < 1) {
-        //         //We only signal a single read, so we should only get a single completion
-        //         n = bulk_poll(_completion_queue, outstanding_messages - n, _wc + n);
-        //     }
-        //     dup_entry = _location_function(e.key,_table.get_row_count());
+            send_read(reads);
+            int outstanding_messages = reads.size();
+            int n =0;
+            while (n < 1) {
+                //We only signal a single read, so we should only get a single completion
+                n = bulk_poll(_completion_queue, outstanding_messages - n, _wc + n);
+            }
+            dup_entry = _location_function(e.key,_table.get_row_count());
 
-        //     ALERT(log_id(), "Checking local table for duplicate of %s in buckets %d, %d\n",e.key.to_string().c_str(), dup_entry.primary, dup_entry.secondary);
-        //     found_duplicates = _table.bucket_contains(dup_entry.primary,e.key) && _table.bucket_contains(dup_entry.secondary, e.key);
-        //     if (found_duplicates) {
-        //         ALERT(log_id(), "Duplicates of %s found!",e.key.to_string().c_str());
-        //     }
-        //     //Now that I'm here I can check for duplicates
+            ALERT(log_id(), "Checking local table for duplicate of %s in buckets %d, %d\n",e.key.to_string().c_str(), dup_entry.primary, dup_entry.secondary);
+            found_duplicates = _table.bucket_contains(dup_entry.primary,e.key) && _table.bucket_contains(dup_entry.secondary, e.key);
+            if (found_duplicates) {
+                ALERT(log_id(), "Duplicates of %s found!",e.key.to_string().c_str());
+            }
+            //Now that I'm here I can check for duplicates
 
-        //     //Here we attempt to detect the error
-        //     if(found_duplicates && bad_crc){
-        //         broken_entry = entries_to_check[i];
-        //         error_state = FAULT_CASE_1;
-        //         break;
-        //     } else if (found_duplicates) {
-        //         broken_entry = entries_to_check[i];
-        //         error_state = FAULT_CASE_2;
-        //         break;
-        //     } else if (bad_crc) {
-        //         broken_entry = entries_to_check[i];
-        //         error_state = FAULT_CASE_3;
-        //         break;
-        //     }
-        // }
+            //Here we attempt to detect the error
+            if(found_duplicates && bad_crc){
+                broken_entry = entries_to_check[i];
+                error_state = FAULT_CASE_1;
+                break;
+            } else if (found_duplicates) {
+                broken_entry = entries_to_check[i];
+                error_state = FAULT_CASE_2;
+                break;
+            } else if (bad_crc) {
+                broken_entry = entries_to_check[i];
+                error_state = FAULT_CASE_3;
+                break;
+            }
+        }
 
-        // //At this point we have the error code corretly determined
-        // ALERT(log_id(), "Error Detection Complete We are in error state %d",error_state);
-        // ALERT(log_id(), "The next step is to repair the table for the broken entry\n");
+        //At this point we have the error code corretly determined
+        ALERT(log_id(), "Error Detection Complete We are in error state %d",error_state);
+        ALERT(log_id(), "The next step is to repair the table for the broken entry\n");
 
-        // repair_table(broken_entry,error_state);
-        // ALERT(log_id(), "Repair complete, printing table");
-        // _table.print_table();
+        repair_table(broken_entry,error_state);
+        ALERT(log_id(), "Repair complete, printing table");
+        _table.print_table();
 
 
         //Final step is to release the lock
         ALERT(log_id(), "We have done the triage and can now release one or more locks\n.");
-        LockingContext repair_context = copy_context(_locking_context);
-        // _locking_context.clear_operation_state();
-        repair_context.buckets.clear();
 
+        repair_context.clear_operation_state();
         if (error_state == FAULT_CASE_0 || error_state == FAULT_CASE_3 || error_state == FAULT_CASE_4) {
             unsigned int original_lock_bucket = lock * _buckets_per_lock;
             ALERT(log_id(), "Unlocking single lock %d\n",original_lock_bucket);
