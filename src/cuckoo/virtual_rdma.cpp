@@ -117,6 +117,25 @@ namespace cuckoo_virtual_rdma {
         }
     }
 
+    LockingContext copy_context(LockingContext &context) {
+        LockingContext lc;
+        lc.buckets_per_lock = context.buckets_per_lock;
+        lc.locks_per_message = context.locks_per_message;
+        lc.virtual_lock_table = context.virtual_lock_table;
+        lc.total_physical_locks = context.total_physical_locks;
+        lc.scale_factor = context.scale_factor;
+        lc.locking = context.locking;
+
+        // lc.buckets = new vector<unsigned int>();
+        lc.number_of_chunks = 0;
+        // lc.fast_lock_chunks = new vector<vector<unsigned int>>();
+        // lc.lock_list = vector<VRMaskedCasData>();
+        lc.lock_indexes_size=0;
+        lc.virtual_lock_indexes_size=0;
+        return lc;
+    }
+
+
     unsigned int lock_message_to_lock_indexes(VRMaskedCasData lock_message, unsigned int * lock_indexes) {
         // uint64_t mask = reverse_uint64_t(lock_message.mask);
         uint64_t mask = __builtin_bswap64(lock_message.mask);
@@ -290,7 +309,9 @@ namespace cuckoo_virtual_rdma {
             uint64_t one = 1;
             unsigned int min_index = get_min_sixty_four_aligned_index(context.fast_lock_chunks[i]);
             // unsigned int min_index = sixty_four_aligned_index(context.fast_lock_chunks[i][0]);
+            assert(context.fast_lock_chunks[i].size() >0);
             for (size_t j=0; j<context.fast_lock_chunks[i].size(); j++) {
+                ALERT("Chunking", "lock index[%d][%d] %u",i,j, context.fast_lock_chunks[i][j]);
                 unsigned int normal_index = context.fast_lock_chunks[i][j] - min_index;
                 lock |= (uint64_t)(one << normal_index);
             }
@@ -304,6 +325,10 @@ namespace cuckoo_virtual_rdma {
             mcd.old = 0;
             mcd.new_value = lock;
             mcd.mask = lock;
+            if(mcd.min_set_lock > mcd.max_set_lock) {
+                ALERT("lock_chunks_to_masked_cas min_set_lock > max_set_lock", "mcd %s\n", mcd.to_string().c_str());
+            }
+            assert(mcd.min_set_lock <= mcd.max_set_lock);
             // printf("pushing mcd %d %s\n", i, mcd.to_string().c_str());
             context.lock_list.push_back(mcd);
         }
@@ -324,6 +349,7 @@ namespace cuckoo_virtual_rdma {
 
 
     void get_lock_or_unlock_list_fast_context(LockingContext & context){
+        ALERT("get-lock-unlock","ENTRY");
         assert(context.locks_per_message <= 64);
         // vector<vector<unsigned int>> fast_lock_chunks;
         context.lock_list.clear();
@@ -477,7 +503,9 @@ namespace cuckoo_virtual_rdma {
         read_data.row = (masked_cas.min_set_lock + (BITS_PER_BYTE * masked_cas.min_lock_index)) * buckets_per_lock;
         // read_data.row = buckets.primary;
         read_data.offset = 0;
-        // ALERT("get_covering_read_from_lock", "row: %d min_bucket: %d, max_bucket: %d size %d\n", read_data.row, buckets.primary, buckets.secondary, read_data.size);
+        ALERT("get_covering_read_from_lock", "lock %s\n", masked_cas.to_string().c_str());
+
+        ALERT("get_covering_read_from_lock", "row: %d min_bucket: %d, max_bucket: %d size %d\n", read_data.row, buckets.primary, buckets.secondary, read_data.size);
         return read_data;
     }
 

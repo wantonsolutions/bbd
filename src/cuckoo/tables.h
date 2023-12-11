@@ -194,6 +194,7 @@ namespace cuckoo_tables {
             string to_string();
             string row_to_string(unsigned int row);
             void print_table();
+            void print_row(unsigned int row);
             void print_lock_table();
             Entry ** get_underlying_table();
             void set_underlying_table(Entry ** table);
@@ -214,6 +215,7 @@ namespace cuckoo_tables {
 
             uint64_t crc64_row(unsigned int row_index);
             bool crc_valid_row(unsigned int row);
+            int crc_valid();
 
             bool contains(Key key);
             bool bucket_contains(unsigned int bucket_index, Key &key);

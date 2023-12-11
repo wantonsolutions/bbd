@@ -266,6 +266,11 @@ namespace cuckoo_tables {
         return output_string;
     }
 
+    void Table::print_row(unsigned int row){
+        cout << row_to_string(row) << endl;
+        return;
+    }
+
     void Table::print_table(){
         cout << to_string() << endl;
         return;
@@ -336,6 +341,9 @@ namespace cuckoo_tables {
     }
 
     bool Table:: crc_valid_row(unsigned int row) {
+        if (bucket_is_empty(row)){
+            return true;
+        }
         return crc64_row(row) == get_entry(row,get_entries_per_row()).get_as_uint64_t();
     }
 
@@ -346,6 +354,15 @@ namespace cuckoo_tables {
             }
         }
         return false;
+    }
+
+    int Table::crc_valid() {
+        for (int i = 0; i < _table_size; i++){
+            if (!crc_valid_row(i)){
+                return i;
+            }
+        }
+        return -1;
     }
 
     bool Table::bucket_is_empty(unsigned int row) {

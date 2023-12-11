@@ -18,7 +18,7 @@ using namespace cuckoo_search;
 #define MAX_CONCURRENT_CUCKOO_MESSAGES 32
 #define ID_SIZE 64
 
-#define MAX_INSERT_CRC_AND_UNLOCK_MESSAGE_COUNT 64
+#define MAX_INSERT_CRC_AND_UNLOCK_MESSAGE_COUNT 16
 #define FAULT_CASE_0 0
 #define FAULT_CASE_1 1
 #define FAULT_CASE_2 2
@@ -72,13 +72,13 @@ namespace cuckoo_rcuckoo {
 
             void set_unlock_message(VRMaskedCasData &unlock_message, struct ibv_sge *sg, struct ibv_exp_send_wr *wr, uint64_t *wr_id);
             void set_insert(VRCasData &insert_message, struct ibv_sge *sg, struct ibv_exp_send_wr *wr, uint64_t *wr_id);
-            void send_lock_and_cover_message(VRMaskedCasData lock_message, VRReadData read_message, uint64_t wr_id);
+            void send_lock_and_cover_message(VRMaskedCasData lock_message, VRReadData read_message);
             void send_insert_and_unlock_messages(vector<VRCasData> &insert_messages, vector<VRMaskedCasData> & unlock_messages, uint64_t wr_id);
 
             void send_insert_and_crc(VRCasData insert_message, ibv_sge *sg, ibv_exp_send_wr *wr, uint64_t *wr_id);
-            void send_insert_crc_and_unlock_messages(vector<VRCasData> &insert_messages, vector<VRMaskedCasData> & unlock_messages, uint64_t wr_id);
+            void send_insert_crc_and_unlock_messages(vector<VRCasData> &insert_messages, vector<VRMaskedCasData> & unlock_messages);
             void send_insert_crc_and_unlock_messages_with_fault(vector<VRCasData> &insert_messages, vector<VRMaskedCasData> & unlock_messages, unsigned int fault);
-            void send_read(vector <VRReadData> reads, uint64_t wr_id);
+            void send_read(vector <VRReadData> reads);
 
             void rdma_fsm(void);
             void init_rdma_structures(rdma_info info);

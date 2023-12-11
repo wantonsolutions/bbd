@@ -74,6 +74,7 @@ namespace cuckoo_rcuckoo {
         for (int i=path.size()-2; i >=0; i--){
             Entry e;
             e.key = path[i+1].key;
+            // ALERT("insert local","Inserting key %s into bucket %d offset %d", e.key.to_string().c_str(), path[i].bucket_index, path[i].offset);
             table.set_entry(path[i].bucket_index, path[i].offset, e);
         }
     }
@@ -163,11 +164,11 @@ namespace cuckoo_rcuckoo {
     void RCuckoo::clear_statistics(){
         Client_State_Machine::clear_statistics();
         SUCCESS("RCuckoo", "clearing statistics\n");
-        _current_insert_key = Key();
         // _search_path = vector<path_element>();
-        _search_path_index = 0;
-        _locks_held = vector<unsigned int>();
-        _locking_message_index = 0;
+        // _current_insert_key = Key();
+        // _search_path_index = 0;
+        // _locks_held = vector<unsigned int>();
+        // _locking_message_index = 0;
         return;
     }
 
@@ -432,7 +433,7 @@ namespace cuckoo_rcuckoo {
         }
     }
 
-    void RCuckoo::send_lock_and_cover_message(VRMaskedCasData lock_message, VRReadData read_message, uint64_t wr_id) {
+    void RCuckoo::send_lock_and_cover_message(VRMaskedCasData lock_message, VRReadData read_message) {
         #define READ_AND_COVER_MESSAGE_COUNT 2
         struct ibv_sge sg [READ_AND_COVER_MESSAGE_COUNT];
         struct ibv_exp_send_wr wr [READ_AND_COVER_MESSAGE_COUNT];
@@ -464,7 +465,9 @@ namespace cuckoo_rcuckoo {
             _table_config->lock_table_key,
             mask,
             false,
-            wr_id);
+            _wr_id);
+        ALERT("send lock and cover", "sending lock with wr_id %d\n", _wr_id);
+        _wr_id++;
 
 
         bool inside_rows = read_message.row < _table.get_row_count();
@@ -493,8 +496,13 @@ namespace cuckoo_rcuckoo {
             _table_mr->lkey,
             _table_config->remote_key,
             true,
-            wr_id + 1
+            _wr_id
         );
+        ALERT("send lock and cover", "sending read with wr_id %d\n", _wr_id);
+        ALERT("send lock and cover", "read: row, offset, size %d, %d, %d\n", read_message.row, read_message.offset, read_message.size);
+        _wr_id++;
+
+        // print_work_request(wr, READ_AND_COVER_MESSAGE_COUNT);
         
         send_bulk(READ_AND_COVER_MESSAGE_COUNT, _qp, wr);
 
@@ -518,11 +526,12 @@ namespace cuckoo_rcuckoo {
         #endif
     }
 
-    void RCuckoo::send_read(vector <VRReadData> reads, uint64_t wr_id) {
+    void RCuckoo::send_read(vector <VRReadData> reads) {
 
         #define MAX_READ_PACKETS 2
         struct ibv_sge sg [MAX_READ_PACKETS];
         struct ibv_exp_send_wr wr [MAX_READ_PACKETS];
+        assert(reads.size() <= MAX_READ_PACKETS);
 
         for(size_t i=0;i<reads.size();i++) {
             uint64_t local_address = (uint64_t) get_entry_pointer(reads[i].row, reads[i].offset);
@@ -539,8 +548,10 @@ namespace cuckoo_rcuckoo {
                 _table_mr->lkey,
                 _table_config->remote_key,
                 signal,
-                wr_id + i
+                _wr_id
             );
+            ALERT("send_read", "sending read with wr_id %d", _wr_id);
+            _wr_id++;
         }
         send_bulk(reads.size(), _qp, wr);
         #ifdef MEASURE_ESSENTIAL
@@ -568,7 +579,9 @@ namespace cuckoo_rcuckoo {
         uint64_t remote_server_address = local_to_remote_table_address(local_address);
 
 
-        // printf("local_address %lX remote_server_address %lX\n", local_address, remote_server_address);
+        //Perhaps we could insert the entry locally here too?
+        // _table.set_entry(insert_message.row, insert_message.offset, insert_message.);
+
         int32_t imm = -1;
         setRdmaWriteExp(
             &sg[0],
@@ -585,13 +598,28 @@ namespace cuckoo_rcuckoo {
         (*wr_id)++;
 
         uint64_t crc = _table.crc64_row(insert_message.row);
+
+        //TODO this is some hacky code. It seems like after recovery sometimes the value we are trying to
+        //Insert does not make it into the table. No idea why. 
+        //Here we just reinsert the path locally again if we see that the CRC did not work.
+        if(crc == 0) {
+            ALERT("ALERT", "This code is likely causing a bug try to remove it.");
+            // print_path(_search_context.path);
+            insert_cuckoo_path_local(_table, _search_context.path);
+            crc = _table.crc64_row(insert_message.row);
+        }
+        if(crc == 0){
+            ALERT("debug","crc is 0 twice, panic is should be a 1 in 2^32 probability");
+            assert(false);
+        }
         Entry crc_entry;
         crc_entry.set_as_uint64_t(crc);
         _table.set_entry(insert_message.row, _table.get_entries_per_row(), crc_entry);
         uint64_t crc_address = (uint64_t) get_entry_pointer(insert_message.row, _table.get_entries_per_row());
 
         uint64_t remote_server_crc_address = local_to_remote_table_address(crc_address);
-        // printf("crc_address %lX remote_server_crc_address %lX\n", crc_address, remote_server_crc_address);
+        _table.print_row(insert_message.row);
+
         setRdmaWriteExp(
             &sg[1],
             &wr[1],
@@ -690,7 +718,7 @@ namespace cuckoo_rcuckoo {
     }
 
 
-    void RCuckoo::send_insert_crc_and_unlock_messages(vector<VRCasData> &insert_messages, vector<VRMaskedCasData> & unlock_messages, uint64_t wr_id) {
+    void RCuckoo::send_insert_crc_and_unlock_messages(vector<VRCasData> &insert_messages, vector<VRMaskedCasData> & unlock_messages) {
 
         struct ibv_sge sg [MAX_INSERT_CRC_AND_UNLOCK_MESSAGE_COUNT];
         struct ibv_exp_send_wr wr [MAX_INSERT_CRC_AND_UNLOCK_MESSAGE_COUNT];
@@ -722,12 +750,17 @@ namespace cuckoo_rcuckoo {
             exit(1);
         }
         assert(total_messages <= MAX_INSERT_AND_UNLOCK_MESSAGE_COUNT);
-
+        // ALERT(log_id(), "sending a total of %d insert messages and %d unlock messages\n", insert_messages.size(), unlock_messages.size());
         for ( unsigned int i=0; i < insert_messages.size(); i++) {
-            send_insert_and_crc(insert_messages[i], &sg[i*2], &wr[i*2], &wr_id);
+            // ALERT("ROW CRC", "sending insert message %d %d %lu\n", insert_messages[i].row, insert_messages[i].offset, insert_messages[i].new_value);
+            if (insert_messages[i].row == 10) {
+                ALERT("ROW CRC", "sending insert message %d %d %lu\n", insert_messages[i].row, insert_messages[i].offset, insert_messages[i].new_value);
+            }
+            send_insert_and_crc(insert_messages[i], &sg[i*2], &wr[i*2], &_wr_id);
         }
         for ( unsigned int i=0; i < unlock_messages.size(); i++) {
-            set_unlock_message(unlock_messages[i], &sg[i + insert_messages_with_crc], &wr[i + insert_messages_with_crc], &wr_id);
+            set_unlock_message(unlock_messages[i], &sg[i + insert_messages_with_crc], &wr[i + insert_messages_with_crc], &_wr_id);
+            // ALERT("ROW CRC", "sending unlock message %d %lX %lX\n", unlock_messages[i].min_lock_index, unlock_messages[i].old, unlock_messages[i].new_value);
         }
         set_signal(&wr[total_messages-1]);
 
@@ -937,8 +970,9 @@ namespace cuckoo_rcuckoo {
                 _table_config->remote_key,
                 -1,
                 false,
-                _wr_id++
+                _wr_id
             );
+            _wr_id++;
             message_count++;
             error_state = FAULT_CASE_2;
         }
@@ -964,8 +998,9 @@ namespace cuckoo_rcuckoo {
                 _table_config->remote_key,
                 -1,
                 false,
-                _wr_id++
+                _wr_id
             );
+            _wr_id++;
             message_count++;
             error_state = FAULT_CASE_3;
         }
@@ -991,8 +1026,9 @@ namespace cuckoo_rcuckoo {
                 _table_config->remote_key,
                 -1,
                 false,
-                _wr_id++
+                _wr_id
             );
+            _wr_id++;
             message_count++;
         }
 
@@ -1014,130 +1050,136 @@ namespace cuckoo_rcuckoo {
         unsigned int error_state = FAULT_CASE_0;
         ALERT(log_id(), "Enter Critical section for lease %d, lock %d\n", repair_lease_id, lock);
 
-        //Step 0 is to determine which state we are in. In order to do so we need first determine if we have any duplicates.
-        //We own the lock now so the first step is to get a covering read for the lock.
-        _locking_context.clear_operation_state();
-        vector<unsigned int> lock_arr;
-        lock_arr.push_back(lock);
-        lock_indexes_to_buckets_context(_locking_context.buckets,lock_arr,_locking_context);
-        vector<VRReadData> reads;
 
-        for (int i=0;i < _locking_context.buckets.size(); i++){
-            ALERT(log_id(), "Sending a read to bucket %d\n", _locking_context.buckets[i]);
-            VRReadData read;
-            read.row = _locking_context.buckets[i];
-            read.size = _table.row_size_bytes();
-            read.offset = 0;
-            reads.push_back(read);
-        }
-        send_read(reads,_wr_id);
-        int outstanding_messages = reads.size();
-        int n =0;
-        while (n < 1) {
-            //We only signal a single read, so we should only get a single completion
-            n = bulk_poll(_completion_queue, outstanding_messages - n, _wc + n);
-        }
+        // //Step 0 is to determine which state we are in. In order to do so we need first determine if we have any duplicates.
+        // //We own the lock now so the first step is to get a covering read for the lock.
+        // _locking_context.clear_operation_state();
+        // vector<unsigned int> lock_arr;
+        // lock_arr.push_back(lock);
+        // lock_indexes_to_buckets_context(_locking_context.buckets,lock_arr,_locking_context);
+        // vector<VRReadData> reads;
 
-        ALERT(log_id(), "We have read all the buckets covered by the lock\n");
-        _table.print_table();
+        // for (int i=0;i < _locking_context.buckets.size(); i++){
+        //     ALERT(log_id(), "Sending a read to bucket %d\n", _locking_context.buckets[i]);
+        //     VRReadData read;
+        //     read.row = _locking_context.buckets[i];
+        //     read.size = _table.row_size_bytes();
+        //     read.offset = 0;
+        //     reads.push_back(read);
+        // }
+        // send_read(reads,_wr_id);
+        // int outstanding_messages = reads.size();
+        // int n =0;
+        // while (n < 1) {
+        //     //We only signal a single read, so we should only get a single completion
+        //     n = bulk_poll(_completion_queue, outstanding_messages - n, _wc + n);
+        // }
 
-        //Step 1 now we need to walk through each of the buckets that we read and check each entry to detect if they have duplicates.
-        bool bad_crc = false;
-        vector<Entry> entries_to_check;
-        for(int i=0;i<_locking_context.buckets.size();i++){
-            unsigned row = _locking_context.buckets[i];
-            //If this row has never been used, just keep moving.
-            if (_table.bucket_is_empty(row)) {
-                continue;
-            }
-            //If we find that the CRC is bad here, we know that we are in state 1 or 3
-            if (!_table.crc_valid_row(row)) {
-                ALERT(log_id(), "Bucket %d is corrupted, in recovery state %d or %d",row, FAULT_CASE_1, FAULT_CASE_3);
-                if(bad_crc) {
-                    ALERT(log_id(), "We have found more than one corrupted CRC behind a lock. This is an unknown error condition. Crashing...");
-                    exit(0);
-                }
-                bad_crc=true;
-            }
-            for (int j=0;j<_table.get_buckets_per_row();j++){
-                Entry e = _table.get_entry(row,j);
-                if (!e.is_empty()){
-                    entries_to_check.push_back(e);
-                }
-            }
-        }
+        // ALERT(log_id(), "We have read all the buckets covered by the lock\n");
+        // _table.print_table();
+
+        // //Step 1 now we need to walk through each of the buckets that we read and check each entry to detect if they have duplicates.
+        // bool bad_crc = false;
+        // vector<Entry> entries_to_check;
+        // for(int i=0;i<_locking_context.buckets.size();i++){
+        //     unsigned row = _locking_context.buckets[i];
+        //     //If this row has never been used, just keep moving.
+        //     if (_table.bucket_is_empty(row)) {
+        //         continue;
+        //     }
+        //     //If we find that the CRC is bad here, we know that we are in state 1 or 3
+        //     if (!_table.crc_valid_row(row)) {
+        //         ALERT(log_id(), "Bucket %d is corrupted, in recovery state %d or %d",row, FAULT_CASE_1, FAULT_CASE_3);
+        //         if(bad_crc) {
+        //             ALERT(log_id(), "We have found more than one corrupted CRC behind a lock. This is an unknown error condition. Crashing...");
+        //             exit(0);
+        //         }
+        //         bad_crc=true;
+        //     }
+        //     for (int j=0;j<_table.get_buckets_per_row();j++){
+        //         Entry e = _table.get_entry(row,j);
+        //         if (!e.is_empty()){
+        //             entries_to_check.push_back(e);
+        //         }
+        //     }
+        // }
 
 
-        //Step 2 go through each entry and perform a read to get duplicate information.
-        bool found_duplicates = false;
-        Entry broken_entry;
-        for(int i=0;i<entries_to_check.size();i++){
-            //TODO I can issue these in bulk and deduplicate read rows for better performance.
-            //TODO I'm issuing one read at a time because it's a bit easier for me
-            Entry e = entries_to_check[i];
-            read_theshold_message(reads,_location_function,e.key,0,_table.get_row_count(), _table.get_buckets_per_row());
-            ALERT(log_id(), "Checking for duplicate of %s in buckets %d, %d\n",e.key.to_string().c_str(), reads[0].row, reads[1].row);
+        // //Step 2 go through each entry and perform a read to get duplicate information.
+        // bool found_duplicates = false;
+        // Entry broken_entry;
+        // for(int i=0;i<entries_to_check.size();i++){
+        //     //TODO I can issue these in bulk and deduplicate read rows for better performance.
+        //     //TODO I'm issuing one read at a time because it's a bit easier for me
+        //     Entry e = entries_to_check[i];
+        //     read_theshold_message(reads,_location_function,e.key,0,_table.get_row_count(), _table.get_buckets_per_row());
+        //     ALERT(log_id(), "Checking for duplicate of %s in buckets %d, %d\n",e.key.to_string().c_str(), reads[0].row, reads[1].row);
 
-            send_read(reads,_wr_id);
-            int outstanding_messages = reads.size();
-            int n =0;
-            while (n < 1) {
-                //We only signal a single read, so we should only get a single completion
-                n = bulk_poll(_completion_queue, outstanding_messages - n, _wc + n);
-            }
-            dup_entry = _location_function(e.key,_table.get_row_count());
+        //     send_read(reads,_wr_id);
+        //     int outstanding_messages = reads.size();
+        //     int n =0;
+        //     while (n < 1) {
+        //         //We only signal a single read, so we should only get a single completion
+        //         n = bulk_poll(_completion_queue, outstanding_messages - n, _wc + n);
+        //     }
+        //     dup_entry = _location_function(e.key,_table.get_row_count());
 
-            ALERT(log_id(), "Checking local table for duplicate of %s in buckets %d, %d\n",e.key.to_string().c_str(), dup_entry.primary, dup_entry.secondary);
-            found_duplicates = _table.bucket_contains(dup_entry.primary,e.key) && _table.bucket_contains(dup_entry.secondary, e.key);
-            if (found_duplicates) {
-                ALERT(log_id(), "Duplicates of %s found!",e.key.to_string().c_str());
-            }
-            //Now that I'm here I can check for duplicates
+        //     ALERT(log_id(), "Checking local table for duplicate of %s in buckets %d, %d\n",e.key.to_string().c_str(), dup_entry.primary, dup_entry.secondary);
+        //     found_duplicates = _table.bucket_contains(dup_entry.primary,e.key) && _table.bucket_contains(dup_entry.secondary, e.key);
+        //     if (found_duplicates) {
+        //         ALERT(log_id(), "Duplicates of %s found!",e.key.to_string().c_str());
+        //     }
+        //     //Now that I'm here I can check for duplicates
 
-            //Here we attempt to detect the error
-            if(found_duplicates && bad_crc){
-                broken_entry = entries_to_check[i];
-                error_state = FAULT_CASE_1;
-                break;
-            } else if (found_duplicates) {
-                broken_entry = entries_to_check[i];
-                error_state = FAULT_CASE_2;
-                break;
-            } else if (bad_crc) {
-                broken_entry = entries_to_check[i];
-                error_state = FAULT_CASE_3;
-                break;
-            }
-        }
+        //     //Here we attempt to detect the error
+        //     if(found_duplicates && bad_crc){
+        //         broken_entry = entries_to_check[i];
+        //         error_state = FAULT_CASE_1;
+        //         break;
+        //     } else if (found_duplicates) {
+        //         broken_entry = entries_to_check[i];
+        //         error_state = FAULT_CASE_2;
+        //         break;
+        //     } else if (bad_crc) {
+        //         broken_entry = entries_to_check[i];
+        //         error_state = FAULT_CASE_3;
+        //         break;
+        //     }
+        // }
 
-        //At this point we have the error code corretly determined
-        ALERT(log_id(), "Error Detection Complete We are in error state %d",error_state);
-        ALERT(log_id(), "The next step is to repair the table for the broken entry\n");
+        // //At this point we have the error code corretly determined
+        // ALERT(log_id(), "Error Detection Complete We are in error state %d",error_state);
+        // ALERT(log_id(), "The next step is to repair the table for the broken entry\n");
 
-        repair_table(broken_entry,error_state);
-        ALERT(log_id(), "Repair complete, printing table");
-        _table.print_table();
+        // repair_table(broken_entry,error_state);
+        // ALERT(log_id(), "Repair complete, printing table");
+        // _table.print_table();
 
 
         //Final step is to release the lock
         ALERT(log_id(), "We have done the triage and can now release one or more locks\n.");
-        _locking_context.clear_operation_state();
+        LockingContext repair_context = copy_context(_locking_context);
+        // _locking_context.clear_operation_state();
+        repair_context.buckets.clear();
 
         if (error_state == FAULT_CASE_0 || error_state == FAULT_CASE_3 || error_state == FAULT_CASE_4) {
             unsigned int original_lock_bucket = lock * _buckets_per_lock;
             ALERT(log_id(), "Unlocking single lock %d\n",original_lock_bucket);
-            _locking_context.buckets.push_back(original_lock_bucket);
+            repair_context.buckets.push_back(original_lock_bucket);
         } else if (error_state == FAULT_CASE_1 || error_state == FAULT_CASE_2) {
             ALERT(log_id(), "Unlocking multiple buckets including one we did not time out on because we found a duplicate\n");
-            _locking_context.buckets.push_back(dup_entry.primary);
-            _locking_context.buckets.push_back(dup_entry.secondary);
+            repair_context.buckets.push_back(dup_entry.primary);
+            repair_context.buckets.push_back(dup_entry.secondary);
         }
 
-        get_unlock_list_fast_context(_locking_context);
-        _insert_messages.clear();
-        send_insert_crc_and_unlock_messages(_insert_messages, _locking_context.lock_list, _wr_id);
+        get_unlock_list_fast_context(repair_context);
+        vector<VRCasData> insert_messages;
+        for (int i=0;i<repair_context.lock_list.size();i++){
+            printf("Unlocking %s\n",repair_context.lock_list[i].to_string().c_str());
+        }
+        send_insert_crc_and_unlock_messages(insert_messages, repair_context.lock_list);
         ALERT(log_id(), "Done releasing locks");
-        _locking_context.clear_operation_state();
+        // _locking_context.clear_operation_state();
 
         release_repair_lease(repair_lease_id);
 
@@ -1145,6 +1187,7 @@ namespace cuckoo_rcuckoo {
 
     //Precondition _locking_context.buckets contains the locks we want to get
     bool RCuckoo::top_level_aquire_locks() {
+        ALERT("top_level_aquire_locks", "entry");
         get_lock_list_fast_context(_locking_context);
         INFO(log_id(), "[aquire_locks] gathering locks for buckets %s\n", vector_to_string(_locking_context.buckets).c_str());
         //TODO make this one thing
@@ -1167,6 +1210,7 @@ namespace cuckoo_rcuckoo {
 
         #ifdef INJECT_FAULT
         unsigned int retries[BITS_IN_MASKED_CAS];
+        unsigned int locks[BITS_IN_MASKED_CAS];
         clear_retry_counter(retries);
         #endif
 
@@ -1183,11 +1227,7 @@ namespace cuckoo_rcuckoo {
                 lock.mask = 0xFFFFFFFFFFFFFFFF;
             }
 
-            _wr_id++;
-            uint64_t outstanding_cas_wr_id = _wr_id;
-            _wr_id++;
-
-            send_lock_and_cover_message(lock, read, outstanding_cas_wr_id);
+            send_lock_and_cover_message(lock, read);
             // auto t1 = high_resolution_clock::now();
             int outstanding_messages = 1; //It's two because we send the read and CAS
             int n = bulk_poll(_completion_queue, outstanding_messages, _wc);
@@ -1197,18 +1237,25 @@ namespace cuckoo_rcuckoo {
 
             _outstanding_read_requests--;
             assert(n == outstanding_messages); //This is just a safty for now.
+            bool fail_on_this_request = false;
             if (_wc[0].status != IBV_WC_SUCCESS) {
+                ALERT("lock aquire", "Failed on message index %d\n", message_index);
+                ALERT("lock aquire", "Failed on lock %s\n", lock.to_string().c_str());
                 ALERT("lock aquire", " masked cas failed somehow\n");
                 ALERT("lock aquire", " masked cas %s\n", lock.to_string().c_str());
-                exit(1);
+                print_wc(&_wc[0]);
+                fail_on_this_request = true;
             }
 
             if (_wc[1].status != IBV_WC_SUCCESS) {
+                print_wc(&_wc[1]);
                 ALERT(log_id(), " [lock aquire] spanning read failed somehow\n");
-
                 ALERT(log_id(), " errno: %d \n", -errno);
                 ALERT(log_id(), " [lock aquire] read %s\n", read.to_string().c_str());
                 ALERT(log_id(), " [lock aquire] table size %d\n", _table.get_row_count());
+                fail_on_this_request = true;
+            }
+            if (fail_on_this_request) {
                 exit(1);
             }
 
@@ -1252,13 +1299,11 @@ namespace cuckoo_rcuckoo {
                 #endif
                 failed_last_request = true;
 
-
                 #ifdef INJECT_FAULT
                 //Here we are going to try to triage which lock is the one that is set for too long
                 // ALERT(log_id(),"Failed to grab the lock, this is where we will start to do fault recovery\n");
                 // ALERT(log_id(),"Failed to get the lock %s\n", lock.to_string().c_str(), mask);
                 // ALERT(log_id(),"unable to set %lX\n", mask & received_locks);
-                unsigned int locks[BITS_IN_MASKED_CAS];
                 unsigned int total_locks = lock_message_to_lock_indexes(lock,locks);
                 // for (int i=0;i<total_locks;i++) {
                 //     ALERT(log_id(), "Unable to aquire lock %d\n",locks[i]);
@@ -1279,14 +1324,12 @@ namespace cuckoo_rcuckoo {
                     assert(total_locks == 1);
                     unsigned int lock_we_will_reclaim = locks[0];
 
-                    ALERT(log_id(), "Releasing my locks so that I don't cause more timeouts");
-                    _insert_messages.clear();
+                    // ALERT(log_id(), "Releasing my locks so that I don't cause more timeouts");
+                    ALERT(log_id(), "Not releasing my locks.");
+                    // _insert_messages.clear();
                     // send_insert_crc_and_unlock_messages(_insert_messages, _locks_held, _wr_id);
                     ALERT(log_id(), "Locks released -- Going to reclaim lock %d\n", lock_we_will_reclaim);
                     reclaim_lock(lock_we_will_reclaim);
-
-
-                    return false;
                 }
 
                 #endif
@@ -1298,6 +1341,14 @@ namespace cuckoo_rcuckoo {
                 break;
             }
         }
+        int bad_row = -1;
+        // int bad_row = _table.crc_valid();
+        if (bad_row >= 0) {
+            ALERT(log_id(), "we have a bad row %d\n", bad_row);
+            _table.print_table();
+            exit(1);
+        }
+        // _table.print_table();
         return true;
 
     }
@@ -1354,15 +1405,16 @@ namespace cuckoo_rcuckoo {
 
 
         if (_state == INSERTING) {
+            ALERT("insert direct", "inserting key %s\n", _current_insert_key.to_string().c_str());
+            ALERT("insert path local", "inserting key %s\n", path_to_string(_search_context.path).c_str());
+            _current_insert_key = _current_insert_key;
             insert_cuckoo_path_local(_table, _search_context.path);
         }
         #ifdef ROW_CRC
-        send_insert_crc_and_unlock_messages(_insert_messages, _locking_context.lock_list, _wr_id);
+        send_insert_crc_and_unlock_messages(_insert_messages, _locking_context.lock_list);
         #else
         send_insert_and_unlock_messages(_insert_messages, _locking_context.lock_list, _wr_id);
         #endif
-        _wr_id += total_messages;
-
 
         //Bulk poll to receive all messages
         bulk_poll(_completion_queue, 1, _wc + 1);
@@ -1399,7 +1451,10 @@ namespace cuckoo_rcuckoo {
             _state = IDLE;
             return;
         }
-        // VERBOSE("search", "Successful local search for [key %s] -> [path %s]\n", _current_insert_key.to_string().c_str(), path_to_string(_search_path).c_str());
+
+        hash_locations hl = _location_function(_current_insert_key,_table.get_row_count());
+        ALERT("DEBUG", "key %s hash locations %s\n", _current_insert_key.to_string().c_str(),hl.to_string().c_str());
+        ALERT("search", "Successful local search for [key %s] -> [path %s]\n", _current_insert_key.to_string().c_str(), path_to_string(_search_context.path).c_str());
         _state = AQUIRE_LOCKS;
 
 
@@ -1409,13 +1464,13 @@ namespace cuckoo_rcuckoo {
         
 
         search_path_to_buckets_fast(_search_context.path, _locking_context.buckets);
+        ALERT("locally computed path", "key %s path %s\n", _current_insert_key.to_string().c_str(), path_to_string(_search_context.path).c_str());
         // assert(_locking_context.buckets.size() < 64);
+
         bool have_locks = top_level_aquire_locks();
-        while(!have_locks) {
-            //we can delete the locking context if we recover. Reconstruct the locking context buckets for the next insert
-            ALERT(log_id(), "Going back for a second round on this lock\n");
-            search_path_to_buckets_fast(_search_context.path, _locking_context.buckets);
-            have_locks = top_level_aquire_locks();
+        if(!have_locks){
+            ALERT(log_id(), "Unable to aquire locks for key %s\n", _current_insert_key.to_string().c_str());
+            exit(1);
         }
 
         return insert_direct();
@@ -1423,7 +1478,7 @@ namespace cuckoo_rcuckoo {
 
     void RCuckoo::get_direct(void) {
         read_theshold_message(_reads, _location_function, _current_read_key, _read_threshold_bytes, _table.get_row_count(), _table.get_buckets_per_row());
-        send_read(_reads, _wr_id);
+        send_read(_reads);
 
         int outstanding_messages = _reads.size();
         int n =0;
@@ -1462,15 +1517,17 @@ namespace cuckoo_rcuckoo {
 
     void RCuckoo::update_direct(void) {
         // assert(_locking_context.buckets.size() < 64);
+        ALERT("update enter", "entry");
         hash_locations buckets = _location_function(_current_update_key, _table.get_row_count());
-        _locking_context.buckets.clear();
-        _locking_context.buckets.push_back(buckets.primary);
-        _locking_context.buckets.push_back(buckets.secondary);
+        ALERT("update enter", "buckets %s", buckets.to_string().c_str());
+        _locking_context.clear_operation_state();
+        _locking_context.buckets.push_back(buckets.min_bucket());
+        _locking_context.buckets.push_back(buckets.max_bucket());
 
         bool have_locks = top_level_aquire_locks();
-        while(!have_locks) {
-            have_locks = top_level_aquire_locks();
-        }
+        // while(!have_locks) {
+        //     have_locks = top_level_aquire_locks();
+        // }
 
         bool b1 = _table.bucket_contains(buckets.primary, _current_update_key);
         bool b2 = _table.bucket_contains(buckets.secondary, _current_update_key);
@@ -1504,11 +1561,10 @@ namespace cuckoo_rcuckoo {
         unsigned int total_messages = _locking_context.lock_list.size();
 
         #ifdef ROW_CRC
-        send_insert_crc_and_unlock_messages(_insert_messages, _locking_context.lock_list, _wr_id);
+        send_insert_crc_and_unlock_messages(_insert_messages, _locking_context.lock_list);
         #else
         send_insert_and_unlock_messages(_insert_messages, _locking_context.lock_list, _wr_id);
         #endif
-        _wr_id += total_messages;
 
         //Bulk poll to receive all messages
         bulk_poll(_completion_queue, 1, _wc + 1);

@@ -57,6 +57,8 @@ namespace cuckoo_virtual_rdma {
         void clear_operation_state();
     } LockingContext;
 
+    LockingContext copy_context(LockingContext &context);
+
     typedef struct Request {
         enum operation op;
         Key key;
