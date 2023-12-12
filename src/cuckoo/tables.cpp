@@ -326,6 +326,25 @@ namespace cuckoo_tables {
     void Table::set_entry(unsigned int bucket_index, unsigned int offset, Entry entry){
         Entry old = _table[bucket_index][offset];
         _table[bucket_index][offset] = entry;
+
+        if (old.is_empty()){
+            _fill++;
+        }
+        if (entry.is_empty()){
+            _fill--;
+        }
+    }
+
+    void Table::set_entry_with_crc(unsigned int bucket_index, unsigned int offset, Entry entry){
+        #ifndef ROW_CRC
+        printf("not doing row crc, exiting\n");
+        exit(1);
+        #endif
+        Entry old = _table[bucket_index][offset];
+        _table[bucket_index][offset] = entry;
+        Entry crc;
+        crc.set_as_uint64_t(crc64_row(bucket_index));
+        _table[bucket_index][_entries_per_row] = crc;
         if (old.is_empty()){
             _fill++;
         }

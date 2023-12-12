@@ -75,7 +75,11 @@ namespace cuckoo_rcuckoo {
             Entry e;
             e.key = path[i+1].key;
             // ALERT("insert local","Inserting key %s into bucket %d offset %d", e.key.to_string().c_str(), path[i].bucket_index, path[i].offset);
+            #ifdef ROW_CRC
+            table.set_entry_with_crc(path[i].bucket_index, path[i].offset, e);
+            #else
             table.set_entry(path[i].bucket_index, path[i].offset, e);
+            #endif
         }
     }
 
@@ -570,12 +574,15 @@ namespace cuckoo_rcuckoo {
         assert(false);
         #endif
 
+        uint64_t crc_address = (uint64_t) get_entry_pointer(insert_message.row, _table.get_entries_per_row());
+        uint64_t remote_server_crc_address = local_to_remote_table_address(crc_address);
+
+
         uint64_t local_address = (uint64_t) get_entry_pointer(insert_message.row, insert_message.offset);
         uint64_t remote_server_address = local_to_remote_table_address(local_address);
 
 
         //Perhaps we could insert the entry locally here too?
-        // _table.set_entry(insert_message.row, insert_message.offset, insert_message.);
 
         int32_t imm = -1;
         setRdmaWriteExp(
@@ -592,27 +599,21 @@ namespace cuckoo_rcuckoo {
         );
         (*wr_id)++;
 
-        uint64_t crc = _table.crc64_row(insert_message.row);
 
         //TODO this is some hacky code. It seems like after recovery sometimes the value we are trying to
         //Insert does not make it into the table. No idea why. 
         //Here we just reinsert the path locally again if we see that the CRC did not work.
-        if(crc == 0) {
-            ALERT("ALERT", "This code is likely causing a bug try to remove it.");
-            // print_path(_search_context.path);
-            insert_cuckoo_path_local(_table, _search_context.path);
-            crc = _table.crc64_row(insert_message.row);
-        }
-        if(crc == 0){
-            ALERT("debug","crc is 0 twice, panic is should be a 1 in 2^32 probability");
-            assert(false);
-        }
-        Entry crc_entry;
-        crc_entry.set_as_uint64_t(crc);
-        _table.set_entry(insert_message.row, _table.get_entries_per_row(), crc_entry);
-        uint64_t crc_address = (uint64_t) get_entry_pointer(insert_message.row, _table.get_entries_per_row());
-
-        uint64_t remote_server_crc_address = local_to_remote_table_address(crc_address);
+        // ALERT("send insert crc", "key = %lX crc is %lu", insert_message.new_value, crc);
+        // if(crc == 0) {
+        //     ALERT("ALERT", "This code is likely causing a bug try to remove it.");
+        //     // print_path(_search_context.path);
+        //     insert_cuckoo_path_local(_table, _search_context.path);
+        //     crc = _table.crc64_row(insert_message.row);
+        // }
+        // if(crc == 0){
+        //     ALERT("debug","crc is 0 twice, panic is should be a 1 in 2^32 probability");
+        //     assert(false);
+        // }
 
         setRdmaWriteExp(
             &sg[1],
@@ -747,9 +748,6 @@ namespace cuckoo_rcuckoo {
         // ALERT(log_id(), "sending a total of %d insert messages and %d unlock messages\n", insert_messages.size(), unlock_messages.size());
         for ( unsigned int i=0; i < insert_messages.size(); i++) {
             // ALERT("ROW CRC", "sending insert message %d %d %lu\n", insert_messages[i].row, insert_messages[i].offset, insert_messages[i].new_value);
-            if (insert_messages[i].row == 10) {
-                ALERT("ROW CRC", "sending insert message %d %d %lu\n", insert_messages[i].row, insert_messages[i].offset, insert_messages[i].new_value);
-            }
             send_insert_and_crc(insert_messages[i], &sg[i*2], &wr[i*2], &_wr_id);
         }
         for ( unsigned int i=0; i < unlock_messages.size(); i++) {
@@ -1063,7 +1061,7 @@ namespace cuckoo_rcuckoo {
             reads.push_back(read);
         }
         send_read(reads);
-        int outstanding_messages = reads.size();
+        int outstanding_messages = 1;
         int n =0;
         while (n < 1) {
             //We only signal a single read, so we should only get a single completion

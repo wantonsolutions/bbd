@@ -206,6 +206,7 @@ namespace cuckoo_tables {
             unsigned int get_entry_size_bytes();
             unsigned int n_buckets_size(unsigned int n_buckets);
             Entry get_entry(unsigned int bucket_index, unsigned int offset) const;
+            void set_entry_with_crc(unsigned int bucket_index, unsigned int offset, Entry entry);
             void set_entry(unsigned int bucket_index, unsigned int offset, Entry entry);
             Entry * get_entry_pointer(unsigned int bucket_index, unsigned int offset);
             bool bucket_has_empty(unsigned int bucket_index);
