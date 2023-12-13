@@ -6,6 +6,7 @@
 #include <string>
 #include <vector>
 #include <assert.h>
+#include "../slib/util.h"
 
 using namespace std;
 
@@ -105,24 +106,48 @@ namespace cuckoo_tables {
         Value value;
         string to_string();
         bool is_empty();
-        Entry() {
-            this->key = Key();
-            this->value = Value();
-        }
-        Entry(string str_key, string str_value) {
-            this->key = Key(str_key);
-            this->value = Value(str_value);
-        }
-        Entry(Key key, Value value) {
-            this->key = key;
-            this->value = value;
+        // Entry() {
+        //     this->key = Key();
+        //     this->value = Value();
+        // }
+        // Entry(string str_key, string str_value) {
+        //     this->key = Key(str_key);
+        //     this->value = Value(str_value);
+        // }
+        // Entry(Key key, Value value) {
+        //     this->key = key;
+        //     this->value = value;
+        // }
+
+        // bool operator==(const Entry& rhs) const {
+        //     return this->key == rhs.key && this->value == rhs.value;
+        // }
+        // bool operator!=(const Entry& rhs) const {
+        //     return !(this->key == rhs.key && this->value == rhs.value);
+        // }
+
+        int copy(Entry &e) {
+            for (int i=0; i < KEY_SIZE; i++){
+                this->key.bytes[i] = e.key.bytes[i];
+            }
+            for(int i=0; i < VALUE_SIZE;i++){
+                this->value.bytes[i] = e.value.bytes[i];
+            }
+            return VALUE_SIZE + KEY_SIZE;
         }
 
-        bool operator==(const Entry& rhs) const {
-            return this->key == rhs.key && this->value == rhs.value;
-        }
-        bool operator!=(const Entry& rhs) const {
-            return !(*this == rhs);
+        bool equals(Entry &e) {
+            for (int i=0; i < KEY_SIZE; i++){
+                if(key.bytes[i] != e.key.bytes[i]) {
+                    return false;
+                }
+            }
+            for(int i=0; i < VALUE_SIZE;i++){
+                if(value.bytes[i] != e.value.bytes[i]) {
+                    return false;
+                }
+            }
+            return true;
         }
 
         uint64_t get_as_uint64_t() {
@@ -140,7 +165,7 @@ namespace cuckoo_tables {
         void set_as_uint64_t(uint64_t entry64) {
             assert(sizeof(Entry) == 8);
             int i=0;
-            for (; i < KEY_SIZE; i++){
+            for (int i=0 ; i < KEY_SIZE; i++){
                 this->key.bytes[i] = (entry64 >> (8 * i)) & 0xFF;
             }
             for(; i < VALUE_SIZE;i++){
@@ -206,7 +231,7 @@ namespace cuckoo_tables {
             unsigned int get_entry_size_bytes();
             unsigned int n_buckets_size(unsigned int n_buckets);
             Entry get_entry(unsigned int bucket_index, unsigned int offset) const;
-            void set_entry_with_crc(unsigned int bucket_index, unsigned int offset, Entry entry);
+            bool set_entry_with_crc(unsigned int bucket_index, unsigned int offset, Entry &entry);
             void set_entry(unsigned int bucket_index, unsigned int offset, Entry entry);
             Entry * get_entry_pointer(unsigned int bucket_index, unsigned int offset);
             bool bucket_has_empty(unsigned int bucket_index);

@@ -9,6 +9,9 @@
 #include <vector>
 using namespace std;
 
+#define mb() asm volatile("mfence" ::: "memory")
+#define wmb()	asm volatile("sfence" ::: "memory")
+#define rmb()	asm volatile("lfence":::"memory")
 bool IsPowerOfTwo(ulong x);
 string uint64t_to_bin_string(uint64_t num);
 uint64_t bin_string_to_uint64_t(string s);

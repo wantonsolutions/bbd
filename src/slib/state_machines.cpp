@@ -652,6 +652,10 @@ namespace state_machines {
         key.bytes[3] = vp[3];
     } 
 
+    int Memory_State_Machine::crc_table() {
+        return _table.crc_valid();
+    }
+
 
     bool Memory_State_Machine::contains_duplicates(){
         return _table.contains_duplicates();

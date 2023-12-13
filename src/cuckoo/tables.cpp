@@ -7,8 +7,10 @@
 #include <memory>
 #include <stdexcept>
 #include <bitset>
+#include <string.h>
 #include "../slib/log.h"
 #include "../slib/crc64.h"
+#include "../slib/util.h"
 
 using namespace std;
 
@@ -180,6 +182,10 @@ namespace cuckoo_tables {
         assert(total_entries % bucket_size == 0);
         _table_size = int(memory_size / bucket_size) / sizeof(Entry);
         _table = this->generate_bucket_cuckoo_hash_index(memory_size, bucket_size);
+
+        //write zero to all table memory
+        memset(_table[0],0, memory_size);
+        
         _lock_table = Lock_Table(memory_size, bucket_size, buckets_per_lock);
 
         #ifdef ROW_CRC
@@ -190,22 +196,22 @@ namespace cuckoo_tables {
 
     }
 
-    bool Table::operator==(const Table& rhs) const {
-        if (get_table_size_bytes() != rhs.get_table_size_bytes()){
-            return false;
-        }
-        if (this->get_buckets_per_row() != rhs.get_buckets_per_row()){
-            return false;
-        }
-        for (unsigned int i=0;i<this->get_row_count();i++) {
-            for (unsigned int j=0;j<this->get_buckets_per_row();j++) {
-                if (this->get_entry(i,j) != rhs.get_entry(i,j)){
-                    return false;
-                }
-            }
-        }
-        return true;
-    }
+    // bool Table::operator==(const Table& rhs) const {
+    //     if (get_table_size_bytes() != rhs.get_table_size_bytes()){
+    //         return false;
+    //     }
+    //     if (this->get_buckets_per_row() != rhs.get_buckets_per_row()){
+    //         return false;
+    //     }
+    //     for (unsigned int i=0;i<this->get_row_count();i++) {
+    //         for (unsigned int j=0;j<this->get_buckets_per_row();j++) {
+    //             if (this->get_entry(i,j) != rhs.get_entry(i,j)){
+    //                 return false;
+    //             }
+    //         }
+    //     }
+    //     return true;
+    // }
 
     void * Table::get_lock_pointer(unsigned int lock_index) {
         return _lock_table.get_lock_pointer(lock_index);
@@ -335,27 +341,90 @@ namespace cuckoo_tables {
         }
     }
 
-    void Table::set_entry_with_crc(unsigned int bucket_index, unsigned int offset, Entry entry){
+    bool Table::set_entry_with_crc(unsigned int bucket_index, unsigned int offset, Entry &entry){
         #ifndef ROW_CRC
         printf("not doing row crc, exiting\n");
         exit(1);
         #endif
-        Entry old = _table[bucket_index][offset];
-        _table[bucket_index][offset] = entry;
-        Entry crc;
-        crc.set_as_uint64_t(crc64_row(bucket_index));
-        _table[bucket_index][_entries_per_row] = crc;
-        if (old.is_empty()){
-            _fill++;
+        // ALERT("set entry with crc","Inserting %s into (%d,%d)",entry.to_string().c_str(), bucket_index,offset);
+        // ALERT("set_entry_with_CRC", "printing rows before and after");
+        // print_row(bucket_index);
+
+        assert(offset != _entries_per_row);
+        _table[bucket_index][offset].copy(entry);
+        _table[bucket_index][_entries_per_row].set_as_uint64_t(crc64_row(bucket_index));
+        int while_counter=0;
+        while(!_table[bucket_index][offset].equals(entry)) {
+            _table[bucket_index][offset].copy(entry);
+            while_counter++;
         }
-        if (entry.is_empty()){
-            _fill--;
+
+        if(_table[bucket_index][offset].equals(entry)) {
+            return true;
+        } else {
+            _table[bucket_index][offset].copy(entry);
+            assert(_table[bucket_index][offset].equals(entry));
+
+            // ALERT("setting failed", "Table Entry %s, Setting Entry %s (row %d offset %d) copy tries %d",_table[bucket_index][offset].to_string().c_str(), entry.to_string().c_str(), bucket_index, offset, while_counter);
+            // print_row(bucket_index);
+            // assert(_table[bucket_index][offset].equals(entry));
+            // for(int i=0;i<get_row_count();i++) {
+            //     for(int j=0;j<_entries_per_row;j++) {
+            //         Entry tmp;
+            //         tmp.set_as_uint64_t(i);
+            //         _table[i][j].copy(tmp);
+            //     }
+            // }
+            // print_table();
+            // exit(0);
         }
+        return false;
+
+        // if (bucket_index == 8 || bucket_index == 18) {
+        //     ALERT("set entry crc", "e = %s, row %d  offset %d ",entry.to_string().c_str(), bucket_index, offset);
+        //     _table[bucket_index][offset].copy(entry);
+        //     ALERT("table entry", "TE=%s",_table[bucket_index][offset].to_string().c_str());
+        //     print_row(bucket_index);
+        // }
+        // // crc.set_as_uint64_t(crc64_row(bucket_index));
+        
+        // return true;
+
+
+
+        // Entry old = _table[bucket_index][offset];
+        // if (old.is_empty()){
+        //     _fill++;
+        // }
+        // if (entry.is_empty()){
+        //     _fill--;
+        // }
+
+
+        // _table[bucket_index][offset] = entry;
+        // Entry * e = get_entry_pointer(bucket_index,offset);
+        // e = (Entry *) memcpy(e,&entry,sizeof(Entry));
+        // // wmb();
+        // Entry crc;
+        // crc.set_as_uint64_t(crc64_row(bucket_index));
+        // if (bucket_index == 8 || bucket_index == 18) {
+        //     ALERT("set entry crc", "e = %s, row %d  offset %d crc %lX new (%s, %p)",entry.to_string().c_str(), bucket_index, offset, crc.get_as_uint64_t(),e->to_string().c_str(),e);
+        //     print_row(bucket_index);
+        // }
+        // _table[bucket_index][_entries_per_row] = crc;
+        // print_row(bucket_index);
     }
 
     uint64_t Table::crc64_row(unsigned int row) {
-        unsigned char * row_pointer = (unsigned char *) &(_table[row][0]);
-        return  crc64(0,row_pointer, n_buckets_size(_entries_per_row));
+        return 0xFF;
+        //This is the real function;
+        // unsigned char buf[4096];
+        // memcpy(buf,&(_table[row][0]), n_buckets_size(_entries_per_row));
+        // return crc64(0,buf,n_buckets_size(_entries_per_row));
+
+
+        // unsigned char * row_pointer = (unsigned char *) &(_table[row][0]);
+        // return  crc64(0,row_pointer, n_buckets_size(_entries_per_row));
 
     }
 
@@ -363,7 +432,20 @@ namespace cuckoo_tables {
         if (bucket_is_empty(row)){
             return true;
         }
-        return crc64_row(row) == get_entry(row,get_entries_per_row()).get_as_uint64_t();
+        uint64_t crc_row = crc64_row(row);
+        Entry e = get_entry(row,get_entries_per_row());
+
+        uint64_t existing_crc = e.get_as_uint64_t();
+        if (crc_row == existing_crc) {
+            return true;
+        } 
+
+        ALERT("crc_valid_row", "FAILED row %d current %lX calculated %lX (e = %s) entries per row (%d)", row, existing_crc,crc_row,e.to_string().c_str(), get_entries_per_row());
+        e = get_entry(row,get_entries_per_row());
+        ALERT("e again", "e = %s",e.to_string().c_str());
+        
+        print_row(row);
+        return false;
     }
 
     bool Table::bucket_has_empty(unsigned int bucket_index){
@@ -376,6 +458,7 @@ namespace cuckoo_tables {
     }
 
     int Table::crc_valid() {
+        rmb();
         for (int i = 0; i < _table_size; i++){
             if (!crc_valid_row(i)){
                 return i;
@@ -477,12 +560,13 @@ namespace cuckoo_tables {
         unsigned int ncols = bucket_size;
         Entry* pool = NULL;
 
+
         try {
             Entry ** ptr = new Entry*[nrows];
             pool = new Entry[nrows * ncols]{Entry()};
 
             for (unsigned i = 0; i < nrows; ++i, pool += ncols ){
-                // printf("pool [%d] is %p\n", i, pool);
+                printf("pool [%d] is %p\n", i, pool);
                 ptr[i] = pool;
             }
             return ptr;

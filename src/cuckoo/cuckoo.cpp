@@ -69,10 +69,10 @@ namespace cuckoo_rcuckoo {
         return true;
     }
 
-    void RCuckoo::insert_cuckoo_path_local(Table &table, vector<path_element> &path) {
+    bool RCuckoo::insert_cuckoo_path_local(Table &table, vector<path_element> &path) {
         assert(path.size() >= 2);
+        Entry e;
         for (int i=path.size()-2; i >=0; i--){
-            Entry e;
             e.key = path[i+1].key;
             // ALERT("insert local","Inserting key %s into bucket %d offset %d", e.key.to_string().c_str(), path[i].bucket_index, path[i].offset);
             #ifdef ROW_CRC
@@ -81,6 +81,7 @@ namespace cuckoo_rcuckoo {
             table.set_entry(path[i].bucket_index, path[i].offset, e);
             #endif
         }
+        return true;
     }
 
     unsigned int RCuckoo::get_table_size_bytes() {
@@ -909,6 +910,7 @@ namespace cuckoo_rcuckoo {
 
     int RCuckoo::release_repair_lease(unsigned int lease_id){
         ALERT("TODO", "Return the lease to remote memory");
+        sleep(1);
         // ALERT(log_id(), "Exiting after lease release. The reason it to check table validity");
         // exit(0);
         return 0;
@@ -1159,8 +1161,8 @@ namespace cuckoo_rcuckoo {
             repair_context.buckets.push_back(original_lock_bucket);
         } else if (error_state == FAULT_CASE_1 || error_state == FAULT_CASE_2) {
             ALERT(log_id(), "Unlocking multiple buckets including one we did not time out on because we found a duplicate\n");
-            repair_context.buckets.push_back(dup_entry.primary);
-            repair_context.buckets.push_back(dup_entry.secondary);
+            repair_context.buckets.push_back(dup_entry.min_bucket());
+            repair_context.buckets.push_back(dup_entry.max_bucket());
         }
 
         get_unlock_list_fast_context(repair_context);
@@ -1169,6 +1171,7 @@ namespace cuckoo_rcuckoo {
             printf("Unlocking %s\n",repair_context.lock_list[i].to_string().c_str());
         }
         send_insert_crc_and_unlock_messages(insert_messages, repair_context.lock_list);
+        bulk_poll(_completion_queue, 1, _wc);
         ALERT(log_id(), "Done releasing locks");
         // _locking_context.clear_operation_state();
 
@@ -1320,6 +1323,11 @@ namespace cuckoo_rcuckoo {
                     // send_insert_crc_and_unlock_messages(_insert_messages, _locks_held, _wr_id);
                     ALERT(log_id(), "Locks released -- Going to reclaim lock %d\n", lock_we_will_reclaim);
                     reclaim_lock(lock_we_will_reclaim);
+
+                    ALERT("bulk poll", "polling after recovery");
+                    ALERT("bulk poll", "finished polling");
+
+
                 }
 
                 #endif
@@ -1393,13 +1401,23 @@ namespace cuckoo_rcuckoo {
             _insert_messages.clear();
         }
 
-
+        bool inserted = false;
         if (_state == INSERTING) {
             // ALERT("insert direct", "inserting key %s\n", _current_insert_key.to_string().c_str());
             // ALERT("insert path local", "inserting key %s\n", path_to_string(_search_context.path).c_str());
             // _current_insert_key = _current_insert_key;
-            insert_cuckoo_path_local(_table, _search_context.path);
+
+            inserted = insert_cuckoo_path_local(_table, _search_context.path);
         }
+        int bad_row = _table.crc_valid();
+        if (bad_row >= 0) {
+            ALERT("BAD ROW FOUND", "bad row = %d\n",bad_row);
+            ALERT("BAD ROW", "crc should be %lX, is %lX", _table.crc64_row(bad_row), _table.get_entry(bad_row, _table.get_entries_per_row()).get_as_uint64_t());
+            ALERT("BAD ROW", "%s", _table.row_to_string(bad_row).c_str());
+            _table.print_table();
+            exit(1);
+        }
+
         #ifdef ROW_CRC
         send_insert_crc_and_unlock_messages(_insert_messages, _locking_context.lock_list);
         #else
@@ -1412,8 +1430,11 @@ namespace cuckoo_rcuckoo {
 
         if (_state == INSERTING) {
             // #define VALIDATE_INSERT
-            insert_cuckoo_path_local(_table, _search_context.path);
+            // insert_cuckoo_path_local(_table, _search_context.path);
             //finish the insert by inserting the key into the local table.
+            if (!inserted) {
+                printf("fuck\n");
+            }
             complete_insert();
         } else if (_state == RELEASE_LOCKS_TRY_AGAIN) {
             return;

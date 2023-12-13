@@ -282,6 +282,7 @@ namespace state_machines {
             int get_prime_fill();
             void print_table();
             void print_lock_table();
+            int crc_table();
 
 
 
