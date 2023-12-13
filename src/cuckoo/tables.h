@@ -11,6 +11,7 @@
 using namespace std;
 
 #define ROW_CRC
+#define TOTAL_REPAIR_LEASES 1
 
 namespace cuckoo_tables {
 
@@ -21,6 +22,7 @@ namespace cuckoo_tables {
     #ifndef VALUE_SIZE
     #define VALUE_SIZE 4
     #endif
+
 
     typedef struct Key { 
         uint8_t bytes[KEY_SIZE];
@@ -188,6 +190,44 @@ namespace cuckoo_tables {
     } Duplicate_Entry;
 
 
+    typedef struct Repair_Lease {
+        uint8_t lock;
+        uint8_t meta;
+        uint16_t id;
+        uint32_t counter; //Max failures during recovery are 1 second
+        bool Lock(void) {
+            if (lock == 0) {
+                lock=1;
+                return true;
+            }
+            return false;
+        }
+        bool Unlock(void) {
+            if(lock == 1) {
+                lock=0;
+                return true;
+            }
+            return false;
+        }
+        string to_string();
+    } Repair_Lease;
+
+    class Repair_Lease_Table {
+
+        public:
+            Repair_Lease_Table();
+            Repair_Lease_Table(unsigned int leases);
+            void * get_lease_table_address();
+            unsigned int get_lease_table_size_bytes();
+            string to_string();
+            void * get_repair_lease_pointer(unsigned int repair_lease_index);
+            unsigned int get_total_leases() { return _total_leases; };
+
+        private:
+            unsigned int _total_leases;
+            Repair_Lease *_leases;
+    };
+
     class Lock_Table {
         public:
             Lock_Table();
@@ -266,6 +306,11 @@ namespace cuckoo_tables {
             void set_underlying_lock_table_address(void * address);
             void * get_lock_pointer(unsigned int lock_index);
 
+            void * get_underlying_repair_lease_table_address();
+            unsigned int get_underlying_repair_lease_table_size_bytes();
+
+            void * get_repair_lease_pointer(unsigned int repair_lease_index);
+
 
         private:
             unsigned int _memory_size;
@@ -275,6 +320,7 @@ namespace cuckoo_tables {
             unsigned int _entries_per_row;
             Entry **_table;
             Lock_Table _lock_table;
+            Repair_Lease_Table _repair_lease_table;
             unsigned int _fill;
     };
 }

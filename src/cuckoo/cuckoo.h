@@ -58,6 +58,8 @@ namespace cuckoo_rcuckoo {
             void * get_lock_table_pointer();
             unsigned int get_lock_table_size_bytes();
             void * get_lock_pointer(unsigned int lock_index);
+            void * get_repair_lease_table_pointer();
+            unsigned int get_repair_lease_table_size_bytes();
 
             void fill_current_unlock_list();
 
@@ -66,6 +68,7 @@ namespace cuckoo_rcuckoo {
 
             /* RDMA specific functions */
             uint64_t local_to_remote_table_address(uint64_t local_address);
+            uint64_t local_to_remote_repair_lease_address(uint64_t local_address);
             void send_virtual_read_message(VRReadData message, uint64_t wr_id);
             void send_virtual_cas_message(VRCasData message, uint64_t wr_id);
             void send_virtual_masked_cas_message(VRMaskedCasData message, uint64_t wr_id);
@@ -136,6 +139,7 @@ namespace cuckoo_rcuckoo {
             ibv_qp * _qp;
             ibv_mr *_table_mr;
             ibv_mr *_lock_table_mr;
+            ibv_mr *_repair_lease_mr;
             ibv_pd *_protection_domain;
             struct ibv_cq * _completion_queue;
             table_config * _table_config;

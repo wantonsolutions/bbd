@@ -46,12 +46,20 @@ namespace cuckoo_rcuckoo {
         return _table.get_underlying_lock_table_address();
     }
 
+    void * RCuckoo::get_repair_lease_table_pointer() {
+        return _table.get_underlying_repair_lease_table_address();
+    }
+
     void * RCuckoo::get_lock_pointer(unsigned int lock_index){
         return _table.get_lock_pointer(lock_index);
     }
 
     unsigned int RCuckoo::get_lock_table_size_bytes(){
         return _table.get_underlying_lock_table_size_bytes();
+    }
+
+    unsigned int RCuckoo::get_repair_lease_table_size_bytes(){
+        return _table.get_underlying_repair_lease_table_size_bytes();
     }
 
     void RCuckoo::print_table() {
@@ -320,6 +328,7 @@ namespace cuckoo_rcuckoo {
         _protection_domain = info.pd;
 
         _table_config = memcached_get_table_config();
+        ALERT(log_id(), "got table config %s",_table_config->to_string().c_str());
         assert(_table_config != NULL);
         assert((unsigned int)_table_config->table_size_bytes == get_table_size_bytes());
         INFO(log_id(),"got a table config from the memcached server and it seems to line up\n");
@@ -328,6 +337,8 @@ namespace cuckoo_rcuckoo {
         _table_mr = rdma_buffer_register(_protection_domain, get_table_pointer()[0], _table.get_table_size_bytes(), MEMORY_PERMISSION);
         INFO(log_id(), "Registering lock table with RDMA device size %d, location %p\n", get_lock_table_size_bytes(), get_lock_table_pointer());
         _lock_table_mr = rdma_buffer_register(_protection_domain, get_lock_table_pointer(), get_lock_table_size_bytes(), MEMORY_PERMISSION);
+        INFO(log_id(), "Registering repair lease table with RDMA device size %d, location %p\n", get_repair_lease_table_size_bytes(), get_repair_lease_table_pointer());
+        _repair_lease_mr = rdma_buffer_register(_protection_domain, _table.get_repair_lease_pointer(0), get_repair_lease_table_size_bytes(), MEMORY_PERMISSION);
 
         _wr_id = 10000000;
         _wc = (struct ibv_wc *) calloc (MAX_CONCURRENT_CUCKOO_MESSAGES, sizeof(struct ibv_wc));
@@ -340,6 +351,14 @@ namespace cuckoo_rcuckoo {
         uint64_t address_offset = local_address - base_address;
         uint64_t remote_address = (uint64_t) _table_config->table_address + address_offset;
         // remote_address += 64 + (sizeof(Entry) * 2);
+        return remote_address;
+    }
+
+    uint64_t RCuckoo::local_to_remote_repair_lease_address(uint64_t local_address) {
+        uint64_t base_address = (uint64_t) _table.get_repair_lease_pointer(0);
+        uint64_t address_offset = local_address - base_address;
+        assert(address_offset == 0);
+        uint64_t remote_address = (uint64_t) _table_config->lease_table_address + address_offset;
         return remote_address;
     }
 
@@ -888,7 +907,38 @@ namespace cuckoo_rcuckoo {
 
     //Returns the ID of the repair lock
     int RCuckoo::aquire_repair_lease(unsigned int lock) {
-        ALERT("TODO", "Go to remote memory and actually grab the repair lease");
+        ALERT("TODO", "At the moment we only have one repair lease so we always go and get repair lease 0");
+
+        Repair_Lease * lease = (Repair_Lease *) _table.get_repair_lease_pointer(0);
+
+        //Before anything else we want to just read the pointer//
+        //After we read the pointer we can decide what we need to do to set it.
+
+        struct ibv_sge sg;
+        struct ibv_exp_send_wr wr;
+
+        uint64_t local_address = (uint64_t) lease;
+        uint64_t remote_server_address = local_to_remote_repair_lease_address(local_address);
+
+        //Covering Read
+        setRdmaReadExp(
+            &sg,
+            &wr,
+            local_address,
+            remote_server_address,
+            sizeof(Repair_Lease),
+            _repair_lease_mr->lkey,
+            _table_config->lease_table_key,
+            true,
+            _wr_id
+        );
+        _wr_id++;
+        send_bulk(1, _qp, &wr);
+        int n = bulk_poll(_completion_queue, 1, _wc);
+
+        ALERT(log_id(), "Attempted to grab lease, current lease %s\n", lease->to_string());
+
+
         return 0;
     }
 
@@ -919,6 +969,18 @@ namespace cuckoo_rcuckoo {
         struct ibv_sge sg [MAX_REPAIR_MESSAGES];
         struct ibv_exp_send_wr wr [MAX_REPAIR_MESSAGES];
         int message_count=0;
+
+        //TODO
+        //If we want to support parallel repair we need to obtain potentially more than one lease.
+        //In the case where we need more than one lease we have to get them in order and be careful with how long
+        //we are going to hold them for.
+        //If we use multiple repair leases we should only hold them for long enough to verify and send messages
+        //If we do this we should move getting the leases to here.
+        //Once a lease is obtained we need to go and read the table again and ensure that the state
+        //behind the entries which we want to modify has not changed.
+        //If the state has not changed then we are good to repair.
+        //The reason we need to check is that if we defer repair untill this point another process may
+        //have repaired the table in the meantime.
 
         if (error_state == FAULT_CASE_0 || error_state == FAULT_CASE_4) {
             ALERT(log_id(), "No table repairs needed case %d and %d only require unlock\n", FAULT_CASE_0, FAULT_CASE_4);

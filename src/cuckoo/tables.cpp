@@ -66,6 +66,15 @@ namespace cuckoo_tables {
         return true;
     }
 
+    string Repair_Lease::to_string() {
+        string s = "";
+        s+= "Lock: " + std::to_string(lock);
+        s+= " Meta: " + std::to_string(meta);
+        s+= " ID:" + std::to_string(id);
+        s+= " Counter:"+ std::to_string(counter);
+        return s;
+    }
+
     string Entry::to_string(){
         return key.to_string() + ":" + value.to_string();
     }
@@ -157,6 +166,37 @@ namespace cuckoo_tables {
         return output_string;
     }
 
+    Repair_Lease_Table::Repair_Lease_Table(){
+        _leases = NULL;
+        _total_leases = 0;
+    } 
+
+    void * Repair_Lease_Table::get_repair_lease_pointer(unsigned int repair_lease_index) {
+        return (void*) &(_leases[repair_lease_index]);
+    }
+
+    Repair_Lease_Table::Repair_Lease_Table(unsigned int leases){
+        _total_leases = leases;
+        _leases = new Repair_Lease[_total_leases];
+        memset(_leases,0, _total_leases * sizeof(Repair_Lease));
+    }
+
+    void * Repair_Lease_Table::get_lease_table_address() {
+        return (void *) _leases;
+    }
+
+    unsigned int Repair_Lease_Table::get_lease_table_size_bytes() {
+        return _total_leases * sizeof(Repair_Lease);
+    }
+
+    string Repair_Lease_Table::to_string() {
+        string output_string ="";
+        for (unsigned int i=0;i<_total_leases;i++){
+            output_string += _leases[i].to_string();
+        }
+        return output_string;
+    }
+
     Table::Table(){
         _memory_size = 0;
         _bucket_size = 0;
@@ -187,6 +227,7 @@ namespace cuckoo_tables {
         memset(_table[0],0, memory_size);
         
         _lock_table = Lock_Table(memory_size, bucket_size, buckets_per_lock);
+        _repair_lease_table = Repair_Lease_Table(TOTAL_REPAIR_LEASES);
 
         #ifdef ROW_CRC
             _entries_per_row= _bucket_size - 1;
@@ -217,6 +258,12 @@ namespace cuckoo_tables {
         return _lock_table.get_lock_pointer(lock_index);
     }
 
+    void * Table::get_repair_lease_pointer(unsigned int repair_lease_index){
+        //for now we are only going to work with a single lease, I'm just making sure that we don't do something dumb
+        assert(repair_lease_index == 0);
+        return _repair_lease_table.get_repair_lease_pointer(repair_lease_index);
+    }
+
     Entry ** Table::get_underlying_table(){
         return _table;
     }
@@ -238,6 +285,16 @@ namespace cuckoo_tables {
         return _lock_table.get_lock_table_size_bytes();
     }
 
+
+    void * Table::get_underlying_repair_lease_table_address() {
+        return get_repair_lease_pointer(0);
+        // return _repair_lease_table.get_lease_table_address();
+    }
+
+    unsigned int Table::get_underlying_repair_lease_table_size_bytes() {
+        return _repair_lease_table.get_lease_table_size_bytes();
+    }
+
     void Table::unlock_all(){
         _lock_table.unlock_all();
         return;
@@ -256,6 +313,7 @@ namespace cuckoo_tables {
         }
         output_string += "\nLock Table\n";
         output_string += _lock_table.to_string() + "\n";
+        output_string += _repair_lease_table.to_string() + "\n";
         output_string += std::to_string(get_fill_percentage()) + "% full\n";
         return output_string;
     }

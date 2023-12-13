@@ -296,6 +296,9 @@ namespace state_machines {
             unsigned int get_underlying_lock_table_size_bytes();
             void set_underlying_lock_table_address(void * address);
 
+            void * get_underlying_repair_lease_table_address() { return _table.get_underlying_repair_lease_table_address();};
+            unsigned int get_underlying_repair_lease_table_size_bytes() { return _table.get_underlying_repair_lease_table_size_bytes();};
+
         private:
             Table _table;
             uint32_t _max_fill;

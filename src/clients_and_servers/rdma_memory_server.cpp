@@ -22,6 +22,7 @@ using namespace state_machines;
 #define TABLE_MR_INDEX 0
 #define LOCK_TABLE_MR_INDEX 1
 #define LOCK_TABLE_STARTING_ADDRESS 0
+#define LEASE_TABLE_MR_INDEX 2
 
 
 static on_chip_memory_attr device_memory;
@@ -54,6 +55,9 @@ static void send_table_config_to_memcached_server(Memory_State_Machine& msm)
     void * table_ptr = msm.get_table_pointer()[0];
     ibv_mr * table_mr = register_server_object_at_mr_index(table_ptr, msm.get_table_size(), TABLE_MR_INDEX);
 
+    void * lease_table_ptr = msm.get_underlying_repair_lease_table_address();
+    ibv_mr *lease_table_mr = register_server_object_at_mr_index(lease_table_ptr, msm.get_underlying_repair_lease_table_size_bytes(), LEASE_TABLE_MR_INDEX);
+
     //TODO map the lock table to device memory
     printf("allocing device memory for lock table\n");
     printf("asking for a table of size %d\n", (uint64_t) msm.get_underlying_lock_table_size_bytes());
@@ -80,6 +84,10 @@ static void send_table_config_to_memcached_server(Memory_State_Machine& msm)
     config.lock_table_address = (uint64_t) LOCK_TABLE_STARTING_ADDRESS;
     config.lock_table_size_bytes = table->get_underlying_lock_table_size_bytes();
     config.lock_table_key = (uint32_t) device_memory.mr->lkey;
+
+    config.lease_table_address = (uint64_t) lease_table_mr->addr;
+    config.lease_table_size_bytes = msm.get_underlying_repair_lease_table_size_bytes();
+    config.lease_table_key = lease_table_mr->lkey;
     memcached_pubish_table_config(&config);
 }
 
