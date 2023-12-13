@@ -103,6 +103,7 @@ void moniter_run(int num_qps, int print_frequency, bool prime, int runtime, bool
             print_step++;
             msm.print_table();
 
+
             copy_device_memory_to_host_lock_table(msm);
             msm.print_lock_table();
             printf("%2.3f/%2.3f Full\n", fill_percentage, msm.get_max_fill());
@@ -205,6 +206,16 @@ int main(int argc, char **argv)
 
     ALERT("RDMA memory server", "Sending results to the memcached server\n");
     // msm.print_table();
+    int bad_row = msm.crc_table();
+    if (bad_row > 0) {
+        Table * table = msm.get_table();
+        ALERT("RDMA memory server", "CRC table failed on row %d\n", bad_row);
+        ALERT("RDMA memory server", "CRC should be %lX, printing current row\n", table->crc64_row(bad_row));
+        ALERT("RDMA memory server", "%s", table->row_to_string(bad_row).c_str());
+
+
+    }
+
     send_final_memory_stats_to_memcached_server(msm);
 
     ret = disconnect_and_cleanup(num_qps);

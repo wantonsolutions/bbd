@@ -106,25 +106,25 @@ namespace cuckoo_tables {
         Value value;
         string to_string();
         bool is_empty();
-        // Entry() {
-        //     this->key = Key();
-        //     this->value = Value();
-        // }
-        // Entry(string str_key, string str_value) {
-        //     this->key = Key(str_key);
-        //     this->value = Value(str_value);
-        // }
-        // Entry(Key key, Value value) {
-        //     this->key = key;
-        //     this->value = value;
-        // }
+        Entry() {
+            this->key = Key();
+            this->value = Value();
+        }
+        Entry(string str_key, string str_value) {
+            this->key = Key(str_key);
+            this->value = Value(str_value);
+        }
+        Entry(Key key, Value value) {
+            this->key = key;
+            this->value = value;
+        }
 
-        // bool operator==(const Entry& rhs) const {
-        //     return this->key == rhs.key && this->value == rhs.value;
-        // }
-        // bool operator!=(const Entry& rhs) const {
-        //     return !(this->key == rhs.key && this->value == rhs.value);
-        // }
+        bool operator==(const Entry& rhs) const {
+            return this->key == rhs.key && this->value == rhs.value;
+        }
+        bool operator!=(const Entry& rhs) const {
+            return !(this->key == rhs.key && this->value == rhs.value);
+        }
 
         int copy(Entry &e) {
             for (int i=0; i < KEY_SIZE; i++){
@@ -231,7 +231,7 @@ namespace cuckoo_tables {
             unsigned int get_entry_size_bytes();
             unsigned int n_buckets_size(unsigned int n_buckets);
             Entry get_entry(unsigned int bucket_index, unsigned int offset) const;
-            bool set_entry_with_crc(unsigned int bucket_index, unsigned int offset, Entry &entry);
+            void set_entry_with_crc(unsigned int bucket_index, unsigned int offset, Entry &entry);
             void set_entry(unsigned int bucket_index, unsigned int offset, Entry entry);
             Entry * get_entry_pointer(unsigned int bucket_index, unsigned int offset);
             bool bucket_has_empty(unsigned int bucket_index);
