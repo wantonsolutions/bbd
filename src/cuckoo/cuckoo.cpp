@@ -935,18 +935,81 @@ namespace cuckoo_rcuckoo {
         _wr_id++;
         send_bulk(1, _qp, &wr);
         int n = bulk_poll(_completion_queue, 1, _wc);
+        ALERT(log_id(), "Attempted to grab lease, current lease %s\n", lease->to_string().c_str());
 
-        ALERT(log_id(), "Attempted to grab lease, current lease %s\n", lease->to_string());
+        uint64_t compare = *((uint64_t *)lease);
+        lease->counter++;
+        lease->Lock();
+        uint64_t swap = *((uint64_t *)lease);
 
+        rdmaCompareAndSwapExp(
+            _qp,
+            local_address,
+            remote_server_address,
+            compare,
+            swap,
+            _repair_lease_mr->lkey,
+            _table_config->lease_table_key,
+            true,
+            _wr_id
+        );
+        _wr_id++;
+        bulk_poll(_completion_queue, 1, _wc);
+        uint64_t check = *((uint64_t *)lease);
 
+        if (check == compare) {
+            ALERT(log_id(), "Successfully grabbed the lease");
+        } else {
+            ALERT(log_id(), "We did not successfuly grab the lease");
+        }
+
+        //Set RDMA Cas with the same value
         return 0;
     }
 
     int RCuckoo::release_repair_lease(unsigned int lease_id){
-        ALERT("TODO", "Return the lease to remote memory");
-        // sleep(1);
-        // ALERT(log_id(), "Exiting after lease release. The reason it to check table validity");
-        // exit(0);
+
+        ALERT(log_id(), "Now we are actually releasing the lock");
+        Repair_Lease * lease = (Repair_Lease *) _table.get_repair_lease_pointer(0);
+        //Before anything else we want to just read the pointer//
+        //After we read the pointer we can decide what we need to do to set it.
+
+        struct ibv_sge sg;
+        struct ibv_exp_send_wr wr;
+
+        uint64_t local_address = (uint64_t) lease;
+        uint64_t remote_server_address = local_to_remote_repair_lease_address(local_address);
+
+        lease->counter++;
+        lease->Lock();
+        uint64_t compare = *((uint64_t *)lease);
+        lease->counter++;
+        lease->Unlock();
+        uint64_t swap = *((uint64_t *)lease);
+
+        rdmaCompareAndSwapExp(
+            _qp,
+            local_address,
+            remote_server_address,
+            compare,
+            swap,
+            _repair_lease_mr->lkey,
+            _table_config->lease_table_key,
+            true,
+            _wr_id
+        );
+        _wr_id++;
+        bulk_poll(_completion_queue, 1, _wc);
+        uint64_t check = *((uint64_t *)lease);
+        ALERT(log_id(), "Attempted to release the lease, current remote lease %s\n", lease->to_string().c_str());
+
+        if (check == compare) {
+            ALERT(log_id(), "Successfully released the lease");
+        } else {
+            ALERT(log_id(), "We did not successfuly grab the lease");
+        }
+
+        //Set RDMA Cas with the same value
         return 0;
     }
 
