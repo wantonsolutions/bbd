@@ -906,7 +906,7 @@ namespace cuckoo_rcuckoo {
 
 
     //Returns the ID of the repair lock
-    int RCuckoo::aquire_repair_lease(unsigned int lock) {
+    bool RCuckoo::aquire_repair_lease(unsigned int lock) {
         ALERT("TODO", "At the moment we only have one repair lease so we always go and get repair lease 0");
 
         Repair_Lease * lease = (Repair_Lease *) _table.get_repair_lease_pointer(0);
@@ -937,6 +937,11 @@ namespace cuckoo_rcuckoo {
         int n = bulk_poll(_completion_queue, 1, _wc);
         ALERT(log_id(), "Attempted to grab lease, current lease %s\n", lease->to_string().c_str());
 
+        //The repair lease is currently locked return a failure
+        if(lease->lock == 1) {
+            false;
+        }
+
         uint64_t compare = *((uint64_t *)lease);
         lease->counter++;
         lease->Lock();
@@ -959,12 +964,11 @@ namespace cuckoo_rcuckoo {
 
         if (check == compare) {
             ALERT(log_id(), "Successfully grabbed the lease");
+            return true;
         } else {
             ALERT(log_id(), "We did not successfuly grab the lease");
+            return false;
         }
-
-        //Set RDMA Cas with the same value
-        return 0;
     }
 
     int RCuckoo::release_repair_lease(unsigned int lease_id){
@@ -1149,9 +1153,7 @@ namespace cuckoo_rcuckoo {
 
     void RCuckoo::reclaim_lock(unsigned int lock) {
         hash_locations dup_entry;
-        unsigned int repair_lease_id = aquire_repair_lease(lock);
         unsigned int error_state = FAULT_CASE_0;
-        ALERT(log_id(), "Enter Critical section for lease %d, lock %d\n", repair_lease_id, lock);
 
 
         //Step 0 is to determine which state we are in. In order to do so we need first determine if we have any duplicates.
@@ -1278,10 +1280,6 @@ namespace cuckoo_rcuckoo {
         }
         send_insert_crc_and_unlock_messages(insert_messages, repair_context.lock_list);
         bulk_poll(_completion_queue, 1, _wc);
-        ALERT(log_id(), "Done releasing locks");
-        // _locking_context.clear_operation_state();
-
-        release_repair_lease(repair_lease_id);
 
     }
 
@@ -1410,7 +1408,7 @@ namespace cuckoo_rcuckoo {
                 set_retry_counter(retries, mask & received_locks);
 
                 uint64_t timed_out_lock = retry_crossed_threshold(retries,1000);
-                if (timed_out_lock > 0 && _id == 1) {
+                if (timed_out_lock > 0) {
                     clear_retry_counter(retries);
 
                     ALERT(log_id(), "We have crossed the line on lock %lX and we are the repair client %d\n", timed_out_lock, _id);
@@ -1429,7 +1427,15 @@ namespace cuckoo_rcuckoo {
                     // _insert_messages.clear();
                     // send_insert_crc_and_unlock_messages(_insert_messages, _locks_held, _wr_id);
                     ALERT(log_id(), "Locks released -- Going to reclaim lock %d\n", lock_we_will_reclaim);
-                    reclaim_lock(lock_we_will_reclaim);
+
+                    if (aquire_repair_lease(lock_we_will_reclaim)) {
+                        ALERT(log_id(), "In the critical section for the lease");
+                        reclaim_lock(lock_we_will_reclaim);
+                        release_repair_lease(lock_we_will_reclaim);
+                        ALERT(log_id(), "Done with the critical selction");
+                    } else {
+                        ALERT(log_id(), "unable to grabe the lease leaving without trying");
+                    }
 
                 }
 

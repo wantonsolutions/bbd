@@ -100,7 +100,7 @@ namespace cuckoo_rcuckoo {
             void complete_update_stats(bool success);
 
 
-            int aquire_repair_lease(unsigned int lock);
+            bool aquire_repair_lease(unsigned int lock);
             int release_repair_lease(unsigned int lease_id);
 
             void repair_table(Entry broken_entry, unsigned int error_state);
