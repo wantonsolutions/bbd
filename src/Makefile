@@ -10,7 +10,7 @@ ifdef VALUE_SIZE
 	DEFINE_MACROS := -DVALUE_SIZE=$(VALUE_SIZE)
 endif
 # -DVALUE_SIZE=28
-CFLAGS := -std=c++2a -g -Wall -Wall -Wextra -pedantic -fPIC -msse4.2 -O0 $(DEFINE_MACROS)
+CFLAGS := -std=c++2a -g -Wall -Wall -Wextra -pedantic -fPIC -msse4.2 $(DEFINE_MACROS)
 
 RDMA_LIBS := -lrdmacm -libverbs -lpthread
 LIBRARIES := -L$(XXHASH_INC) -lxxhash $(RDMA_LIBS) -lmemcached -lssl -lcrypto -ljsoncpp

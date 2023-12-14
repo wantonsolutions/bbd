@@ -29,7 +29,7 @@ using namespace rdma_helper;
 #define MAX_INSERT_AND_UNLOCK_MESSAGE_COUNT 64
 
 #define INJECT_FAULT FAULT_CASE_3
-#define MAX_FAULT_RATE_US 10000
+#define MAX_FAULT_RATE_US 100000
 // #define INJECT_FAULT FAULT_CASE_0
 
 
@@ -652,7 +652,7 @@ namespace cuckoo_rcuckoo {
         #endif
 
         //There are 5 distinct fault scenarios
-        assert(fault >=0 && fault <= 4);
+        assert(fault >=FAULT_CASE_0 && fault <= FAULT_CASE_4);
         INFO(log_id(), "Executing insert fault %d\n", fault);
 
         int insert_messages_with_crc = insert_messages.size()*2;
@@ -707,7 +707,7 @@ namespace cuckoo_rcuckoo {
         if (total_messages > 0) { 
             set_signal(&wr[total_messages-1]);
             send_bulk(total_messages, _qp, wr);
-            // bulk_poll(_completion_queue,1,_wc);
+            bulk_poll(_completion_queue,1,_wc);
         }
 
         ALERT(log_id(), "Fault #%d injected on locks %s %s. Sleeping for %d %ss", fault, lock_string.c_str(), "\U0001F608",max_fault_rate_us, "\u00b5");
@@ -762,8 +762,9 @@ namespace cuckoo_rcuckoo {
             // ALERT("ROW CRC", "sending unlock message %d %lX %lX\n", unlock_messages[i].min_lock_index, unlock_messages[i].old, unlock_messages[i].new_value);
         }
         set_signal(&wr[total_messages-1]);
-
+        //Send and receive messages
         send_bulk(total_messages, _qp, wr);
+        bulk_poll(_completion_queue, 1, _wc);
         #ifdef MEASURE_ESSENTIAL
         //TODO WRITE SIZES ARE WRONG
         uint64_t cas_bytes = (RDMA_CAS_REQUEST_SIZE + RDMA_CAS_RESPONSE_SIZE) * insert_messages.size();
@@ -936,8 +937,8 @@ namespace cuckoo_rcuckoo {
         INFO(log_id(), "Attempted to grab lease, current lease %s\n", lease->to_string().c_str());
 
         //The repair lease is currently locked return a failure
-        if(lease->lock == 1) {
-            false;
+        if(lease->islocked()) {
+            return false;
         }
 
         uint64_t compare = *((uint64_t *)lease);
@@ -1244,7 +1245,7 @@ namespace cuckoo_rcuckoo {
         }
 
         //At this point we have the error code corretly determined
-        ALERT(log_id(), "Error State %d detected. Begin Repair...",error_state);
+        ALERT(log_id(), "Error State %d detected on lock %d Begin Repair...",error_state, lock);
         repair_table(broken_entry,error_state);
 
         //Final step is to release the lock
@@ -1272,12 +1273,11 @@ namespace cuckoo_rcuckoo {
             }
         }
         lock_string += "]";
-        ALERT(log_id(), "%s Repaired Locks %s from failures case %d", "\U0001F607", lock_string.c_str(), error_state);
+        ALERT(log_id(), "😇 Repaired Locks %s from failures case %d", lock_string.c_str(), error_state);
         #endif
 
         vector<VRCasData> insert_messages;
         send_insert_crc_and_unlock_messages(insert_messages, repair_context.lock_list);
-        bulk_poll(_completion_queue, 1, _wc);
 
     }
 
@@ -1424,7 +1424,7 @@ namespace cuckoo_rcuckoo {
                         release_repair_lease(lock_we_will_reclaim);
                         SUCCESS(log_id(), "Lease Released");
                     } else {
-                        ALERT(log_id(), "Unable to aquire lease. Restart timeout on lock %d");
+                        ALERT(log_id(), "Unable to aquire lease. Restart timeout on lock %d", lock_we_will_reclaim);
                     }
 
                 }
@@ -1525,10 +1525,9 @@ namespace cuckoo_rcuckoo {
         send_insert_crc_and_unlock_messages(_insert_messages, _locking_context.lock_list);
         #else
         send_insert_and_unlock_messages(_insert_messages, _locking_context.lock_list, _wr_id);
+        bulk_poll(_completion_queue, 1, _wc + 1);
         #endif
 
-        //Bulk poll to receive all messages
-        bulk_poll(_completion_queue, 1, _wc + 1);
         _locks_held.clear();
 
         if (_state == INSERTING) {

@@ -209,6 +209,13 @@ namespace cuckoo_tables {
             }
             return false;
         }
+        bool islocked(void) {
+            return lock == 1;
+        }
+
+        bool isunlocked(void) {
+            return !islocked();
+        }
         string to_string();
     } Repair_Lease;
 

@@ -120,11 +120,11 @@ void memcached_publish_experiment_control(experiment_control * ec){
 
 experiment_control * memcached_get_experiment_control(void){
     experiment_control * ec;
-    memcached_get_published(EXPERIMENT_CONTROL_KEY.c_str(), (void **)&ec);
-    // int experiment_control_len = memcached_get_published(EXPERIMENT_CONTROL_KEY.c_str(), (void **)&ec);
-    // INFO("Memcached", "about to print the fetched experiment control %d\n",experiment_control_len);
-    // INFO("Memcached", "table config: %s\n", ec->to_string().c_str());
-    // INFO("Memcached", "fetched %d struct size %d\n",experiment_control_len, sizeof(experiment_control));
+    // memcached_get_published(EXPERIMENT_CONTROL_KEY.c_str(), (void **)&ec);
+    int experiment_control_len = memcached_get_published(EXPERIMENT_CONTROL_KEY.c_str(), (void **)&ec);
+    // ALERT("Memcached", "about to print the fetched experiment control %d\n",experiment_control_len);
+    // ALERT("Memcached", "table config: %s\n", ec->to_string().c_str());
+    // ALERT("Memcached", "fetched %d struct size %d\n",experiment_control_len, sizeof(experiment_control));
     // assert(experiment_control_len == sizeof(experiment_control));
     return ec;
 }
@@ -149,6 +149,7 @@ int memcached_get_published(const char *key, void **value) {
   if (memc == NULL) {
     memc = memcached_create_memc();
   }
+  assert(strlen(key) > 0);
   memcached_return rc;
   size_t value_length;
   uint32_t flags;
@@ -166,6 +167,8 @@ int memcached_get_published(const char *key, void **value) {
             "Error finding value for key \"%s\": %s. "
             "Reg IP = %s\n",
             key, memcached_strerror(memc, rc), registry_ip);
+
+          
     exit(-1);
   }
   /* Never reached */

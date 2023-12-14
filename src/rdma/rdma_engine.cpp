@@ -441,6 +441,7 @@ namespace rdma_engine {
 
         while(true){
             experiment_control *ec = get_experiment_control();
+            // printf("ec lock %p\n", ec);
             if(ec->experiment_stop){
                 ALERT("RDMA Engine", "Experiment Stop Globally\n");
                 global_end_flag = true;
