@@ -80,7 +80,7 @@ namespace cuckoo_rcuckoo {
 
             void send_insert_and_crc(VRCasData insert_message, ibv_sge *sg, ibv_exp_send_wr *wr, uint64_t *wr_id);
             void send_insert_crc_and_unlock_messages(vector<VRCasData> &insert_messages, vector<VRMaskedCasData> & unlock_messages);
-            void send_insert_crc_and_unlock_messages_with_fault(vector<VRCasData> &insert_messages, vector<VRMaskedCasData> & unlock_messages, unsigned int fault);
+            bool send_insert_crc_and_unlock_messages_with_fault(vector<VRCasData> &insert_messages, vector<VRMaskedCasData> & unlock_messages, unsigned int fault, unsigned int max_fault_rate_us);
             void send_read(vector <VRReadData> reads);
 
             void rdma_fsm(void);

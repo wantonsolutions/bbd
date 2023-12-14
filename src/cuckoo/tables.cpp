@@ -428,11 +428,10 @@ namespace cuckoo_tables {
             return true;
         } 
 
-        ALERT("crc_valid_row", "FAILED row %d current %lX calculated %lX (e = %s) entries per row (%d)", row, existing_crc,crc_row,e.to_string().c_str(), get_entries_per_row());
-        e = get_entry(row,get_entries_per_row());
-        ALERT("e again", "e = %s",e.to_string().c_str());
-        
-        print_row(row);
+        // ALERT("crc_valid_row", "FAILED row %d current %lX calculated %lX (e = %s) entries per row (%d)", row, existing_crc,crc_row,e.to_string().c_str(), get_entries_per_row());
+        // e = get_entry(row,get_entries_per_row());
+        // ALERT("e again", "e = %s",e.to_string().c_str());
+        // print_row(row);
         return false;
     }
 
