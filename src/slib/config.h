@@ -23,7 +23,10 @@ typedef struct table_config {
             "entry_size_bytes: " + std::to_string(entry_size_bytes) + "\n" +
             "lock_table_address: " + std::to_string(lock_table_address) + "\n" +
             "lock_table_size_bytes: " + std::to_string(lock_table_size_bytes) + "\n" +
-            "lock_table_key: " + std::to_string(lock_table_key) + "\n";
+            "lock_table_key: " + std::to_string(lock_table_key) + "\n" +
+            "lease_table_address: " + std::to_string(lease_table_address) + "\n" +
+            "lease_table_size_bytes: " +std::to_string(lease_table_size_bytes) + "\n" +
+            "lease_table_key" + std::to_string(lease_table_key) + "\n";
     }
     uint64_t table_address;
     int table_size_bytes;
@@ -31,9 +34,14 @@ typedef struct table_config {
     int remote_key;
     int buckets_per_row;
     int entry_size_bytes;
+    //lock table
     uint64_t lock_table_address;
     int lock_table_key;
     int lock_table_size_bytes;
+    //lease table
+    uint64_t lease_table_address;
+    int lease_table_size_bytes;
+    int lease_table_key;
 } table_config;
 
 typedef struct slog_config {

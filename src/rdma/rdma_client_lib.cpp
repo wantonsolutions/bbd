@@ -240,8 +240,10 @@ RDMAConnectionManager::RDMAConnectionManager(RDMAConnectionManagerArguments args
 
     cm_event_channel = NULL;
     pd = NULL;
-    client_send_wr, bad_client_send_wr = NULL;
-    server_recv_wr, bad_server_recv_wr = NULL;
+    // client_send_wr = NULL;
+    bad_client_send_wr = NULL;
+    // server_recv_wr = NULL;
+    bad_server_recv_wr =  NULL;
 
     if (_num_qps > MAX_QPS) {
         rdma_error("Failed to setup shared RDMA resourceds MAX QPS = %d. %d qp's were requested \n", MAX_QPS, _num_qps);
@@ -341,7 +343,7 @@ int RDMAConnectionManager::client_setup_shared_resources()
     }
     VERBOSE("Connection Manager", "pd allocated at %p \n", pd);
 
-    for(int i=0;i<MAX_THREADS;i++){
+    for(int i=0;i<MAX_CLIENT_THREADS;i++){
         INFO("Connection Manager", "allocing completion channel %d\n",i);
         /* Now we need a completion channel, were the I/O completion 
         * notifications are sent. Remember, this is different from connection 
@@ -356,7 +358,7 @@ int RDMAConnectionManager::client_setup_shared_resources()
         }
         INFO("Connection Manager", "io completion channel @ %p\n",(void*)io_completion_channel_threads[i]);
     }
-    SUCCESS("Connection Manager", "created %d io completion channels\n",MAX_THREADS);
+    SUCCESS("Connection Manager", "created %d io completion channels\n",MAX_CLIENT_THREADS);
 
     ret = ibv_query_device(devices[0], &dev_attr);    
     if (ret) {
@@ -374,10 +376,10 @@ int RDMAConnectionManager::client_setup_shared_resources()
         ALERT("Connection Manager", "Creating cm event channel failed, errno: %s \n", strerror(errno));
         return -errno;
     }
-    SUCCESS("Connection Manager", "RDMA CM event channel is created at : %p \n", cm_event_channel);
+    SUCCESS("Connection Manager", "RDMA CM event channel is created at : %p \n", (void*)cm_event_channel);
 
-    INFO("Connection Manager", "Making a total of %d completion queues\n", MAX_THREADS);
-    for(int i=0;i<MAX_THREADS;i++){
+    INFO("Connection Manager", "Making a total of %d completion queues\n", MAX_CLIENT_THREADS);
+    for(int i=0;i<MAX_CLIENT_THREADS;i++){
         thread_contexts[i]=i;
         client_cq_threads[i] = ibv_create_cq(devices[0] /* which device*/, 
             CQ_CAPACITY             /* maximum device capacity*/, 
@@ -735,7 +737,7 @@ int RDMAConnectionManager::client_clean()
 {
     int ret = -1;
 
-    for (int i=0;i<MAX_THREADS;i++) {
+    for (int i=0;i<MAX_CLIENT_THREADS;i++) {
         int ret = -1;
         /* Destroy CQ */
         ret = ibv_destroy_cq(client_cq_threads[i]);
@@ -745,7 +747,7 @@ int RDMAConnectionManager::client_clean()
         }
     }
 
-    for (int i=0;i<MAX_THREADS;i++) {
+    for (int i=0;i<MAX_CLIENT_THREADS;i++) {
         /* Destroy completion channel */
         ret = ibv_destroy_comp_channel(io_completion_channel_threads[i]);
         if (ret) {

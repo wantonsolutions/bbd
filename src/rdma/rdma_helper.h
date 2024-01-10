@@ -16,7 +16,7 @@ namespace rdma_helper {
 
 
 
-    void setRdmaCompareAndSwap(struct ibv_sge * sg, struct ibv_send_wr * wr, ibv_qp *qp, uint64_t source, uint64_t dest,
+    void setRdmaCompareAndSwap(struct ibv_sge * sg, struct ibv_send_wr * wr, uint64_t source, uint64_t dest,
             uint64_t compare, uint64_t swap, uint32_t lkey,
             uint32_t remoteRKey, bool signal, uint64_t wrID);
 
@@ -25,7 +25,7 @@ namespace rdma_helper {
                             uint64_t compare, uint64_t swap, uint32_t lkey,
                             uint32_t remoteRKey, bool signal, uint64_t wrID);
 
-    void setRdmaCompareAndSwapExp(struct ibv_sge * sg, struct ibv_exp_send_wr * wr, ibv_qp *qp, uint64_t source, uint64_t dest,
+    void setRdmaCompareAndSwapExp(struct ibv_sge * sg, struct ibv_exp_send_wr * wr, uint64_t source, uint64_t dest,
         uint64_t compare, uint64_t swap, uint32_t lkey,
         uint32_t remoteRKey, bool signal, uint64_t wrID);
 
@@ -33,7 +33,7 @@ namespace rdma_helper {
         uint64_t compare, uint64_t swap, uint32_t lkey,
         uint32_t remoteRKey, bool signal, uint64_t wrID);
 
-    void setRdmaFetchAndAddExp(struct ibv_sge * sg, struct ibv_exp_send_wr * wr, ibv_qp *qp, uint64_t source, uint64_t dest,
+    void setRdmaFetchAndAddExp(struct ibv_sge * sg, struct ibv_exp_send_wr * wr, uint64_t source, uint64_t dest,
         uint64_t add, uint32_t lkey,
         uint32_t remoteRKey, bool signal, uint64_t wrID);
 
@@ -42,7 +42,7 @@ namespace rdma_helper {
 
 
 
-    void setRdmaCompareAndSwapMask(struct ibv_sge* sg, struct ibv_exp_send_wr *wr, ibv_qp *qp, uint64_t source, uint64_t dest,
+    void setRdmaCompareAndSwapMask(struct ibv_sge* sg, struct ibv_exp_send_wr *wr, uint64_t source, uint64_t dest,
                                 uint64_t compare, uint64_t swap, uint32_t lkey,
                                 uint32_t remoteRKey, uint64_t mask, bool singal, uint64_t wr_ID);
 
@@ -50,7 +50,7 @@ namespace rdma_helper {
                                 uint64_t compare, uint64_t swap, uint32_t lkey,
                                 uint32_t remoteRKey, uint64_t mask, bool singal, uint64_t wr_ID);
 
-    void setRdmaMaskedFetchAndAddExp(struct ibv_sge * sg, struct ibv_exp_send_wr * wr, ibv_qp *qp, uint64_t source, uint64_t dest,
+    void setRdmaMaskedFetchAndAddExp(struct ibv_sge * sg, struct ibv_exp_send_wr * wr, uint64_t source, uint64_t dest,
         uint64_t add, uint32_t lkey,
         uint32_t remoteRKey, uint64_t mask, bool signal, uint64_t wrID);
 
@@ -73,6 +73,8 @@ namespace rdma_helper {
 
     void setRdmaWriteExp(struct ibv_sge * sg, struct ibv_exp_send_wr * wr, uint64_t source, uint64_t dest, uint64_t size,
         uint32_t lkey, uint32_t remoteRKey, int32_t imm, bool signal, uint64_t wrID);
+
+    void set_signal(struct ibv_exp_send_wr * wr);
 }
 
 #endif

@@ -12,9 +12,47 @@
 #include <string>
 #include <unordered_map>
 #include "../slib/log.h"
+#include <stdio.h>
 
 using namespace std;
 
+void print_wc(struct ibv_wc * wc){
+	printf("status: %s\n", ibv_wc_status_str(wc->status));
+	printf("wr_id: %" PRIu64 "\n", wc->wr_id);
+	printf("opcode: %d\n", wc->opcode);
+	printf("byte_len: %d\n", wc->byte_len);
+	printf("qp_num: %d\n", wc->qp_num);
+	printf("src_qp: %d\n", wc->src_qp);
+	printf("wc_flags: %d\n", wc->wc_flags);
+	printf("pkey_index: %d\n", wc->pkey_index);
+	printf("slid: %d\n", wc->slid);
+	printf("sl: %d\n", wc->sl);
+	printf("dlid_path_bits: %d\n", wc->dlid_path_bits);
+}
+
+void print_work_request(struct ibv_exp_send_wr *wr, int count){
+	for (int i=0;i<count;i++){
+		//Print out each of the values in the work request
+		printf("wr[%d].wr_id: %" PRIu64 "\n", i, wr[i].wr_id);
+		printf("wr[%d].next: %p\n", i, wr[i].next);
+		printf("wr[%d].sg_list: %p\n", i, wr[i].sg_list);
+		printf("wr[%d].num_sge: %d\n", i, wr[i].num_sge);
+		printf("wr[%d].opcode: %d\n", i, wr[i].exp_opcode);
+		printf("wr[%d].reserved: %d\n", i, wr[i].reserved);
+		printf("wr[%d].ex.imm_data: %d\n", i, wr[i].ex.imm_data);
+		printf("wr[%d].ex.invalidate_rkey: %d\n", i, wr[i].ex.invalidate_rkey);
+		printf("wr[%d].wr.rdma.remote_addr: %" PRIu64 "\n", i, wr[i].wr.rdma.remote_addr);
+		printf("wr[%d].wr.rdma.rkey: %d\n", i, wr[i].wr.rdma.rkey);
+		printf("wr[%d].wr.atomic.remote_addr: %" PRIu64 "\n", i, wr[i].wr.atomic.remote_addr);
+		printf("wr[%d].wr.atomic.compare_add: %" PRIu64 "\n", i, wr[i].wr.atomic.compare_add);
+		printf("wr[%d].wr.atomic.swap: %" PRIu64 "\n", i, wr[i].wr.atomic.swap);
+		printf("wr[%d].wr.atomic.rkey: %d\n", i, wr[i].wr.atomic.rkey);
+		printf("wr[%d].wr.ud.ah: %p\n", i, wr[i].wr.ud.ah);
+		printf("wr[%d].wr.ud.remote_qpn: %d\n", i, wr[i].wr.ud.remote_qpn);
+		printf("wr[%d].wr.ud.remote_qkey: %d\n", i, wr[i].wr.ud.remote_qkey);
+	}
+	printf("complete list @ https://github.com/gpudirect/libibverbs/blob/master/include/infiniband/verbs_exp.h\n");
+}
 
 struct sockaddr_in server_address_to_socket_addr(string server_address) {
 	struct sockaddr_in server_sockaddr;
@@ -162,6 +200,7 @@ void print_dev_attributes(struct ibv_device_attr_ex * attr) {
 	printf("Device attributes\n");
 	printf("todo after switching to V4.9 this seems to not work\n");
 	printf("print attributes better");
+	printf("attr address %p\n", (void*)attr);
 	// printf("Fetch ADD %X\n",attr->pci_atomic_caps.fetch_add);
 	// printf("SWAP %X\n",attr->pci_atomic_caps.swap);
 	// printf("CAS %X\n",attr->pci_atomic_caps.compare_swap);

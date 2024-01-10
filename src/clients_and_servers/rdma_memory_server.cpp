@@ -22,6 +22,7 @@ using namespace state_machines;
 #define TABLE_MR_INDEX 0
 #define LOCK_TABLE_MR_INDEX 1
 #define LOCK_TABLE_STARTING_ADDRESS 0
+#define LEASE_TABLE_MR_INDEX 2
 
 
 static on_chip_memory_attr device_memory;
@@ -54,6 +55,9 @@ static void send_table_config_to_memcached_server(Memory_State_Machine& msm)
     void * table_ptr = msm.get_table_pointer()[0];
     ibv_mr * table_mr = register_server_object_at_mr_index(table_ptr, msm.get_table_size(), TABLE_MR_INDEX);
 
+    void * lease_table_ptr = msm.get_underlying_repair_lease_table_address();
+    ibv_mr *lease_table_mr = register_server_object_at_mr_index(lease_table_ptr, msm.get_underlying_repair_lease_table_size_bytes(), LEASE_TABLE_MR_INDEX);
+
     //TODO map the lock table to device memory
     printf("allocing device memory for lock table\n");
     printf("asking for a table of size %d\n", (uint64_t) msm.get_underlying_lock_table_size_bytes());
@@ -80,6 +84,10 @@ static void send_table_config_to_memcached_server(Memory_State_Machine& msm)
     config.lock_table_address = (uint64_t) LOCK_TABLE_STARTING_ADDRESS;
     config.lock_table_size_bytes = table->get_underlying_lock_table_size_bytes();
     config.lock_table_key = (uint32_t) device_memory.mr->lkey;
+
+    config.lease_table_address = (uint64_t) lease_table_mr->addr;
+    config.lease_table_size_bytes = msm.get_underlying_repair_lease_table_size_bytes();
+    config.lease_table_key = lease_table_mr->lkey;
     memcached_pubish_table_config(&config);
 }
 
@@ -101,9 +109,11 @@ void moniter_run(int num_qps, int print_frequency, bool prime, int runtime, bool
             last_print = now;
             printf("Printing table after %d seconds\n", print_step * print_frequency);
             print_step++;
-            // copy_device_memory_to_host_lock_table(msm);
-            // msm.print_table();
-            // msm.print_lock_table();
+            msm.print_table();
+
+
+            copy_device_memory_to_host_lock_table(msm);
+            msm.print_lock_table();
             printf("%2.3f/%2.3f Full\n", fill_percentage, msm.get_max_fill());
         }
 
@@ -163,7 +173,6 @@ int main(int argc, char **argv)
     Memory_State_Machine msm = Memory_State_Machine(config);
 
     bool prime = (config["prime"] == "true");
-    // msm.fill_table_with_incremental_values();
 
     //resolve the address from the config
     struct sockaddr_in server_sockaddr = server_address_to_socket_addr(config["server_address"]);
@@ -204,6 +213,17 @@ int main(int argc, char **argv)
     moniter_run(num_qps, 1 ,prime, runtime, use_runtime, msm);
 
     ALERT("RDMA memory server", "Sending results to the memcached server\n");
+    // msm.print_table();
+    int bad_row = msm.crc_table();
+    if (bad_row > 0) {
+        Table * table = msm.get_table();
+        ALERT("RDMA memory server", "CRC table failed on row %d\n", bad_row);
+        ALERT("RDMA memory server", "CRC should be %lX, printing current row\n", table->crc64_row(bad_row));
+        ALERT("RDMA memory server", "%s", table->row_to_string(bad_row).c_str());
+
+
+    }
+
     send_final_memory_stats_to_memcached_server(msm);
 
     ret = disconnect_and_cleanup(num_qps);

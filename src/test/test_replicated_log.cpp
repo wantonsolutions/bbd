@@ -11,21 +11,21 @@ int test_0() {
     Log_Entry bs;
     char buf[1024];
 
-    bs.entry_size = 10;
-    bs.entry_type = 1;
+    bs.size = 10;
+    bs.type = 1;
 
     rl->Append_Log_Entry(bs,buf);
     rl->Print_All_Entries();
-    bs.entry_size = 20;
-    bs.entry_type = 2;
+    bs.size = 20;
+    bs.type = 2;
     rl->Append_Log_Entry(bs,buf);
     rl->Print_All_Entries();
-    bs.entry_size = 30;
-    bs.entry_type = 3;
+    bs.size = 30;
+    bs.type = 3;
     rl->Append_Log_Entry(bs,buf);
     rl->Print_All_Entries();
-    bs.entry_size=1;
-    bs.entry_type=4;
+    bs.size=1;
+    bs.type=4;
     rl->Append_Log_Entry(bs,buf);
     rl->Print_All_Entries();
 }
@@ -37,14 +37,14 @@ int test_1() {
     char buf[1024];
 
     Log_Entry bs_0;
-    bs_0.entry_size = 10;
-    bs_0.entry_type = 1;
+    bs_0.size = 10;
+    bs_0.type = 1;
     rl->Append_Log_Entry(bs_0,buf);
     rl->Print_All_Entries();
 
     Log_Entry bs_1;
-    bs_1.entry_size = 20;
-    bs_1.entry_type = 2;
+    bs_1.size = 20;
+    bs_1.type = 2;
     rl->Append_Log_Entry(bs_1,buf);
     rl->Print_All_Entries();
 

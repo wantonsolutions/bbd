@@ -42,7 +42,9 @@ volatile bool global_end_flag = false;
 
 
 #define MAX_THREADS 40
-State_Machine *state_machine_holder[MAX_THREADS];
+#define MAX_RDMA_ENGINE_QPS MAX_THREADS
+
+State_Machine *state_machine_holder[MAX_CLIENT_THREADS];
 
 const int yeti_core_order[40]={1,3,5,7,9,11,13,15,17,19,21,23,25,27,29,31,33,35,37,39,41,43,45,47,49,51,53,55,57,59,61,63,65,67,69,71,73,75,77,79};
 const int yeti_control_core = 0;
@@ -69,7 +71,6 @@ void * rcuckoo_thread_init(void * arg) {
     std::copy(rcuckoo_arg->config.begin(), rcuckoo_arg->config.end(), std::inserter(config, config.end()));
     
 
-    ALERT("RDMA Engine", "Rcuckoo instace %i\n", rcuckoo_arg->id);
     config["id"]=to_string(rcuckoo_arg->id);
     RCuckoo * rcuckoo = new RCuckoo(config);
 
@@ -100,7 +101,7 @@ memory_stats * get_cuckoo_memory_stats(){
     }
 }
 
-void rcuckoo_stat_collection(State_Machine ** state_machines, unordered_map<string,string> config, int num_clients, auto ms_int){
+void rcuckoo_stat_collection(State_Machine ** state_machines, unordered_map<string,string> config, int num_clients, chrono::milliseconds  ms_int){
     //Collect statistics from each of the threads
     vector<unordered_map<string,string>> client_statistics;
     for (int i=0;i<num_clients;i++) {
@@ -117,9 +118,11 @@ void rcuckoo_stat_collection(State_Machine ** state_machines, unordered_map<stri
 
     uint64_t puts = 0;
     uint64_t gets = 0;
+    uint64_t updates = 0;
     for (int i=0;i<num_clients;i++) {
         puts += stoull(client_statistics[i]["completed_puts"]);
         gets += stoull(client_statistics[i]["completed_gets"]);
+        updates += stoull(client_statistics[i]["completed_update_count"]);
     }
 
     unordered_map<string,string> system_statistics;
@@ -127,24 +130,26 @@ void rcuckoo_stat_collection(State_Machine ** state_machines, unordered_map<stri
     system_statistics["runtime_s"]= to_string(ms_int.count() / 1000.0);
     system_statistics["put_throughput"] = to_string(puts / (ms_int.count() / 1000.0));
     system_statistics["get_throughput"] = to_string(gets / (ms_int.count() / 1000.0));
-    system_statistics["throughput"]= to_string((puts + gets) / (ms_int.count() / 1000.0));
+    system_statistics["update_throughput"] = to_string(updates / (ms_int.count() / 1000.0));
+    system_statistics["throughput"]= to_string((puts + gets + updates) / (ms_int.count() / 1000.0));
 
 
-    float throughput = puts / (ms_int.count() / 1000.0);
+    float throughput = (puts + gets + updates) / (ms_int.count() / 1000.0);
     SUCCESS("RDMA Engine", "Throughput: %f\n", throughput);
     ALERT("Final Tput", "%d,%f\n", num_clients, throughput);
 
-    memory_stats *ms;
+    // memory_stats *ms;
+    // ms->fill=0.13371337;
 
     
     unordered_map<string,string> memory_statistics;
-    memory_statistics["fill"]= to_string(ms->fill);
+    memory_statistics["fill"]="0.13371337";
     write_statistics(config, system_statistics, client_statistics, memory_statistics);
     // free(thread_ids);
     VERBOSE("RDMA Engine", "done running state machine!");
 }
 
-void slogger_stat_collection(State_Machine ** state_machines, unordered_map<string,string> config, int num_clients, auto ms_int) {
+void slogger_stat_collection(State_Machine ** state_machines, unordered_map<string,string> config, int num_clients, chrono::milliseconds  ms_int) {
     vector<unordered_map<string,string>> client_statistics;
     for (int i=0;i<num_clients;i++) {
         INFO("RDMA Engine", "Grabbing Statistics Off of Client Thread %d\n", i);
@@ -162,11 +167,10 @@ void slogger_stat_collection(State_Machine ** state_machines, unordered_map<stri
     unordered_map<string,string> system_statistics;
     system_statistics["runtime_ms"] = to_string(ms_int.count());
     system_statistics["runtime_s"]= to_string(ms_int.count() / 1000.0);
-    ALERT("RDMA Engine", "Runtime ms %d\n",ms_int.count());
+    ALERT("RDMA Engine", "Runtime ms %d\n",(int)ms_int.count());
 
-    memory_stats *ms;
     unordered_map<string,string> memory_statistics;
-    memory_statistics["fill"]= to_string(ms->fill);
+    memory_statistics["fill"]="0.13371337666";
     ALERT("RDMA Engine", "Writing out statistics\n");
     write_statistics(config, system_statistics, client_statistics, memory_statistics);
     // free(thread_ids);
@@ -206,7 +210,7 @@ void * slogger_fsm_runner(void * args){
     pthread_exit(NULL);
 }
 
-void corrupter_stat_collection(State_Machine ** state_machines, unordered_map<string,string> config, int num_clients, auto ms_int) {
+void corrupter_stat_collection(State_Machine ** state_machines, unordered_map<string,string> config, int num_clients, chrono::milliseconds  ms_int) {
     vector<unordered_map<string,string>> client_statistics;
     for (int i=0;i<num_clients;i++) {
         INFO("RDMA Engine", "Grabbing Statistics Off of Client Thread %d\n", i);
@@ -224,11 +228,10 @@ void corrupter_stat_collection(State_Machine ** state_machines, unordered_map<st
     unordered_map<string,string> system_statistics;
     system_statistics["runtime_ms"] = to_string(ms_int.count());
     system_statistics["runtime_s"]= to_string(ms_int.count() / 1000.0);
-    ALERT("RDMA Engine", "Runtime ms %d\n",ms_int.count());
+    ALERT("RDMA Engine", "Runtime ms %d\n",(int)ms_int.count());
 
-    memory_stats *ms;
     unordered_map<string,string> memory_statistics;
-    memory_statistics["fill"]= to_string(ms->fill);
+    memory_statistics["fill"]="0.13371337616";
     ALERT("RDMA Engine", "Writing out statistics\n");
     write_statistics(config, system_statistics, client_statistics, memory_statistics);
     // free(thread_ids);
@@ -304,8 +307,8 @@ namespace rdma_engine {
 
     void RDMA_Engine::Init_State_Machines(unordered_map<string, string> config) {
         int i;
-        pthread_t thread_ids[MAX_THREADS];
-        state_machine_init_arg init_args[MAX_THREADS];
+        pthread_t thread_ids[MAX_CLIENT_THREADS];
+        state_machine_init_arg init_args[MAX_CLIENT_THREADS];
         try {
             for (i=0;i<_num_clients;i++) {
 
@@ -322,12 +325,11 @@ namespace rdma_engine {
             exit(1);
             return;
         }
-
+        ALERT("RDMA Engine", "Created %d Threads. Waiting for them to init...\n",_num_clients);  
         for (i=0;i<_num_clients;i++) {
-            ALERT("RDMA Engine", "Joinging Thread %d\n",i);
             pthread_join(thread_ids[i], NULL);
         }
-        ALERT("RDMA Engine", "State Machine Threads Joined\n");
+        ALERT("RDMA Engine", "Joined %d Threads\n",_num_clients);
 
     }
 
@@ -353,7 +355,6 @@ namespace rdma_engine {
                 ALERT("RDMA Engine", "Error: num_qps must be at least 1\n");
                 exit(1);
             }
-            #define MAX_RDMA_ENGINE_QPS MAX_THREADS
             if (args.num_qps > MAX_RDMA_ENGINE_QPS) {
                 ALERT("RDMA Engine", "Error: num_qps must be at most %d, we are only enabling a few QP per process\n", MAX_RDMA_ENGINE_QPS);
                 ALERT("RDMA Engine", "TODO; we probably need a better way to scale clients if we are going more than this.\n");
@@ -398,9 +399,9 @@ namespace rdma_engine {
     bool RDMA_Engine::start() {
         VERBOSE("RDMA Engine", "starting rdma engine\n");
         VERBOSE("RDMA Engine", "for the moment just start the first of the state machines\n");
-        assert(_num_clients <= MAX_THREADS);
-        if (_num_clients > MAX_THREADS) {
-            ALERT("RDMA Engine", "Error: num_clients must be at most %d, we are only enabling a few QP per process\n", MAX_THREADS);
+        assert(_num_clients <= MAX_CLIENT_THREADS);
+        if (_num_clients > MAX_CLIENT_THREADS) {
+            ALERT("RDMA Engine", "Error: num_clients must be at most %d, we are only enabling a few QP per process\n", MAX_CLIENT_THREADS);
             ALERT("RDMA Engine", "TODO; we probably need a better way to scale clients if we are going more than this.\n");
             exit(1);
         }
@@ -410,7 +411,7 @@ namespace rdma_engine {
             global_prime_flag=true;
         }
 
-        pthread_t thread_ids[MAX_THREADS];
+        pthread_t thread_ids[MAX_CLIENT_THREADS];
         for(int i=0;i<_num_clients;i++){
             INFO("RDMA Engine","Creating Client Thread %d\n", i);
             set_control_flag(state_machine_holder[i]);
@@ -440,6 +441,7 @@ namespace rdma_engine {
 
         while(true){
             experiment_control *ec = get_experiment_control();
+            // printf("ec lock %p\n", ec);
             if(ec->experiment_stop){
                 ALERT("RDMA Engine", "Experiment Stop Globally\n");
                 global_end_flag = true;
@@ -470,6 +472,7 @@ namespace rdma_engine {
         ALERT("RDMA Engine", "Experiment Complete\n");
 
         collect_stats(state_machine_holder,_config, _num_clients, ms_int);
+        return true;
     }
 
 }

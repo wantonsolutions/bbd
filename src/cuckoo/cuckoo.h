@@ -1,4 +1,3 @@
-#pragma once
 #ifndef CUCKOO_H
 #define CUCKOO_H
 
@@ -18,6 +17,13 @@ using namespace cuckoo_search;
 
 #define MAX_CONCURRENT_CUCKOO_MESSAGES 32
 #define ID_SIZE 64
+
+#define MAX_INSERT_CRC_AND_UNLOCK_MESSAGE_COUNT 64
+#define FAULT_CASE_0 0
+#define FAULT_CASE_1 1
+#define FAULT_CASE_2 2
+#define FAULT_CASE_3 3
+#define FAULT_CASE_4 4
 
 namespace cuckoo_rcuckoo {
 
@@ -52,25 +58,34 @@ namespace cuckoo_rcuckoo {
             void * get_lock_table_pointer();
             unsigned int get_lock_table_size_bytes();
             void * get_lock_pointer(unsigned int lock_index);
+            void * get_repair_lease_table_pointer();
+            unsigned int get_repair_lease_table_size_bytes();
 
             void fill_current_unlock_list();
 
             bool path_valid();
-            void insert_cuckoo_path_local(Table &table, vector<path_element> &path);
+            bool insert_cuckoo_path_local(Table &table, vector<path_element> &path);
 
             /* RDMA specific functions */
             uint64_t local_to_remote_table_address(uint64_t local_address);
+            uint64_t local_to_remote_repair_lease_address(uint64_t local_address);
             void send_virtual_read_message(VRReadData message, uint64_t wr_id);
             void send_virtual_cas_message(VRCasData message, uint64_t wr_id);
             void send_virtual_masked_cas_message(VRMaskedCasData message, uint64_t wr_id);
 
-            void send_lock_and_cover_message(VRMaskedCasData lock_message, VRReadData read_message, uint64_t wr_id);
+            void set_unlock_message(VRMaskedCasData &unlock_message, struct ibv_sge *sg, struct ibv_exp_send_wr *wr, uint64_t *wr_id);
+            void set_insert(VRCasData &insert_message, struct ibv_sge *sg, struct ibv_exp_send_wr *wr, uint64_t *wr_id);
+            void send_lock_and_cover_message(VRMaskedCasData lock_message, VRReadData read_message);
             void send_insert_and_unlock_messages(vector<VRCasData> &insert_messages, vector<VRMaskedCasData> & unlock_messages, uint64_t wr_id);
-            void send_read(vector <VRReadData> reads, uint64_t wr_id);
+
+            void send_insert_and_crc(VRCasData insert_message, ibv_sge *sg, ibv_exp_send_wr *wr, uint64_t *wr_id);
+            void send_insert_crc_and_unlock_messages(vector<VRCasData> &insert_messages, vector<VRMaskedCasData> & unlock_messages);
+            bool send_insert_crc_and_unlock_messages_with_fault(vector<VRCasData> &insert_messages, vector<VRMaskedCasData> & unlock_messages, unsigned int fault, unsigned int max_fault_rate_us);
+            void send_read(vector <VRReadData> reads);
 
             void rdma_fsm(void);
             void init_rdma_structures(rdma_info info);
-            void top_level_aquire_locks();
+            bool top_level_aquire_locks();
             void put_direct();
             void get_direct(void);
             void insert_direct();
@@ -83,6 +98,14 @@ namespace cuckoo_rcuckoo {
             void complete_read(bool success);
             void complete_update(bool success);
             void complete_update_stats(bool success);
+
+
+            bool aquire_repair_lease(unsigned int lock);
+            int release_repair_lease(unsigned int lease_id);
+
+            void repair_table(Entry broken_entry, unsigned int error_state);
+            void reclaim_lock(unsigned int lock);
+            int get_broken_row(Entry broken_entry);
 
 
 
@@ -110,17 +133,13 @@ namespace cuckoo_rcuckoo {
             vector<unsigned int> _locks_held;
 
 
-
-            vector<VRMessage> _current_locking_messages;
-            vector<VRMessage> _current_locking_read_messages;
-
-
             int _locking_message_index;
 
             /*rdma specific variables*/
             ibv_qp * _qp;
             ibv_mr *_table_mr;
             ibv_mr *_lock_table_mr;
+            ibv_mr *_repair_lease_mr;
             ibv_pd *_protection_domain;
             struct ibv_cq * _completion_queue;
             table_config * _table_config;
@@ -132,7 +151,6 @@ namespace cuckoo_rcuckoo {
             vector<unsigned int> _buckets;
 
             vector<VRCasData> _insert_messages;
-            vector<VRMaskedCasData> _lock_list;
             vector<VRReadData> _covering_reads;
 
 
@@ -143,7 +161,7 @@ namespace cuckoo_rcuckoo {
 
 
             // hash_locations  (*_location_function)(string, unsigned int);
-            hash_locations  (*_location_function)(Key, unsigned int);
+            hash_locations  (*_location_function)(Key&, unsigned int);
 
             bool (RCuckoo::*_table_search_function)();
             bool a_star_insert_self();
@@ -154,9 +172,6 @@ namespace cuckoo_rcuckoo {
             bool read_complete();
             bool all_locks_aquired();
             bool all_locks_released();
-            VRMessage get_prior_locking_message();
-            VRMessage get_current_locking_message();
-
     };
 }
 

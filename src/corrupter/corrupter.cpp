@@ -87,7 +87,7 @@ namespace corrupter {
             _operation_end_time = get_current_ns();
 
             #ifdef MEASURE_ESSENTIAL
-            uint64_t latency = (_operation_end_time - _operation_start_time).count();
+                // uint64_t latency = (_operation_end_time - _operation_start_time).count();
                 #ifdef MEASURE_MOST
                 #endif
             #endif
@@ -119,8 +119,8 @@ namespace corrupter {
 
         _corrupter_config = memcached_get_corrupter_config();
         assert(_corrupter_config != NULL);
-        assert(_corrupter_config->chunk_mem_size == _mem_chunks.get_memory_size());
-        assert(_corrupter_config->chunk_size == _mem_chunks.get_chunk_size());
+        assert((unsigned int)_corrupter_config->chunk_mem_size == _mem_chunks.get_memory_size());
+        assert((unsigned int)_corrupter_config->chunk_size == _mem_chunks.get_chunk_size());
         INFO(log_id(),"got a slog config from the memcached server and it seems to line up\n");
 
         ALERT("SLOG", "SLogger Done Initializing RDMA Structures");

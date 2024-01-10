@@ -10,7 +10,7 @@ ifdef VALUE_SIZE
 	DEFINE_MACROS := -DVALUE_SIZE=$(VALUE_SIZE)
 endif
 # -DVALUE_SIZE=28
-CFLAGS := -std=c++2a -g -Wall -Wall -Wextra -pedantic -fPIC  $(DEFINE_MACROS)
+CFLAGS := -std=c++2a -g -Wall -Wall -Wextra -pedantic -fPIC -msse4.2 $(DEFINE_MACROS)
 
 RDMA_LIBS := -lrdmacm -libverbs -lpthread
 LIBRARIES := -L$(XXHASH_INC) -lxxhash $(RDMA_LIBS) -lmemcached -lssl -lcrypto -ljsoncpp
@@ -52,7 +52,9 @@ CORRPUTER_CLIENT_OBJ := $(patsubst %.cpp, obj/%.o, $(CORRPUTER_CLIENT_CPP))
 # config.o: config.cpp
 # 	$(CC) $(CFLAGS) $(INCLUDES) $(LIBRARIES) -c $< -o $@
 
-all: rdma_memory_server slogger_server cuckoo_client slogger_client corrupter_client corrupter_server replicated_log_test
+# tests: virtual_rdma_test
+all: rdma_memory_server slogger_server cuckoo_client slogger_client corrupter_client corrupter_server virtual_rdma_test
+
 
 obj/%.o: %.cpp
 	$(CC) $(CFLAGS) $(INCLUDES) $(LIBRARIES) -c $< -o $@
@@ -76,24 +78,37 @@ corrupter_server: $(CORRPUTER_SERVER_OBJ)
 	$(CC) $(CFLAGS) $(INCLUDES) $(CORRPUTER_SERVER_OBJ) -o corrupter_server $(LIBRARIES)
 
 
-REPLICATED_LOG_CPP = $(SLIB_CPP) $(RDMA_CPP) $(CUCKOO_CPP) $(CORRUPTER_CPP) $(SLOGGER_CPP) $(TEST_DIR)/test_replicated_log.cpp
-REPLICATED_LOG_OBJ := $(patsubst %.cpp, obj/%.o, $(REPLICATED_LOG_CPP))
-replicated_log_test: $(REPLICATED_LOG_OBJ)
-	$(CC) $(CFLAGS) $(INCLUDES) $(REPLICATED_LOG_OBJ) -o test_replicated_log $(LIBRARIES)
-	mv test_replicated_log test/
+# REPLICATED_LOG_CPP = $(SLIB_CPP) $(RDMA_CPP) $(CUCKOO_CPP) $(CORRUPTER_CPP) $(SLOGGER_CPP) $(TEST_DIR)/test_replicated_log.cpp
+# REPLICATED_LOG_OBJ := $(patsubst %.cpp, obj/%.o, $(REPLICATED_LOG_CPP))
+# replicated_log_test: $(REPLICATED_LOG_OBJ)
+# 	$(CC) $(CFLAGS) $(INCLUDES) $(REPLICATED_LOG_OBJ) -o test_replicated_log $(LIBRARIES)
+# 	mv test_replicated_log test/
+
+VIRTUAL_RDMA_CPP = $(SLIB_CPP) $(RDMA_CPP) $(CUCKOO_CPP) $(CORRUPTER_CPP) $(SLOGGER_CPP) $(TEST_DIR)/test_virtual_rdma.cpp
+VIRTUAL_RDMA_OBJ := $(patsubst %.cpp, obj/%.o, $(VIRTUAL_RDMA_CPP))
+$(info $$VIRTUAL_RDMA_OBJ is [${VIRTUAL_RDMA_OBJ}])
+virtual_rdma_test: $(VIRTUAL_RDMA_OBJ)
+	$(CC) $(CFLAGS) $(INCLUDES) $(VIRTUAL_RDMA_OBJ) -o test_virtual_rdma $(LIBRARIES)
+	mv test_virtual_rdma test/
+
+
 
 
 
 
 clean:
 	rm -rf test/test_hash
+	rm -rf test/test_replicated_log
+	rm -rf test/test_virtual_rdma
 	rm -rf *.o *.so
 	rm -rf obj/*.o
-	rm -rf obj/clients_and_server/*.o
+	rm -rf obj/clients_and_servers/*.o
 	rm -rf obj/cuckoo/*.o
 	rm -rf obj/rdma/*.o
 	rm -rf obj/slib/*.o
 	rm -rf obj/corrupter/*.o
+	rm -rf obj/slogger/*.o
+	rm -rf obj/test/*.o
 
 	rm -f rdma_memory_server
 	rm -f cuckoo_client

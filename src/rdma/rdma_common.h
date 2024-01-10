@@ -228,6 +228,8 @@ int stick_thread_to_core(pthread_t thread, int core_id);
 
 struct sockaddr_in server_address_to_socket_addr(string server_address);
 unordered_map<string, string> gen_config();
+void print_wc(struct ibv_wc * wc);
+void print_work_request(struct ibv_exp_send_wr *wr, int count);
 
 
 #endif /* RDMA_COMMON_H */

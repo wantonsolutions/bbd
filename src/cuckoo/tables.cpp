@@ -7,8 +7,12 @@
 #include <memory>
 #include <stdexcept>
 #include <bitset>
+#include <string.h>
 #include "../slib/log.h"
-// #include "spdlog/spdlog.h" //sudo apt install libspdlog-dev
+#include "../slib/crc64.h"
+#include "../slib/util.h"
+
+using namespace std;
 
 template<typename ... Args>
 std::string string_format( const std::string& format, Args ... args )
@@ -22,9 +26,6 @@ std::string string_format( const std::string& format, Args ... args )
 }
 
 namespace cuckoo_tables {
-
-    using namespace std;
-
 
     string Key::to_string(){
         string s = "";
@@ -40,24 +41,12 @@ namespace cuckoo_tables {
         for (int i = 0; i < KEY_SIZE; i++){
             val |= (uint64_t) bytes[i] << (8 * i);
         }
-        // for (int i = KEY_SIZE; i < 8; i++){
-        //     val |= (uint64_t) 0 << (8 * i);
-        // }
         return val;
     }
 
     bool Key::is_empty(){
-        // assert(KEY_SIZE == 4);
-        // printf("byte location %p\n", bytes);
         uint32_t b_val = *(uint32_t *)bytes;
-        // printf("byte value %x\n", b_val);
         return !(b_val || 0x00000000);
-        // for (int i = 0; i < KEY_SIZE; i++){
-        //     if (bytes[i] != 0){
-        //         return false;
-        //     }
-        // }
-        // return true;
     }
 
     string Value::to_string(){
@@ -77,6 +66,15 @@ namespace cuckoo_tables {
         return true;
     }
 
+    string Repair_Lease::to_string() {
+        string s = "";
+        s+= "Lock: " + std::to_string(lock);
+        s+= " Meta: " + std::to_string(meta);
+        s+= " ID:" + std::to_string(id);
+        s+= " Counter:"+ std::to_string(counter);
+        return s;
+    }
+
     string Entry::to_string(){
         return key.to_string() + ":" + value.to_string();
     }
@@ -89,8 +87,6 @@ namespace cuckoo_tables {
         return (void*) _locks;
     }
 
-
-
     unsigned int Lock_Table::get_lock_table_size_bytes(){
         return _total_lock_entries;
     }
@@ -99,11 +95,13 @@ namespace cuckoo_tables {
         return (void*) &(_locks[lock_index]);
     }
 
-
     void Lock_Table::set_lock_table_address(void * address) {
         _locks = (uint8_t*) address;
     }
 
+    unsigned int Lock_Table::get_total_locks(){
+        return _total_locks;
+    }
 
     /*lock table functions*/
     Lock_Table::Lock_Table(){
@@ -112,6 +110,7 @@ namespace cuckoo_tables {
         _locks = NULL;
 
     }
+
     Lock_Table::Lock_Table(unsigned int memory_size, unsigned int bucket_size, unsigned int buckets_per_lock){
 
         INFO("Lock Table", "memory_size: %d\n", memory_size);
@@ -128,9 +127,7 @@ namespace cuckoo_tables {
         const int bits_per_byte=8;
         _total_lock_entries = (_total_locks / bits_per_byte) + cas_size;
 
-        // _total_lock_entries += 4096;
         //round lock entries to the nearest value divisible by 8 so everything is cache line alligned
-        const int cas_line_size = 8;
         if (_total_lock_entries % cas_size != 0){
             _total_lock_entries += cas_size - (_total_lock_entries % cas_size);
         }
@@ -138,51 +135,11 @@ namespace cuckoo_tables {
         INFO("Lock Table", "_total_lock_entries: %d\n", _total_lock_entries);
         _locks = new uint8_t[_total_lock_entries];
         this->unlock_all();
-
     }
 
     void Lock_Table::unlock_all(){
         for (unsigned int i = 0; i < _total_lock_entries; i++){
             _locks[i] = 0;
-        }
-    }
-
-    CasOperationReturn Lock_Table::masked_cas(unsigned int index, uint64_t old, uint64_t new_value, uint64_t mask){
-        assert(index <= _total_lock_entries + 4);
-        // cout << "indexing into lock table: " << index << endl;
-        uint64_t *va = (uint64_t *) &(_locks[index]);
-
-        CasOperationReturn atomic_response;
-        atomic_response.original_value = *va;
-        atomic_response.success = false;
-
-        #ifdef DEBUG
-        cout << to_string() << endl;
-        cout << "original value pre operation  " << std::hex << atomic_response.original_value << endl;
-        cout << "pointer value pre operation   " << std::hex << *va << endl;
-        #endif
-
-        if (!((old ^ *va) & mask)) {
-            *va = (*va & ~(mask)) | (new_value & mask);
-            atomic_response.success = true;
-        }
-
-
-        #ifdef DEBUG
-        cout << "original value post operation " << std::hex << atomic_response.original_value << endl;
-        cout << "pointer value post operation  " << std::hex << *va << endl;
-        cout << to_string() << endl;
-        #endif
-
-        return atomic_response;
-    }
-
-    void Lock_Table::fill_masked_cas(unsigned int index, bool success, uint64_t new_value, uint64_t mask){
-        //todo implement
-        uint64_t *va = (uint64_t *) &_locks[index];
-        *va = (*va & ~(mask)) | (new_value & mask);
-        if (!success) {
-            cout << "fill_masked_cas failed" << endl;
         }
     }
 
@@ -206,6 +163,37 @@ namespace cuckoo_tables {
             }
         }
         printf("\n");
+        return output_string;
+    }
+
+    Repair_Lease_Table::Repair_Lease_Table(){
+        _leases = NULL;
+        _total_leases = 0;
+    } 
+
+    void * Repair_Lease_Table::get_repair_lease_pointer(unsigned int repair_lease_index) {
+        return (void*) &(_leases[repair_lease_index]);
+    }
+
+    Repair_Lease_Table::Repair_Lease_Table(unsigned int leases){
+        _total_leases = leases;
+        _leases = new Repair_Lease[_total_leases];
+        memset(_leases,0, _total_leases * sizeof(Repair_Lease));
+    }
+
+    void * Repair_Lease_Table::get_lease_table_address() {
+        return (void *) _leases;
+    }
+
+    unsigned int Repair_Lease_Table::get_lease_table_size_bytes() {
+        return _total_leases * sizeof(Repair_Lease);
+    }
+
+    string Repair_Lease_Table::to_string() {
+        string output_string ="";
+        for (unsigned int i=0;i<_total_leases;i++){
+            output_string += _leases[i].to_string();
+        }
         return output_string;
     }
 
@@ -234,31 +222,46 @@ namespace cuckoo_tables {
         assert(total_entries % bucket_size == 0);
         _table_size = int(memory_size / bucket_size) / sizeof(Entry);
         _table = this->generate_bucket_cuckoo_hash_index(memory_size, bucket_size);
+
+        //write zero to all table memory
+        memset(_table[0],0, memory_size);
+        
         _lock_table = Lock_Table(memory_size, bucket_size, buckets_per_lock);
+        _repair_lease_table = Repair_Lease_Table(TOTAL_REPAIR_LEASES);
+
+        #ifdef ROW_CRC
+            _entries_per_row= _bucket_size - 1;
+        #else
+            _entries_per_row = _bucket_size;
+        #endif
 
     }
 
-
-    bool Table::operator==(const Table& rhs) const {
-        if (get_table_size_bytes() != rhs.get_table_size_bytes()){
-            return false;
-        }
-        if (this->get_buckets_per_row() != rhs.get_buckets_per_row()){
-            return false;
-        }
-        for (int i=0;i<this->get_row_count();i++) {
-            for (int j=0;j<this->get_buckets_per_row();j++) {
-                if (this->get_entry(i,j) != rhs.get_entry(i,j)){
-                    return false;
-                }
-            }
-        }
-        return true;
-    }
-
+    // bool Table::operator==(const Table& rhs) const {
+    //     if (get_table_size_bytes() != rhs.get_table_size_bytes()){
+    //         return false;
+    //     }
+    //     if (this->get_buckets_per_row() != rhs.get_buckets_per_row()){
+    //         return false;
+    //     }
+    //     for (unsigned int i=0;i<this->get_row_count();i++) {
+    //         for (unsigned int j=0;j<this->get_buckets_per_row();j++) {
+    //             if (this->get_entry(i,j) != rhs.get_entry(i,j)){
+    //                 return false;
+    //             }
+    //         }
+    //     }
+    //     return true;
+    // }
 
     void * Table::get_lock_pointer(unsigned int lock_index) {
         return _lock_table.get_lock_pointer(lock_index);
+    }
+
+    void * Table::get_repair_lease_pointer(unsigned int repair_lease_index){
+        //for now we are only going to work with a single lease, I'm just making sure that we don't do something dumb
+        assert(repair_lease_index == 0);
+        return _repair_lease_table.get_repair_lease_pointer(repair_lease_index);
     }
 
     Entry ** Table::get_underlying_table(){
@@ -282,9 +285,23 @@ namespace cuckoo_tables {
         return _lock_table.get_lock_table_size_bytes();
     }
 
+
+    void * Table::get_underlying_repair_lease_table_address() {
+        return get_repair_lease_pointer(0);
+        // return _repair_lease_table.get_lease_table_address();
+    }
+
+    unsigned int Table::get_underlying_repair_lease_table_size_bytes() {
+        return _repair_lease_table.get_lease_table_size_bytes();
+    }
+
     void Table::unlock_all(){
         _lock_table.unlock_all();
         return;
+    }
+
+    unsigned int Table::get_total_locks(){
+        return _lock_table.get_total_locks();
     }
 
     string Table::to_string(){
@@ -296,10 +313,10 @@ namespace cuckoo_tables {
         }
         output_string += "\nLock Table\n";
         output_string += _lock_table.to_string() + "\n";
+        output_string += _repair_lease_table.to_string() + "\n";
         output_string += std::to_string(get_fill_percentage()) + "% full\n";
         return output_string;
     }
-
 
     string Table::row_to_string(unsigned int row) {
         assert(row < _table_size);
@@ -313,6 +330,11 @@ namespace cuckoo_tables {
         return output_string;
     }
 
+    void Table::print_row(unsigned int row){
+        cout << row_to_string(row) << endl;
+        return;
+    }
+
     void Table::print_table(){
         cout << to_string() << endl;
         return;
@@ -323,14 +345,6 @@ namespace cuckoo_tables {
         return;
     }
 
-    CasOperationReturn Table::lock_table_masked_cas(unsigned int lock_index, uint64_t old, uint64_t new_value, uint64_t mask){
-        return _lock_table.masked_cas(lock_index, old, new_value, mask);
-    }
-
-    void Table::fill_lock_table_masked_cas(unsigned int lock_index, bool success, uint64_t value, uint64_t mask){
-        
-        _lock_table.fill_masked_cas(lock_index, success, value, mask);
-    }
 
     unsigned int Table::get_table_size_bytes() const {
         return _memory_size;
@@ -342,6 +356,10 @@ namespace cuckoo_tables {
 
     unsigned int Table::get_buckets_per_row() const{
         return _bucket_size;
+    }
+
+    unsigned int Table::get_entries_per_row() const {
+        return _entries_per_row;
     }
 
     unsigned int Table::get_bucket_size(){
@@ -365,64 +383,116 @@ namespace cuckoo_tables {
     }
 
     Entry * Table::get_entry_pointer(unsigned int bucket_index, unsigned int offset){
-        // printf("Entry at %d, %d is %s\n", bucket_index, offset, _table[bucket_index][offset].to_string().c_str());
-        // printf("table base is  %p\n", _table);
-        // printf("table row is   %p\n", _table[bucket_index]);
-        // printf("table entry is %p\n", &(_table[bucket_index][offset]));
-
-        // uint64_t entry_pointer = (uint64_t) _table;
-        // printf("entry_pointer is %p\n", (void* )entry_pointer);
-        // entry_pointer += (bucket_index * row_size_bytes()) + (offset * sizeof(Entry));
-        // printf("entry_pointer post math is %p\n", (void* )entry_pointer);
-        // return (Entry *) entry_pointer;
+        // printf("get_entry_pointer: bucket_index: %d, offset: %d\n", bucket_index, offset);
         return _table[bucket_index] + offset;
-        // return &(_table[bucket_index][offset]);
     }
 
     void Table::set_entry(unsigned int bucket_index, unsigned int offset, Entry entry){
-        // printf("setting entry %d %d\n", bucket_index, offset);
         Entry old = _table[bucket_index][offset];
         _table[bucket_index][offset] = entry;
+
         if (old.is_empty()){
             _fill++;
         }
-
         if (entry.is_empty()){
             _fill--;
         }
     }
 
+    void Table::set_entry_with_crc(unsigned int bucket_index, unsigned int offset, Entry &entry){
+        #ifndef ROW_CRC
+        printf("not doing row crc, exiting\n");
+        exit(1);
+        #endif
+
+        assert(offset != _entries_per_row);
+        _table[bucket_index][offset] = entry;
+        _table[bucket_index][_entries_per_row].set_as_uint64_t(crc64_row(bucket_index));
+        assert(_table[bucket_index][offset] == entry);
+    }
+
+    uint64_t Table::crc64_row(unsigned int row) {
+        unsigned char * row_pointer = (unsigned char *) &(_table[row][0]);
+        return  crc64(0,row_pointer, n_buckets_size(_entries_per_row));
+    }
+
+    bool Table:: crc_valid_row(unsigned int row) {
+        if (bucket_is_empty(row)){
+            return true;
+        }
+        uint64_t crc_row = crc64_row(row);
+        Entry e = get_entry(row,get_entries_per_row());
+
+        uint64_t existing_crc = e.get_as_uint64_t();
+        if (crc_row == existing_crc) {
+            return true;
+        } 
+
+        // ALERT("crc_valid_row", "FAILED row %d current %lX calculated %lX (e = %s) entries per row (%d)", row, existing_crc,crc_row,e.to_string().c_str(), get_entries_per_row());
+        // e = get_entry(row,get_entries_per_row());
+        // ALERT("e again", "e = %s",e.to_string().c_str());
+        // print_row(row);
+        return false;
+    }
+
     bool Table::bucket_has_empty(unsigned int bucket_index){
-        // for (unsigned int i = 0; i < _bucket_size; i++){
-        for (int i = _bucket_size-1; i >= 0; i--){
-            // printf("bucket_index %d, i %d\n", bucket_index, i);
+        for (int i = _entries_per_row-1; i >= 0; i--){
             if (_table[bucket_index][i].is_empty()){
-                // printf("returning true\n");
                 return true;
             }
         }
         return false;
     }
 
+    int Table::crc_valid() {
+        for (int i = 0; i < _table_size; i++){
+            if (!crc_valid_row(i)){
+                return i;
+            }
+        }
+        return -1;
+    }
+
+    bool Table::bucket_is_empty(unsigned int row) {
+        for(int i=0;i<_bucket_size;i++){
+            if(!_table[row][i].is_empty()) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     unsigned int Table::get_first_empty_index(unsigned int bucket_index){
         unsigned int empty_index = -1;
-        for (unsigned int i = 0; i < _bucket_size; i++){
+        for (unsigned int i = 0; i < _entries_per_row; i++){
             if (_table[bucket_index][i].is_empty()){
                 empty_index = i;
                 break;
             }
         }
         return empty_index;
-
     }
 
-    bool Table::bucket_contains(unsigned int bucket_index, Key key){
-        for (unsigned int i = 0; i < _bucket_size; i++){
+    bool Table::bucket_contains(unsigned int bucket_index, Key &key){
+        for (unsigned int i = 0; i < _entries_per_row; i++){
             if (_table[bucket_index][i].key == key){
                 return true;
             }
         }
         return false;
+    }
+
+
+    int Table::get_keys_offset_in_row(unsigned int row, Key &key) {
+        unsigned int index;
+        for (int i=0; i < _entries_per_row; i++) {
+            if(_table[row][i].key == key) {
+                return i;
+            }
+        }
+        ALERT("DEATH!", "Key not found in row, don't call this function like this.");
+        assert(false);
+        return -1;
     }
 
     bool Table::contains(Key key){
@@ -435,26 +505,25 @@ namespace cuckoo_tables {
     }
 
     float Table::get_fill_percentage(){
-        unsigned int max_fill = _table_size * _bucket_size;
         unsigned int current_fill = 0;
+        unsigned int max_fill = _table_size * _entries_per_row;
         for (unsigned int i = 0; i < _table_size; i++){
-            for (unsigned int j = 0; j < _bucket_size; j++){
+            for (unsigned int j = 0; j < _entries_per_row; j++){
                 if (!_table[i][j].is_empty()){
                     current_fill++;
                 }
             }
         } 
         return float(current_fill) / float(max_fill);
-        // return float(_fill) / float(max_fill);
     }
 
     float Table::get_fill_percentage_fast() {
-        unsigned int max_fill = _table_size * _bucket_size;
+        unsigned int max_fill = _table_size * _entries_per_row;
         return float(_fill) / float(max_fill);
     }
 
     bool Table::full(){
-        return _fill == _table_size * _bucket_size;
+        return _fill == _table_size * _entries_per_row;
     }
 
     Entry ** Table::generate_bucket_cuckoo_hash_index(unsigned int memory_size, unsigned int bucket_size){
@@ -476,6 +545,7 @@ namespace cuckoo_tables {
         unsigned int nrows = total_rows;
         unsigned int ncols = bucket_size;
         Entry* pool = NULL;
+
 
         try {
             Entry ** ptr = new Entry*[nrows];

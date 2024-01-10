@@ -6,9 +6,12 @@
 #include <string>
 #include <vector>
 #include <assert.h>
+#include "../slib/util.h"
 
 using namespace std;
 
+#define ROW_CRC
+#define TOTAL_REPAIR_LEASES 1
 
 namespace cuckoo_tables {
 
@@ -19,16 +22,6 @@ namespace cuckoo_tables {
     #ifndef VALUE_SIZE
     #define VALUE_SIZE 4
     #endif
-
-    // std::vector<char> HexToBytes(const std::string& hex) {
-    //     std::vector<char> bytes;
-    //     for (unsigned int i = 0; i < hex.length(); i += 2) {
-    //         std::string byteString = hex.substr(i, 2);
-    //         char byte = (char) strtol(byteString.c_str(), NULL, 16);
-    //         bytes.push_back(byte);
-    //     }
-    //     return bytes;
-    // }
 
 
     typedef struct Key { 
@@ -51,15 +44,10 @@ namespace cuckoo_tables {
                 return true;
             }
         }
-        bool operator=(const Key& rhs) {
-            for (int i = 0; i < KEY_SIZE; i++){
-                bytes[i] = rhs.bytes[i];
-            }
-            return true;
-        }
+
         template <typename T>
         void set(T val) {
-            for (int i = 0; i < KEY_SIZE && i < sizeof(val); i++){
+            for (long unsigned int i = 0; i < KEY_SIZE && i < sizeof(val); i++){
                 bytes[i] = (val >> (8 * i)) & 0xFF;
             }
         }
@@ -76,10 +64,7 @@ namespace cuckoo_tables {
                 bytes[i] = 0;
             }
         }
-
     } Key;
-
-
 
     typedef struct Value { 
         uint8_t bytes[VALUE_SIZE];
@@ -93,15 +78,15 @@ namespace cuckoo_tables {
             }
             return true;
         }
-        bool operator=(const Value& rhs) {
-            for (int i = 0; i < VALUE_SIZE; i++){
-                bytes[i] = rhs.bytes[i];
-            }
-            return true;
-        }
+        // bool operator=(const Value& rhs) {
+        //     for (int i = 0; i < VALUE_SIZE; i++){
+        //         bytes[i] = rhs.bytes[i];
+        //     }
+        //     return true;
+        // }
         template <typename T>
         void set(T val) {
-            for (int i = 0; i < VALUE_SIZE && i < sizeof(val); i++){
+            for (long unsigned int i = 0; i < VALUE_SIZE && i < sizeof(val); i++){
                 bytes[i] = (val >> (8 * i)) & 0xFF;
             }
         }
@@ -140,7 +125,31 @@ namespace cuckoo_tables {
             return this->key == rhs.key && this->value == rhs.value;
         }
         bool operator!=(const Entry& rhs) const {
-            return !(*this == rhs);
+            return !(this->key == rhs.key && this->value == rhs.value);
+        }
+
+        int copy(Entry &e) {
+            for (int i=0; i < KEY_SIZE; i++){
+                this->key.bytes[i] = e.key.bytes[i];
+            }
+            for(int i=0; i < VALUE_SIZE;i++){
+                this->value.bytes[i] = e.value.bytes[i];
+            }
+            return VALUE_SIZE + KEY_SIZE;
+        }
+
+        bool equals(Entry &e) {
+            for (int i=0; i < KEY_SIZE; i++){
+                if(key.bytes[i] != e.key.bytes[i]) {
+                    return false;
+                }
+            }
+            for(int i=0; i < VALUE_SIZE;i++){
+                if(value.bytes[i] != e.value.bytes[i]) {
+                    return false;
+                }
+            }
+            return true;
         }
 
         uint64_t get_as_uint64_t() {
@@ -158,27 +167,18 @@ namespace cuckoo_tables {
         void set_as_uint64_t(uint64_t entry64) {
             assert(sizeof(Entry) == 8);
             int i=0;
-            for (; i < KEY_SIZE; i++){
+            for (int i=0 ; i < KEY_SIZE; i++){
                 this->key.bytes[i] = (entry64 >> (8 * i)) & 0xFF;
             }
             for(; i < VALUE_SIZE;i++){
                 this->value.bytes[i - KEY_SIZE] = (entry64 >> (8 * i)) & 0xFF;
             }
         }
+        void zero_out() {
+            key.set(0);
+            value.set(0);
+        }
     } Entry;
-
-    typedef struct CasOperationReturn {
-        bool success;
-        uint64_t original_value;
-        CasOperationReturn(){
-            this->success = false;
-            this->original_value = 0;
-        }
-        CasOperationReturn(bool success, uint64_t original_value) {
-            this->success = success;
-            this->original_value = original_value;
-        }
-    } CasOperationReturn;
 
     typedef struct Duplicate_Entry {
         Entry first_entry;
@@ -190,15 +190,59 @@ namespace cuckoo_tables {
     } Duplicate_Entry;
 
 
+    typedef struct Repair_Lease {
+        uint8_t lock;
+        uint8_t meta;
+        uint16_t id;
+        uint32_t counter; //Max failures during recovery are 1 second
+        bool Lock(void) {
+            if (lock == 0) {
+                lock=1;
+                return true;
+            }
+            return false;
+        }
+        bool Unlock(void) {
+            if(lock == 1) {
+                lock=0;
+                return true;
+            }
+            return false;
+        }
+        bool islocked(void) {
+            return lock == 1;
+        }
+
+        bool isunlocked(void) {
+            return !islocked();
+        }
+        string to_string();
+    } Repair_Lease;
+
+    class Repair_Lease_Table {
+
+        public:
+            Repair_Lease_Table();
+            Repair_Lease_Table(unsigned int leases);
+            void * get_lease_table_address();
+            unsigned int get_lease_table_size_bytes();
+            string to_string();
+            void * get_repair_lease_pointer(unsigned int repair_lease_index);
+            unsigned int get_total_leases() { return _total_leases; };
+
+        private:
+            unsigned int _total_leases;
+            Repair_Lease *_leases;
+    };
+
     class Lock_Table {
         public:
             Lock_Table();
             Lock_Table(unsigned int memory_size, unsigned int bucket_size, unsigned int buckets_per_lock);
             // ~Lock_Table();
             void unlock_all();
-            CasOperationReturn masked_cas(unsigned int index, uint64_t old, uint64_t new_value, uint64_t mask);
-            void fill_masked_cas(unsigned int index, bool success, uint64_t new_value, uint64_t mask);
             void * get_lock_table_address();
+            unsigned int get_total_locks();
             unsigned int get_lock_table_size_bytes();
             void set_lock_table_address(void * address);
             void * get_lock_pointer(unsigned int lock_index);
@@ -222,11 +266,10 @@ namespace cuckoo_tables {
             string to_string();
             string row_to_string(unsigned int row);
             void print_table();
+            void print_row(unsigned int row);
             void print_lock_table();
             Entry ** get_underlying_table();
             void set_underlying_table(Entry ** table);
-            CasOperationReturn lock_table_masked_cas(unsigned int lock_index, uint64_t old, uint64_t new_value, uint64_t mask);
-            void fill_lock_table_masked_cas(unsigned int lock_index, bool success, uint64_t value, uint64_t mask);
             unsigned int get_table_size_bytes() const;
             unsigned int get_buckets_per_row() const;
             unsigned int get_row_count() const;
@@ -235,17 +278,27 @@ namespace cuckoo_tables {
             unsigned int get_entry_size_bytes();
             unsigned int n_buckets_size(unsigned int n_buckets);
             Entry get_entry(unsigned int bucket_index, unsigned int offset) const;
+            void set_entry_with_crc(unsigned int bucket_index, unsigned int offset, Entry &entry);
             void set_entry(unsigned int bucket_index, unsigned int offset, Entry entry);
             Entry * get_entry_pointer(unsigned int bucket_index, unsigned int offset);
             bool bucket_has_empty(unsigned int bucket_index);
+
+            bool bucket_is_empty(unsigned int bucket_index);
             unsigned int get_first_empty_index(unsigned int bucket_index);
 
+            uint64_t crc64_row(unsigned int row_index);
+            bool crc_valid_row(unsigned int row);
+            int crc_valid();
+
             bool contains(Key key);
-            bool bucket_contains(unsigned int bucket_index, Key key);
+            bool bucket_contains(unsigned int bucket_index, Key &key);
+            int get_keys_offset_in_row(unsigned int row, Key &key);
 
             float get_fill_percentage_fast();
             float get_fill_percentage();
             bool full();
+
+            unsigned int get_entries_per_row() const;
             Entry ** generate_bucket_cuckoo_hash_index(unsigned int memory_size, unsigned int bucket_size);
             unsigned int absolute_index_to_bucket_index(unsigned int absolute_index);
             unsigned int absolute_index_to_bucket_offset(unsigned int absolute_index);
@@ -254,10 +307,16 @@ namespace cuckoo_tables {
             vector<Duplicate_Entry> get_duplicates();
 
 
+            unsigned int get_total_locks();
             void * get_underlying_lock_table_address();
             unsigned int get_underlying_lock_table_size_bytes();
             void set_underlying_lock_table_address(void * address);
             void * get_lock_pointer(unsigned int lock_index);
+
+            void * get_underlying_repair_lease_table_address();
+            unsigned int get_underlying_repair_lease_table_size_bytes();
+
+            void * get_repair_lease_pointer(unsigned int repair_lease_index);
 
 
         private:
@@ -265,8 +324,10 @@ namespace cuckoo_tables {
             unsigned int _bucket_size;
             unsigned int _table_size;
             unsigned int _buckets_per_lock;
+            unsigned int _entries_per_row;
             Entry **_table;
             Lock_Table _lock_table;
+            Repair_Lease_Table _repair_lease_table;
             unsigned int _fill;
     };
 }
