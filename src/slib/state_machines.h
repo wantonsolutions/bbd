@@ -154,6 +154,8 @@ namespace state_machines {
             vector<int> _insert_latency_ns;
             vector<int> _read_latency_ns;
 
+            uint32_t _faults_injected;
+
             //////////////////////////////
             /*Control Variables*/
             volatile bool * _global_start_flag;

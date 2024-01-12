@@ -101,4 +101,6 @@ void write_statistics(
     unordered_map<string,string> memory_stats
     );
 
+unsigned int get_config_int(unordered_map<string, string> config, string field);
+bool get_config_bool(unordered_map<string, string> config, string field);
 #endif

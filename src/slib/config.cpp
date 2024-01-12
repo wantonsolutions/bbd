@@ -6,6 +6,21 @@
 
 #include <unordered_map>
 
+unsigned int get_config_int(unordered_map<string, string> config, string field) {
+    try {
+        return stoi(config[field]);
+    } catch (exception& e) {
+        throw logic_error("ERROR: Config missing value " + field);
+    }
+}
+
+bool get_config_bool(unordered_map<string, string> config, string field){
+    try {
+        return (config[field] == "true");
+    } catch (exception &e) {
+        throw logic_error("ERROR: Config missing value " + field);
+    }
+}
 
 inline bool file_exists (const std::string& name) {
     ifstream f(name.c_str());

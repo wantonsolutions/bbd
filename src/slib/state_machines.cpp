@@ -142,6 +142,8 @@ namespace state_machines {
         _sum_read_latency_ns = 0;
         _insert_latency_ns = vector<int>();
         _read_latency_ns = vector<int>();
+
+        _faults_injected = 0;
     }
 
     string State_Machine::get_state_machine_name() {
@@ -302,6 +304,8 @@ namespace state_machines {
         stats["sum_read_latency_ns"] = to_string(_sum_read_latency_ns);
         stats["insert_latency_ns"] = array_to_string(_insert_latency_ns);
         stats["read_latency_ns"] = array_to_string(_read_latency_ns);
+
+        stats["faults_injected"] = to_string(_faults_injected);
         
         return stats;
     }
@@ -428,6 +432,7 @@ namespace state_machines {
 
     Request Client_Workload_Driver::next_put() {
         Key key = unique_insert(_completed_puts, _client_id, _global_clients, _random_factor);
+        assert(_client_id < _global_clients);
         Value val = Value();
         Request req = Request{PUT, key, val};
         _last_request = req;

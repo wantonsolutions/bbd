@@ -4,6 +4,8 @@
 #include <unordered_map>
 #include <infiniband/verbs.h>
 #include <atomic>
+#include <limits.h>
+#include <unistd.h>
 
 #include "tables.h"
 #include "search.h"
@@ -115,6 +117,8 @@ namespace cuckoo_rcuckoo {
         private:
 
             char _log_identifier[ID_SIZE];
+            char hostname[HOST_NAME_MAX];
+
             unsigned int _read_threshold_bytes;
             unsigned int _buckets_per_lock;
             unsigned int _locks_per_message;
@@ -158,6 +162,14 @@ namespace cuckoo_rcuckoo {
             search_context _search_context;
 
             vector<VRReadData> _reads;
+
+            /*failures specific variables*/
+
+            bool _simulate_failures;
+            bool _generate_failures_on_this_client;
+            uint32_t _lock_timeout_us;
+            uint32_t _lease_timeout_us;
+            uint32_t _delay_between_failures_us;
 
 
             // hash_locations  (*_location_function)(string, unsigned int);

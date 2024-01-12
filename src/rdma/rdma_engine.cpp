@@ -46,10 +46,16 @@ volatile bool global_end_flag = false;
 
 State_Machine *state_machine_holder[MAX_CLIENT_THREADS];
 
-const int yeti_core_order[40]={1,3,5,7,9,11,13,15,17,19,21,23,25,27,29,31,33,35,37,39,41,43,45,47,49,51,53,55,57,59,61,63,65,67,69,71,73,75,77,79};
-const int yeti_control_core = 0;
-int yak_core_order[24]={0,2,4,6,8,10,12,14,16,18,20,22,1,3,5,7,9,11,13,15,17,19,21,23};
+#define YETI_CORES 40
+#define YAK_CORES 24
+int yeti_core_order[YETI_CORES]={1,3,5,7,9,11,13,15,17,19,21,23,25,27,29,31,33,35,37,39,41,43,45,47,49,51,53,55,57,59,61,63,65,67,69,71,73,75,77,79};
+int yeti_control_core = 0;
+int yak_core_order[YAK_CORES]={0,2,4,6,8,10,12,14,16,18,20,22,1,3,5,7,9,11,13,15,17,19,21,23};
 int yak_control_core = 0;
+
+int control_core;
+int *core_order;
+int total_cores;
 
 //These are the functions we have to implement to run different state machines
 void (*collect_stats) (State_Machine ** state_machines, unordered_map<string,string> config, int num_clients, chrono::milliseconds ms_int);
@@ -62,6 +68,25 @@ void * cuckoo_fsm_runner(void * args){
     RCuckoo * cuck = (RCuckoo *) args;
     cuck->rdma_fsm();
     pthread_exit(NULL);
+}
+
+void set_core_order(void) {
+    char hostname[HOST_NAME_MAX];
+    gethostname(hostname, HOST_NAME_MAX);
+    if (strncmp(hostname,"yak",3)==0) {
+        ALERT("ENV CONF", "Running on a yak machine");
+        core_order = yak_core_order;
+        control_core = yak_control_core;
+        total_cores = YAK_CORES;
+    }else if (strncmp(hostname, "yeti",4) == 0){
+        ALERT("ENV CONF", "Running on a yeti machine");
+        core_order = yeti_core_order;
+        control_core = yeti_control_core;
+        total_cores = YETI_CORES;
+    } else {
+        ALERT("ENV CONF", "Runnin on an unknown host %s, please create a core config. Exiting...",hostname);
+        exit(0);
+    }
 }
 
 void * rcuckoo_thread_init(void * arg) {
@@ -350,6 +375,7 @@ namespace rdma_engine {
             RDMAConnectionManagerArguments args;
 
 
+            set_core_order();
             args.num_qps = _num_clients;
             if (args.num_qps < 1) {
                 ALERT("RDMA Engine", "Error: num_qps must be at least 1\n");
@@ -413,10 +439,13 @@ namespace rdma_engine {
 
         pthread_t thread_ids[MAX_CLIENT_THREADS];
         for(int i=0;i<_num_clients;i++){
+            assert(i < total_cores);
             INFO("RDMA Engine","Creating Client Thread %d\n", i);
             set_control_flag(state_machine_holder[i]);
             pthread_create(&thread_ids[i], NULL, thread_runner, (state_machine_holder[i]));
-            stick_thread_to_core(thread_ids[i], yak_core_order[i]);
+            // stick_thread_to_core(thread_ids[i], yak_core_order[i]);
+            // ALERT("stick core", "Core %d",yeti_core_order[i]);
+            stick_thread_to_core(thread_ids[i], core_order[i]);
         }
 
         stick_this_thread_to_core(yak_control_core);
@@ -466,7 +495,7 @@ namespace rdma_engine {
 
         //Get all of the threads to join
         for (int i=0;i<_num_clients;i++){
-            INFO("RDMA Engine", "Joining Client Thread %d\n", i);
+            ALERT("RDMA Engine", "Joining Client Thread %d\n", i);
             pthread_join(thread_ids[i],NULL);
         }
         ALERT("RDMA Engine", "Experiment Complete\n");

@@ -522,13 +522,17 @@ namespace cuckoo_virtual_rdma {
         read_data_list.clear();
         for (size_t i=0; i<context.lock_list.size(); i++) {
             VRMaskedCasData cas = context.lock_list[i]; 
-            unsigned int lock_index = (cas.min_set_lock + (BITS_PER_BYTE * cas.min_lock_index)) * buckets_per_lock;
+            // unsigned int lock_index = (cas.min_set_lock + (BITS_PER_BYTE * cas.min_lock_index)) * buckets_per_lock;
+            unsigned int lock_index = (cas.min_set_lock + (BITS_PER_BYTE * cas.min_lock_index));
             int found = 0;
             unsigned int original_lock;
 
             for(int j=0;j<context.virtual_lock_indexes_size; j++) {
                 unsigned int vlock = context.virtual_lock_indexes[j];
-                if((vlock % context.total_physical_locks) ==lock_index){
+                unsigned int virt_to_phys = vlock % context.total_physical_locks;
+                // ALERT("VIRTUAL COVER MAPING", "vlock %d virt_to_phys %d\n",vlock,virt_to_phys);
+                if(virt_to_phys ==lock_index){
+                    // ALERT("Found matching lock", "virt_to_phys %d lock_index \n",virt_to_phys, lock_index);
                     found++;
                     original_lock = vlock;
                 }

@@ -12,6 +12,7 @@
 #include "../slib/log.h"
 #include "../slib/memcached.h"
 #include "../slib/util.h"
+#include "../slib/config.h"
 #include "../rdma/rdma_helper.h"
 #include "../rdma/rdma_common.h"
 #include <cassert>
@@ -27,9 +28,9 @@ using namespace rdma_helper;
 
 
 #define MAX_INSERT_AND_UNLOCK_MESSAGE_COUNT 64
+#define MEAN_RTT_US 2
+#define FAULT_HOST "yeti-00.sysnet.ucsd.edu"
 
-#define INJECT_FAULT FAULT_CASE_3
-#define MAX_FAULT_RATE_US 100000
 // #define INJECT_FAULT FAULT_CASE_0
 
 
@@ -103,13 +104,14 @@ namespace cuckoo_rcuckoo {
 
     RCuckoo::RCuckoo() : Client_State_Machine() {}
 
+
     RCuckoo::RCuckoo(unordered_map<string, string> config) : Client_State_Machine(config) {
 
         //Try to init the table
         try {
-            unsigned int memory_size = stoi(config["memory_size"]);
-            unsigned int bucket_size = stoi(config["bucket_size"]);
-            unsigned int buckets_per_lock = stoi(config["buckets_per_lock"]);
+            unsigned int memory_size = get_config_int(config,"memory_size");
+            unsigned int bucket_size = get_config_int(config,"bucket_size");
+            unsigned int buckets_per_lock = get_config_int(config,"buckets_per_lock");
             INFO(log_id(), "Creating Table : Table_size: %d, bucket_size %d, buckets_per_lock %d\n", memory_size, bucket_size, buckets_per_lock);
             _table = Table(memory_size, bucket_size, buckets_per_lock);
         } catch (exception& e) {
@@ -122,20 +124,30 @@ namespace cuckoo_rcuckoo {
         bool use_virtual_lock_table;
         unsigned virtual_lock_scale_factor;
         try{
-            _read_threshold_bytes = stoi(config["read_threshold_bytes"]);
-            _buckets_per_lock = stoi(config["buckets_per_lock"]);
-            _locks_per_message = stoi(config["locks_per_message"]);
+            _read_threshold_bytes = get_config_int(config,"read_threshold_bytes");
+            _buckets_per_lock = get_config_int(config,"buckets_per_lock");
+            _locks_per_message = get_config_int(config,"locks_per_message");
             // assert(_locks_per_message == 64);
-            _starting_id = stoi(config["starting_id"]);
-            _global_clients = stoi(config["global_clients"]);
-            _id = stoi(config["id"]) + _starting_id;
-            _use_mask = (config["use_mask"] == "true");
-            use_virtual_lock_table = (config["use_virtual_lock_table"] == "true");
-            virtual_lock_scale_factor = stoi(config["virtual_lock_scale_factor"]);
+            _starting_id = get_config_int(config,"starting_id");
+            _global_clients = get_config_int(config,"global_clients");
+            _id = get_config_int(config,"id") + _starting_id;
+            _use_mask = get_config_bool(config,"use_mask");
+            use_virtual_lock_table = get_config_bool(config,"use_virtual_lock_table");
+            virtual_lock_scale_factor = get_config_int(config,"virtual_lock_scale_factor");
+            _simulate_failures = get_config_bool(config,"simulate_failures");
+            _lock_timeout_us = get_config_int(config,"lock_timeout_us");
+            _lease_timeout_us = get_config_int(config,"lease_timeout_us");
+            _delay_between_failures_us = get_config_int(config,"delay_between_failures_us");
+            
 
         } catch (exception& e) {
-            printf("ERROR: RCuckoo config missing required field\n");
+            printf("%s\n", e.what());
             throw logic_error("ERROR: RCuckoo config missing required field");
+        }
+        gethostname(hostname, HOST_NAME_MAX);
+        if (_simulate_failures && strcmp(hostname,FAULT_HOST)==0 && _id == 0 ) {
+            ALERT("Generating Faults on client","%s %d",hostname,_id);
+            _generate_failures_on_this_client = true;
         }
         assert(_read_threshold_bytes > 0);
         assert(_read_threshold_bytes >= _table.row_size_bytes());
@@ -164,6 +176,7 @@ namespace cuckoo_rcuckoo {
             _locking_context.scale_factor = 1;
             _locking_context.total_physical_locks = _table.get_total_locks();
         }
+
         sprintf(_log_identifier, "Client: %3d", _id);
 
         _local_prime_flag = false; //we have yet to prime
@@ -638,11 +651,18 @@ namespace cuckoo_rcuckoo {
     }
 
     bool RCuckoo::send_insert_crc_and_unlock_messages_with_fault(vector<VRCasData> &insert_messages, vector<VRMaskedCasData> & unlock_messages, unsigned int fault, unsigned int max_fault_rate_us) {
+
         struct ibv_sge sg [MAX_INSERT_CRC_AND_UNLOCK_MESSAGE_COUNT];
         struct ibv_exp_send_wr wr [MAX_INSERT_CRC_AND_UNLOCK_MESSAGE_COUNT];
 
-        if (insert_messages.size() < 2) {
-            // ALERT(log_id(), "trying to insert a fault %d, but we want to have a path longer than 2",fault);
+        // if (insert_messages.size() < 2) {
+        //     // ALERT(log_id(), "trying to insert a fault %d, but we want to have a path longer than 2",fault);
+        //     return false;
+        // }
+
+        //Only perform a corruption once we have finished priming
+        //This reduces the number of potential faults but
+        if (insert_messages.size() != 1 || _state == INSERTING){
             return false;
         }
 
@@ -703,6 +723,8 @@ namespace cuckoo_rcuckoo {
             total_messages=3;
         }
 
+        _faults_injected++;
+
         //Send out the Failed request
         if (total_messages > 0) { 
             set_signal(&wr[total_messages-1]);
@@ -726,15 +748,17 @@ namespace cuckoo_rcuckoo {
         assert(false);
         #endif
 
-        #ifdef INJECT_FAULT
-        if (_id == 0){
-            int fault = rand()%FAULT_CASE_4;
-            bool injected_fault = send_insert_crc_and_unlock_messages_with_fault(insert_messages,unlock_messages,fault,MAX_FAULT_RATE_US);
-            if (injected_fault) {
-                return;
+
+
+        if (_simulate_failures) {
+            if (_id == 0 ){
+                int fault = rand()%FAULT_CASE_4;
+                bool injected_fault = send_insert_crc_and_unlock_messages_with_fault(insert_messages,unlock_messages,fault,_delay_between_failures_us);
+                if (injected_fault) {
+                    return;
+                }
             }
         }
-        #endif
 
         int insert_messages_with_crc = insert_messages.size()*2;
         int total_messages = (insert_messages_with_crc) + unlock_messages.size();
@@ -1245,7 +1269,7 @@ namespace cuckoo_rcuckoo {
         }
 
         //At this point we have the error code corretly determined
-        ALERT(log_id(), "Error State %d detected on lock %d Begin Repair...",error_state, lock);
+        WARNING(log_id(), "Error State %d detected on lock %d Begin Repair...",error_state, lock);
         repair_table(broken_entry,error_state);
 
         //Final step is to release the lock
@@ -1273,7 +1297,7 @@ namespace cuckoo_rcuckoo {
             }
         }
         lock_string += "]";
-        ALERT(log_id(), "😇 Repaired Locks %s from failures case %d", lock_string.c_str(), error_state);
+        WARNING(log_id(), "😇 Repaired Locks %s from failures case %d", lock_string.c_str(), error_state);
         #endif
 
         vector<VRCasData> insert_messages;
@@ -1303,11 +1327,12 @@ namespace cuckoo_rcuckoo {
         bool failed_last_request = false;
         unsigned int message_index = 0;
 
-        #ifdef INJECT_FAULT
+        
         unsigned int retries[BITS_IN_MASKED_CAS];
         unsigned int locks[BITS_IN_MASKED_CAS];
         clear_retry_counter(retries);
-        #endif
+        unsigned int retries_untill_timeout = _lock_timeout_us / MEAN_RTT_US;
+        unsigned int retries_untill_lease_timeout = _lease_timeout_us / MEAN_RTT_US;
 
         while (!locking_complete) {
 
@@ -1380,9 +1405,7 @@ namespace cuckoo_rcuckoo {
                     failed_last_request = false;
                 }
 
-                #ifdef INJECT_FAULT
                 clear_retry_counter(retries);
-                #endif
 
 
             } else {
@@ -1394,7 +1417,6 @@ namespace cuckoo_rcuckoo {
                 #endif
                 failed_last_request = true;
 
-                #ifdef INJECT_FAULT
                 //Here we are going to try to triage which lock is the one that is set for too long
                 // ALERT(log_id(),"Failed to grab the lock, this is where we will start to do fault recovery\n");
                 // ALERT(log_id(),"Failed to get the lock %s\n", lock.to_string().c_str(), mask);
@@ -1405,7 +1427,7 @@ namespace cuckoo_rcuckoo {
                 // }
                 set_retry_counter(retries, mask & received_locks);
 
-                uint64_t timed_out_lock = retry_crossed_threshold(retries,10000);
+                uint64_t timed_out_lock = retry_crossed_threshold(retries,retries_untill_timeout);
                 if (timed_out_lock > 0) {
                     clear_retry_counter(retries);
 
@@ -1418,7 +1440,13 @@ namespace cuckoo_rcuckoo {
 
                     WARNING(log_id(), "Timed out on lock %d", lock_we_will_reclaim)
                     INFO(log_id(), "Timeout while Inserting %s. Begin reclaim, while holding %d locks", _current_insert_key.to_string().c_str(), message_index);
-                    if (aquire_repair_lease(lock_we_will_reclaim)) {
+                    bool aquired=false;
+                    int lease_retries=0;
+                    while(!aquired && lease_retries < retries_untill_lease_timeout) {
+                        aquired=aquire_repair_lease(lock_we_will_reclaim);
+                        lease_retries++;
+                    }
+                    if (aquired) {
                         SUCCESS(log_id(), "Lease Aquired");
                         reclaim_lock(lock_we_will_reclaim);
                         release_repair_lease(lock_we_will_reclaim);
@@ -1428,8 +1456,6 @@ namespace cuckoo_rcuckoo {
                     }
 
                 }
-
-                #endif
             }
 
             if (_locking_context.lock_list.size() == message_index) {
@@ -1606,7 +1632,7 @@ namespace cuckoo_rcuckoo {
         if (success) {
             SUCCESS(log_id(), "%2d found key %s \n", _id, _current_read_key.to_string().c_str());
         } else {
-            ALERT("[get-direct]", "%2d did not find key %s \n", _id, _current_read_key.to_string().c_str());
+            WARNING("[get-direct]", "%2d did not find key %s \n", _id, _current_read_key.to_string().c_str());
             complete_read(success);
             return;
         }
@@ -1677,7 +1703,13 @@ namespace cuckoo_rcuckoo {
         #endif
 
         //Bulk poll to receive all messages
-        bulk_poll(_completion_queue, 1, _wc + 1);
+        // if (_id == 0) {
+        //     printf("start poll\n");
+        // }
+        // bulk_poll(_completion_queue, 1, _wc + 1);
+        // if (_id == 0) {
+        //     printf("end poll\n");
+        // }
         _locks_held.clear();
         complete_update(success);
 
@@ -1703,6 +1735,7 @@ namespace cuckoo_rcuckoo {
             if (_complete && _state == IDLE) {
                 return;
             }
+
 
             Request next_request;
             switch(_state) {
