@@ -471,10 +471,14 @@ namespace cuckoo_rcuckoo {
         }
     }
 
-    void RCuckoo::send_lock_and_cover_message(VRMaskedCasData lock_message, VRReadData read_message) {
-        #define READ_AND_COVER_MESSAGE_COUNT 2
+    void RCuckoo::send_lock_and_cover_message(VRMaskedCasData lock_message, vector<VRReadData> read_messages) {
+        #define READ_AND_COVER_MESSAGE_COUNT 64
         struct ibv_sge sg [READ_AND_COVER_MESSAGE_COUNT];
         struct ibv_exp_send_wr wr [READ_AND_COVER_MESSAGE_COUNT];
+
+        int total_messages = read_messages.size() + 1;
+        assert(total_messages< READ_AND_COVER_MESSAGE_COUNT);
+
 
 
         //Lock
@@ -507,59 +511,87 @@ namespace cuckoo_rcuckoo {
         _wr_id++;
 
 
+        for (int i=0;i<read_messages.size();i++){
 
-        bool inside_rows = read_message.row < _table.get_row_count();
-        bool inside_buckets = read_message.offset < _table.get_buckets_per_row();
-        if (!inside_rows) {
-            ALERT(log_id(),"row %d is not inside rows %d\n", read_message.row, _table.get_row_count());
+            VRReadData read_message = read_messages[0];
+            assert(read_message.row < _table.get_row_count());
+            assert(read_message.offset < _table.get_buckets_per_row());
+
+            uint64_t local_address = (uint64_t) get_entry_pointer(read_message.row, read_message.offset);
+            uint64_t remote_server_address = local_to_remote_table_address(local_address);
+
+            //Covering Read
+            setRdmaReadExp(
+                &sg[i+1],
+                &wr[i+1],
+                local_address,
+                remote_server_address,
+                read_message.size,
+                _table_mr->lkey,
+                _table_config->remote_key,
+                false,
+                _wr_id
+            );
+            _wr_id++;
+            INFO("send lock and cover", "read: row, offset, size %d, %d, %d\n", read_message.row, read_message.offset, read_message.size);
+            #ifdef MEASURE_ESSENTIAL
+            uint64_t read_bytes = RDMA_READ_REQUSET_SIZE;
+            read_bytes += RDMA_READ_RESPONSE_BASE_SIZE + read_message.size;
+            _total_bytes += read_bytes;
+            _insert_operation_bytes += read_bytes;
+            _read_bytes += read_bytes;
+            _total_reads++;
+            #endif
         }
-        if (!inside_buckets) {
-            printf(log_id(),"offset %d is not inside buckets %d\n", read_message.offset, _table.get_buckets_per_row());
-        }
-        assert(inside_rows);
-        assert(inside_buckets);
 
-
-
-        uint64_t local_address = (uint64_t) get_entry_pointer(read_message.row, read_message.offset);
-        uint64_t remote_server_address = local_to_remote_table_address(local_address);
-
-        //Covering Read
-        setRdmaReadExp(
-            &sg[1],
-            &wr[1],
-            local_address,
-            remote_server_address,
-            read_message.size,
-            _table_mr->lkey,
-            _table_config->remote_key,
-            true,
-            _wr_id
-        );
-        _wr_id++;
-        wr[1].exp_send_flags |= IBV_EXP_SEND_FENCE;
-        INFO("send lock and cover", "read: row, offset, size %d, %d, %d\n", read_message.row, read_message.offset, read_message.size);
-        
-        send_bulk(READ_AND_COVER_MESSAGE_COUNT, _qp, wr);
-
-        //Increment Measurement Counters
         #ifdef MEASURE_ESSENTIAL
-        uint64_t read_bytes = RDMA_READ_REQUSET_SIZE;
-        read_bytes += RDMA_READ_RESPONSE_BASE_SIZE + read_message.size;
+        _insert_operation_messages+=read_messages.size() + 1;
         uint64_t masked_cas_bytes = RDMA_MASKED_CAS_REQUEST_SIZE + RDMA_MASKED_CAS_RESPONSE_SIZE;
-
-        _insert_operation_messages+=READ_AND_COVER_MESSAGE_COUNT;
-        _total_bytes += read_bytes + masked_cas_bytes;
-        _insert_operation_bytes += read_bytes + masked_cas_bytes;
-
-        _read_bytes += read_bytes;
+        _total_bytes += masked_cas_bytes;
+        _insert_operation_bytes += masked_cas_bytes;
         _masked_cas_bytes +=masked_cas_bytes;
-        _total_reads++;
         _total_masked_cas++;
-
         _current_insert_rtt++;
         _insert_rtt_count++;
         #endif
+
+        // wr[read_messages.size()].exp_send_flags |= IBV_EXP_SEND_FENCE;
+        wr[read_messages.size()].exp_send_flags |= IBV_EXP_SEND_SIGNALED;
+        
+        send_bulk(total_messages, _qp, wr);
+
+        //Increment Measurement Counters
+
+        // int outstanding_messages = 1; //It's two because we send the read and CAS
+        int n = bulk_poll(_completion_queue, 1, _wc);
+        // while (n < outstanding_messages) {
+        //     n += bulk_poll(_completion_queue, outstanding_messages - n, _wc + n);
+        // }
+
+        //This is just extra safty we can probably remove it
+        // _outstanding_read_requests--;
+        // assert(n == outstanding_messages); //This is just a safty for now.
+        // bool fail_on_this_request = false;
+
+        // if (_wc[0].status != IBV_WC_SUCCESS) {
+        //     ALERT("lock aquire", "Failed on lock %s\n", lock_message.to_string().c_str());
+        //     ALERT("lock aquire", " masked cas failed somehow\n");
+        //     ALERT("lock aquire", " masked cas %s\n", lock_message.to_string().c_str());
+        //     print_wc(&_wc[0]);
+        //     fail_on_this_request = true;
+        // }
+        // if (_wc[1].status != IBV_WC_SUCCESS) {
+        //     print_wc(&_wc[1]);
+        //     ALERT(log_id(), " [lock aquire] spanning read failed somehow\n");
+        //     ALERT(log_id(), " errno: %d \n", -errno);
+        //     ALERT(log_id(), " [lock aquire] read %s\n", read_message.to_string().c_str());
+        //     ALERT(log_id(), " [lock aquire] table size %d\n", _table.get_row_count());
+        //     fail_on_this_request = true;
+        // }
+        // if (fail_on_this_request) {
+        //     exit(1);
+        // }
+
     }
 
     void RCuckoo::send_read(vector <VRReadData> reads) {
@@ -1345,84 +1377,10 @@ namespace cuckoo_rcuckoo {
 
     }
 
-    //Precondition _locking_context.buckets contains the locks we want to get
-    bool RCuckoo::top_level_aquire_locks() {
-        get_lock_list_fast_context(_locking_context);
-        INFO(log_id(), "[aquire_locks] gathering locks for buckets %s\n", vector_to_string(_locking_context.buckets).c_str());
-        //TODO make this one thing
-        // get_covering_reads_from_lock_list(_locking_context.lock_list, _covering_reads ,_buckets_per_lock, _table.row_size_bytes());
-        get_covering_reads_context(_locking_context, _covering_reads, _table, _buckets_per_lock);
-
-        for (unsigned int i = 0; i < _locking_context.lock_list.size(); i++) {
-            INFO(log_id(), "[aquire_locks] lock %d -> [lock %s] [read %s]\n", i, _locking_context.lock_list[i].to_string().c_str(), _covering_reads[i].to_string().c_str());
-        }
-
-        if(_locking_context.lock_list.size() != _covering_reads.size()) {
-            ALERT(log_id(), "[aquire_locks] lock_list.size() != covering_reads.size() %lu != %lu\n", _locking_context.lock_list.size(), _covering_reads.size());
-            exit(1);
-        }
-        assert(_locking_context.lock_list.size() == _covering_reads.size());
-
-        bool locking_complete = false;
-        bool failed_last_request = false;
-        unsigned int message_index = 0;
-
-        
-        unsigned int retries[BITS_IN_MASKED_CAS];
-        unsigned int locks[BITS_IN_MASKED_CAS];
-        clear_retry_counter(retries);
-        unsigned int retries_untill_timeout = _lock_timeout_us / MEAN_RTT_US;
-        unsigned int retries_untill_lease_timeout = _lease_timeout_us / MEAN_RTT_US;
-
-        while (!locking_complete) {
-
-            //TODO we need to make sure we have not crossed the timeout limit here.
-            assert(message_index < _locking_context.lock_list.size());
-
-            VRMaskedCasData lock = _locking_context.lock_list[message_index];
-            VRReadData read = _covering_reads[message_index];
-
-            //This is for testing the benifit of locks only
-            if (!_use_mask) {
-                lock.mask = 0xFFFFFFFFFFFFFFFF;
-            }
-
-            send_lock_and_cover_message(lock, read);
-            // auto t1 = high_resolution_clock::now();
-            int outstanding_messages = 1; //It's two because we send the read and CAS
-            int n = bulk_poll(_completion_queue, outstanding_messages, _wc);
-            while (n < outstanding_messages) {
-                n += bulk_poll(_completion_queue, outstanding_messages - n, _wc + n);
-            }
-
-            _outstanding_read_requests--;
-            assert(n == outstanding_messages); //This is just a safty for now.
-            bool fail_on_this_request = false;
-            if (_wc[0].status != IBV_WC_SUCCESS) {
-                ALERT("lock aquire", "Failed on message index %d\n", message_index);
-                ALERT("lock aquire", "Failed on lock %s\n", lock.to_string().c_str());
-                ALERT("lock aquire", " masked cas failed somehow\n");
-                ALERT("lock aquire", " masked cas %s\n", lock.to_string().c_str());
-                print_wc(&_wc[0]);
-                fail_on_this_request = true;
-            }
-
-            if (_wc[1].status != IBV_WC_SUCCESS) {
-                print_wc(&_wc[1]);
-                ALERT(log_id(), " [lock aquire] spanning read failed somehow\n");
-                ALERT(log_id(), " errno: %d \n", -errno);
-                ALERT(log_id(), " [lock aquire] read %s\n", read.to_string().c_str());
-                ALERT(log_id(), " [lock aquire] table size %d\n", _table.get_row_count());
-                fail_on_this_request = true;
-            }
-            if (fail_on_this_request) {
-                exit(1);
-            }
-
+    bool RCuckoo::lock_was_aquired(VRMaskedCasData lock) {
             uint64_t old_value = lock.old;
             uint64_t mask = lock.mask;
             int lock_index = lock.min_lock_index;
-
             if (!(lock_index >= 0 && lock_index < (int)_table.get_underlying_lock_table_size_bytes())) {
                 WARNING(log_id(), "assert about to fail, lock_index = %d, lock_table_size = %d\n", lock_index, _table.get_underlying_lock_table_size_bytes());
             }
@@ -1430,24 +1388,70 @@ namespace cuckoo_rcuckoo {
             assert(get_lock_pointer(lock_index));
 
             uint64_t received_locks = *((uint64_t*) get_lock_pointer(lock_index));
-
             //?? bswap the DMA'd value?
             received_locks = __builtin_bswap64(received_locks);
             *((uint64_t*) get_lock_pointer(lock_index)) = received_locks;
 
+            return (received_locks & mask) == old_value;
+    }
 
-            if ((received_locks & mask) == old_value) {
-                // ALERT(log_id(), "we got the lock!\n");
-                // receive_successful_locking_message(lock);
+    unsigned int RCuckoo::get_reclaim_lock(VRMaskedCasData lock, uint64_t timed_out_lock) {
+            unsigned int locks[BITS_IN_MASKED_CAS];
+            VRMaskedCasData lock_to_unlock = lock;
+            lock_to_unlock.mask = timed_out_lock;
+            lock_to_unlock.old = timed_out_lock;
+            unsigned int total_locks = lock_message_to_lock_indexes(lock_to_unlock,locks);
+            assert(total_locks == 1);
+            return locks[0];
+    }
+
+
+
+    //Precondition _locking_context.buckets contains the locks we want to get
+    bool RCuckoo::top_level_aquire_locks() {
+        get_lock_list_fast_context(_locking_context);
+        INFO(log_id(), "[aquire_locks] gathering locks for buckets %s\n", vector_to_string(_locking_context.buckets).c_str());
+
+        get_covering_reads_context(_locking_context, _covering_reads, _table, _buckets_per_lock);
+        for (unsigned int i = 0; i < _locking_context.lock_list.size(); i++) {
+            INFO(log_id(), "[aquire_locks] lock %d -> [lock %s] [read %s]\n", i, _locking_context.lock_list[i].to_string().c_str(), _covering_reads[i].to_string().c_str());
+        }
+        if(_locking_context.lock_list.size() != _covering_reads.size()) {
+            ALERT(log_id(), "[aquire_locks] lock_list.size() != covering_reads.size() %lu != %lu\n", _locking_context.lock_list.size(), _covering_reads.size());
+            exit(1);
+        }
+
+
+        assert(_locking_context.lock_list.size() == _covering_reads.size());
+
+        bool locking_complete = false;
+        bool failed_last_request = false;
+        unsigned int message_index = 0;
+        unsigned int retries[BITS_IN_MASKED_CAS];
+        unsigned int retries_untill_timeout = _lock_timeout_us / MEAN_RTT_US;
+        unsigned int retries_untill_lease_timeout = _lease_timeout_us / MEAN_RTT_US;
+
+        clear_retry_counter(retries);
+        while (!locking_complete) {
+
+            //TODO we need to make sure we have not crossed the timeout limit here.
+            assert(message_index < _locking_context.lock_list.size());
+
+            VRMaskedCasData lock = _locking_context.lock_list[message_index];
+            // VRReadData read = _covering_reads[message_index][0];
+
+            //This is for testing the benifit of locks only
+            if (!_use_mask) {
+                lock.mask = 0xFFFFFFFFFFFFFFFF;
+            }
+
+            send_lock_and_cover_message(lock, _covering_reads[message_index]);
+
+            if (lock_was_aquired(lock)) {
                 receive_successful_locking_message(message_index);
                 message_index++;
-                if (failed_last_request) {
-                    failed_last_request = false;
-                }
-
+                failed_last_request=false;
                 clear_retry_counter(retries);
-
-
             } else {
                 // printf("%2d [fail lock]   r%016" PRIx64 ", m%016" PRIx64 ", o%016" PRIx64 "\n", _id, received_locks, mask, old_value);
                 #ifdef MEASURE_ESSENTIAL
@@ -1461,23 +1465,17 @@ namespace cuckoo_rcuckoo {
                 // ALERT(log_id(),"Failed to grab the lock, this is where we will start to do fault recovery\n");
                 // ALERT(log_id(),"Failed to get the lock %s\n", lock.to_string().c_str(), mask);
                 // ALERT(log_id(),"unable to set %lX\n", mask & received_locks);
-                unsigned int total_locks = lock_message_to_lock_indexes(lock,locks);
                 // for (int i=0;i<total_locks;i++) {
                 //     ALERT(log_id(), "Unable to aquire lock %d\n",locks[i]);
                 // }
-                set_retry_counter(retries, mask & received_locks);
+                uint64_t received_locks = *((uint64_t*) get_lock_pointer(lock.min_lock_index));
+                set_retry_counter(retries, lock.mask & received_locks);
 
                 uint64_t timed_out_lock = retry_crossed_threshold(retries,retries_untill_timeout);
                 if (timed_out_lock > 0) {
                     clear_retry_counter(retries);
 
-                    VRMaskedCasData lock_to_unlock = lock;
-                    lock_to_unlock.mask = timed_out_lock;
-                    lock_to_unlock.old = timed_out_lock;
-                    total_locks = lock_message_to_lock_indexes(lock_to_unlock,locks);
-                    assert(total_locks == 1);
-                    unsigned int lock_we_will_reclaim = locks[0];
-
+                    unsigned int lock_we_will_reclaim = get_reclaim_lock(lock, timed_out_lock);
                     WARNING(log_id(), "Timed out on lock %d", lock_we_will_reclaim)
                     INFO(log_id(), "Timeout while Inserting %s. Begin reclaim, while holding %d locks", _current_insert_key.to_string().c_str(), message_index);
                     bool aquired=false;

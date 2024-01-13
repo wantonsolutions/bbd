@@ -52,9 +52,12 @@ static void send_table_config_to_memcached_server(Memory_State_Machine& msm)
 
     //Regiserting the memory for the table
     //Send the info for the table
+    printf("Allocating table of size %d bytes\n", msm.get_table_size());
     void * table_ptr = msm.get_table_pointer()[0];
     ibv_mr * table_mr = register_server_object_at_mr_index(table_ptr, msm.get_table_size(), TABLE_MR_INDEX);
 
+
+    printf("Allocating lease table %d bytes\n",msm.get_underlying_repair_lease_table_size_bytes());
     void * lease_table_ptr = msm.get_underlying_repair_lease_table_address();
     ibv_mr *lease_table_mr = register_server_object_at_mr_index(lease_table_ptr, msm.get_underlying_repair_lease_table_size_bytes(), LEASE_TABLE_MR_INDEX);
 
@@ -107,13 +110,11 @@ void moniter_run(int num_qps, int print_frequency, bool prime, int runtime, bool
         float fill_percentage = msm.get_fill_percentage();
         if(now - last_print >= print_frequency) {
             last_print = now;
-            printf("Printing table after %d seconds\n", print_step * print_frequency);
-            print_step++;
-            msm.print_table();
-
-
-            copy_device_memory_to_host_lock_table(msm);
-            msm.print_lock_table();
+            // printf("Printing table after %d seconds\n", print_step * print_frequency);
+            // print_step++;
+            // msm.print_table();
+            // copy_device_memory_to_host_lock_table(msm);
+            // msm.print_lock_table();
             printf("%2.3f/%2.3f Full\n", fill_percentage, msm.get_max_fill());
         }
 
@@ -220,12 +221,10 @@ int main(int argc, char **argv)
         ALERT("RDMA memory server", "CRC table failed on row %d\n", bad_row);
         ALERT("RDMA memory server", "CRC should be %lX, printing current row\n", table->crc64_row(bad_row));
         ALERT("RDMA memory server", "%s", table->row_to_string(bad_row).c_str());
-
-
     }
 
     send_final_memory_stats_to_memcached_server(msm);
-
+    ALERT("RDMA memory server", "Run Complete");
     ret = disconnect_and_cleanup(num_qps);
     if (ret) { 
         rdma_error("Failed to clean up resources properly, ret = %d \n", ret);

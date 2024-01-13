@@ -518,9 +518,10 @@ namespace cuckoo_virtual_rdma {
     }
 
 
-    void get_covering_reads_context(LockingContext context, vector<VRReadData> &read_data_list, Table &table, unsigned int buckets_per_lock){
+    void get_covering_reads_context(LockingContext context, vector<vector<VRReadData>> &read_data_list, Table &table, unsigned int buckets_per_lock){
         read_data_list.clear();
         for (size_t i=0; i<context.lock_list.size(); i++) {
+            read_data_list.push_back(vector<VRReadData>());
             VRMaskedCasData cas = context.lock_list[i]; 
             // unsigned int lock_index = (cas.min_set_lock + (BITS_PER_BYTE * cas.min_lock_index)) * buckets_per_lock;
             unsigned int lock_index = (cas.min_set_lock + (BITS_PER_BYTE * cas.min_lock_index));
@@ -555,7 +556,7 @@ namespace cuckoo_virtual_rdma {
                 }
                 exit(0);
             }
-            read_data_list.push_back(get_covering_read_from_lock(cas, buckets_per_lock, table.row_size_bytes()));
+            read_data_list[read_data_list.size()-1].push_back(get_covering_read_from_lock(cas, buckets_per_lock, table.row_size_bytes()));
         }
         return;
     }

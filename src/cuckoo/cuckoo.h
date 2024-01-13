@@ -77,7 +77,7 @@ namespace cuckoo_rcuckoo {
 
             void set_unlock_message(VRMaskedCasData &unlock_message, struct ibv_sge *sg, struct ibv_exp_send_wr *wr, uint64_t *wr_id);
             void set_insert(VRCasData &insert_message, struct ibv_sge *sg, struct ibv_exp_send_wr *wr, uint64_t *wr_id);
-            void send_lock_and_cover_message(VRMaskedCasData lock_message, VRReadData read_message);
+            void send_lock_and_cover_message(VRMaskedCasData lock_message, vector<VRReadData> read_message);
             void send_insert_and_unlock_messages(vector<VRCasData> &insert_messages, vector<VRMaskedCasData> & unlock_messages, uint64_t wr_id);
 
             void send_insert_and_crc(VRCasData insert_message, ibv_sge *sg, ibv_exp_send_wr *wr, uint64_t *wr_id);
@@ -92,6 +92,10 @@ namespace cuckoo_rcuckoo {
             void get_direct(void);
             void insert_direct();
             void update_direct(void);
+
+
+            unsigned int get_reclaim_lock(VRMaskedCasData lock, uint64_t timed_out_lock);
+            bool lock_was_aquired(VRMaskedCasData lock);
 
             void set_hash_factor(unordered_map<string, string> config);
 
@@ -155,7 +159,7 @@ namespace cuckoo_rcuckoo {
             vector<unsigned int> _buckets;
 
             vector<VRCasData> _insert_messages;
-            vector<VRReadData> _covering_reads;
+            vector<vector<VRReadData>> _covering_reads;
 
 
             LockingContext _locking_context;
