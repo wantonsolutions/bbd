@@ -228,14 +228,19 @@ def cas_success_rate_line(ax,stats,label,x_axis="clients"):
         success_rates.append(np.mean(single_run_success_rate))
         std_errs.append(np.mean(single_run_errors))
     # x_pos = np.arange(len(success_rates))
+    print(x_axis_vals)
+    print(success_rates)
     ax.errorbar(x_axis_vals,success_rates,yerr=std_errs,label=label, marker='o', capsize=3)
 
-def cas_success_rate(ax, stats, x_axis="clients"):
+def cas_success_rate(ax, stats, x_axis="clients", decoration=True, label=None):
     stats = correct_stat_shape(stats)
     for stat in stats:
-        state_machine_label = stat[0][0]['config']['state_machine']
-        cas_success_rate_line(ax, stat, label=state_machine_label, x_axis=x_axis)
-    cas_success_rate_decoration(ax, x_axis)
+        if label is None:
+            label = stat[0][0]['config']['state_machine']
+        cas_success_rate_line(ax, stat, label=label, x_axis=x_axis)
+    if decoration:
+        cas_success_rate_decoration(ax, x_axis)
+
 
 def cas_success_rate_decoration(ax, x_axis):
     ax.set_ylabel("CAS success rate")
@@ -358,13 +363,12 @@ def retry_breakdown_decoration(ax, x_axis):
     ax.set_xlabel(x_axis)
     ax.legend()
 
-def retry_breakdown(ax, stats, x_axis="clients", decoration=True, label=None):
+def retry_breakdown(ax, stats, x_axis="clients", decoration=True):
     stats = correct_stat_shape(stats)
     lines = []
     for stat in stats:
-        if label == None:
-            label = stat[0][0]['config']['state_machine']
-        retry_breakdown_line(ax, stat, label=label, x_axis=x_axis)
+        state_machine_label = stat[0][0]['config']['state_machine']
+        retry_breakdown_line(ax, stat, label=state_machine_label, x_axis=x_axis)
     if decoration:
         retry_breakdown_decoration(ax, x_axis)
 
@@ -462,11 +466,11 @@ def latency_per_operation_line(axs, stats, label, x_axis="clients", hide_zeros=F
         axt = axs[0]
 
     percentile=50
-    read_latency, read_err = client_stats_get_percentile_err_trials(stats, 'read_latency_ns', percentile)
-    write_latency, write_err = client_stats_get_percentile_err_trials(stats, 'insert_latency_ns', percentile)
+    # read_latency, read_err = client_stats_get_percentile_err_trials(stats, 'read_latency_ns', percentile)
+    # write_latency, write_err = client_stats_get_percentile_err_trials(stats, 'insert_latency_ns', percentile)
 
-    # read_latency, read_err = client_stats_x_per_y_get_mean_std_multi_run_trials(stats, 'sum_read_latency_ns','completed_read_count' )
-    # write_latency, write_err = client_stats_x_per_y_get_mean_std_multi_run_trials(stats,  'sum_insert_latency_ns','completed_insert_count' )
+    read_latency, read_err = client_stats_x_per_y_get_mean_std_multi_run_trials(stats, 'sum_read_latency_ns','completed_read_count' )
+    write_latency, write_err = client_stats_x_per_y_get_mean_std_multi_run_trials(stats,  'sum_insert_latency_ns','completed_insert_count' )
 
     print("read_latency", read_latency)
     print("write_latency", write_latency)
@@ -570,10 +574,10 @@ def rtt_per_operation_line(ax, axt, stats, label, x_axis="clients", twin=True, p
     print("RTT PER OPERATION")
 
 
-    # read_rtt, read_err = client_stats_x_per_y_get_mean_std_multi_run_trials(stats, 'read_rtt_count', 'completed_read_count')
-    # insert_rtt, insert_err = client_stats_x_per_y_get_mean_std_multi_run_trials(stats, 'insert_rtt_count', 'completed_insert_count')
-    read_rtt, read_err = client_stats_get_percentile_err_trials(stats, 'read_rtt', percentile)
-    insert_rtt, insert_err = client_stats_get_percentile_err_trials(stats, 'insert_rtt', percentile)
+    read_rtt, read_err = client_stats_x_per_y_get_mean_std_multi_run_trials(stats, 'read_rtt_count', 'completed_read_count')
+    insert_rtt, insert_err = client_stats_x_per_y_get_mean_std_multi_run_trials(stats, 'insert_rtt_count', 'completed_insert_count')
+    # read_rtt, read_err = client_stats_get_percentile_err_trials(stats, 'read_rtt', percentile)
+    # insert_rtt, insert_err = client_stats_get_percentile_err_trials(stats, 'insert_rtt', percentile)
 
     # read_rtt, read_err = calculate_rtt(stats, 'read')
     # insert_rtt, insert_err = calculate_rtt(stats, 'insert')
@@ -642,6 +646,54 @@ def bandwidth(ax, stats, x_axis="clients"):
     state_machine_label = stats[0][0]['config']['state_machine']
     bandwidth_line(ax, stats, state_machine_label, x_axis)
     bandwidth_decoration(ax, x_axis)
+
+def get_corrupted_reads_per_mil_trials(stats):
+    corrupted_reads = []
+    corrupted_reads_error = []
+    for stat in stats:
+        run_corrupted_reads = []
+        for run in stat:
+            corrupted_reads_count = 0
+            read_count = 0
+            for client in run["clients"]:
+                corrupted_reads_count += int(client["stats"]["corrupted_chunks"])
+                read_count += int(client["stats"]["total_reads"])
+
+            if read_count == 0:
+                corrupted_reads_percent = 0
+            else:
+                read_count = float(read_count) / 1000000
+                corrupted_reads_percent = float(corrupted_reads_count)/float(read_count) 
+            run_corrupted_reads.append(float(corrupted_reads_percent))
+        run_average = np.mean(run_corrupted_reads)
+        run_std = np.std(run_corrupted_reads)
+        corrupted_reads.append(run_average)
+        corrupted_reads_error.append(run_std)
+    return corrupted_reads, corrupted_reads_error
+
+def corrupted_reads_line(ax, stats, label, x_axis="clients"):
+    percent_corrupted_reads, percent_corrupted_reads_err = get_corrupted_reads_per_mil_trials(stats)
+    x_axis_vals = get_x_axis(stats, x_axis)
+    h = ax.errorbar(x_axis_vals, percent_corrupted_reads, yerr=percent_corrupted_reads_err, label=label, linestyle=op_linestyles['insert'], marker=op_markers['insert'])
+    print("label=", label, "x_axis_vals=", x_axis_vals, "percent_corrupted_reads=", percent_corrupted_reads, "percent_corrupted_reads_err=", percent_corrupted_reads_err)
+    return h
+
+def corrupted_reads_decoration(ax, x_axis):
+    ax.set_ylabel("percent corrupted reads")
+    ax.set_xlabel(x_axis)
+    ax.set_ylim(bottom=0)
+    ax.legend()
+
+def corrupted_reads(ax, stats, x_axis="clients", label=None, decoration=False):
+    print("percent_corrupted_reads")
+    # stats = correct_stat_shape(stats)
+    if label is None:
+        state_machine_label = stats[0][0]['config']['state_machine']
+    else:
+        state_machine_label = label
+    corrupted_reads_line(ax, stats, state_machine_label, x_axis)
+    if decoration:
+       corrupted_reads_decoration(ax, x_axis)
 
 
 
@@ -1040,15 +1092,16 @@ def client_stats_get_mean_err_trials(stats, key):
 def detect_x_axis(stats):
     x_axis=[
         "clients",
-        "virtual lock scale factor",
         "table size",
         "max fill",
+        "entry size",
         "locks per message",
         "buckets per lock",
         "bucket size",
         "state machine",
         "read threshold bytes",
         "hash factor"
+        "chunk size"
     ]
     for axis in x_axis:
         if len(set(get_x_axis(stats,axis))) > 1:
@@ -1062,8 +1115,6 @@ def get_x_axis(stats, name):
         return get_client_x_axis(stats)
     elif name == "table size":
         return get_table_size_x_axis(stats)
-    elif name == "virtual lock scale factor":
-        return get_virtual_lock_scale_factor_x_axis(stats)
     elif name == "locks per message":
         return get_locks_per_message_x_axis(stats)
     elif name == "buckets per lock":
@@ -1078,6 +1129,10 @@ def get_x_axis(stats, name):
         return get_state_machine_x_axis(stats)
     elif name == "hash factor":
         return get_hash_factor_x_axis(stats)
+    elif name == "entry size":
+        return get_entry_size_x_axis(stats)
+    elif name == "chunk size":
+        return get_chunk_size_x_axis(stats)
     else:
         print("unknown x axis: ", name)
         exit(1)
@@ -1155,8 +1210,11 @@ def get_max_fill_x_axis(stats):
 def get_hash_factor_x_axis(stats):
     return get_config_axis(stats,'hash_factor')
 
-def get_virtual_lock_scale_factor_x_axis(stats):
-    return get_config_axis(stats,'virtual_lock_scale_factor')
+def get_entry_size_x_axis(stats):
+    return get_config_axis(stats,'entry_size')
+
+def get_chunk_size_x_axis(stats):
+    return get_config_axis(stats,'chunk_size')
 
 def calculate_total_runs(stats):
     s = np.array(stats).shape
@@ -1250,11 +1308,11 @@ def max_fill(stats):
 def search_function(stats):
     return ("search function", get_config_list(stats, "search_function"))
 
+def entry_size(stats):
+    return ("entry size", get_config_list(stats, "entry_size"))
+
 def is_deterministic(stats):
     return ("deterministic", get_config_list(stats, "deterministic"))
-
-def virtual_lock_scale_factor(stats):
-    return ("virtual lock scale factor", get_config_list(stats, "virtual_lock_scale_factor"))
 
 
 def general_stats(ax, stats):
@@ -1279,8 +1337,8 @@ def general_stats(ax, stats):
         bucket_size,
         max_fill,
         search_function,
+        entry_size,
         is_deterministic,
-        virtual_lock_scale_factor
     ]
     print(len(stats))
     for f in staistic_functions:

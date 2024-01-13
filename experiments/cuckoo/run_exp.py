@@ -72,6 +72,8 @@ config["workload"]="ycsb-w"
 config["id"]=str(0)
 config["search_function"]="bfs"
 config["location_function"]="dependent"
+config["virtual_lock_scale_factor"] = 1
+config["use_virtual_lock_table"] = "false"
 
 #Client State Machine Arguements
 total_inserts = 1
@@ -88,6 +90,12 @@ config["prime_fill"]=str(prime_fill)
 config["num_clients"]=str(num_clients)
 config["runtime"]=str(runtime)
 config["use_mask"]="true"
+
+#failure config
+config["simulate_failures"]="false"
+config["lock_timeout_us"]="10000"
+config["lease_timeout_us"]="10000"
+config["delay_between_failures_us"]="1000000000"
 
 #RDMA Engine Arguments
 config["server_address"]="192.168.1.12"
@@ -1121,6 +1129,9 @@ def run_hero_ycsb_update():
         # plot_general_stats_last_run(dirname=dirname)
 
 
+
+
+
 def plot_hero_ycsb_update():
     # workloads = ["ycsb-a", "ycsb-b", "ycsb-c", "ycsb-w"]
     workloads = ["ycsb-a", "ycsb-b"]
@@ -1141,8 +1152,114 @@ def plot_hero_ycsb_update():
     plt.tight_layout()
     plt.savefig("hero_ycsb-update.pdf")
 
-run_hero_ycsb_update()
-plot_hero_ycsb_update()
+def run_virtual_lock_table():
+    table_size = 1024 * 1024 * 10
+    memory_size = entry_size * table_size
+    clients = 24
+    config["indexes"] = str(table_size)
+    config["memory_size"] = str(memory_size)
+    config["search_function"]="bfs"
+
+    config["prime"]="true"
+    config["prime_fill"]="80"
+    config["max_fill"]="90"
+    config["num_clients"] = str(clients)
+
+
+    config["buckets_per_lock"] = str(1)
+    config["locks_per_message"] = str(locks_per_message)
+    config["read_threshold_bytes"] = str(128)
+    config["workload"] = "ycsb-a"
+    config['trials'] = 16
+
+    config["use_virtual_lock_table"]="true"
+    virtual_lock_scale_factors=[128,256,512,1024,2048,4096,8192]
+
+    orchestrator.boot(config.copy())
+    runs=[]
+    for scale_factor in virtual_lock_scale_factors:
+        lconfig = config.copy()
+        lconfig['virtual_lock_scale_factor'] = str(scale_factor)
+        runs.append(orchestrator.run_trials(lconfig))
+    dirname="data/virtual_lock_table"
+    dm.save_statistics(runs, dirname=dirname)
+
+def plot_virtual_lock_table():
+    fig, axs = plt.subplots(1,2, figsize=(12,3))
+    dirname="data/virtual_lock_table"
+    stats = dm.load_statistics(dirname=dirname)
+    stats=stats[0]
+    ax = axs[0]
+    plot_cuckoo.throughput(ax, stats, x_axis="virtual lock scale factor", decoration=False, label="cuckoo")
+    ax.legend()
+    ax.set_xlabel("lock table scale factor")
+    ax.set_ylabel("throughput \n(ops/rtts)*clients")
+    ax.set_title("ycsb-w")
+
+
+
+    ax = axs[1]
+    # plot_cuckoo.get_x_axis(stats, "virtual_lock_scale_factor")
+    plot_cuckoo.retry_breakdown(ax, stats, x_axis="virtual lock scale factor", decoration=True, label="cuckoo")
+    ax.legend()
+    # ax.set_xlabel("virtual lock scale factor")
+    # ax.set_ylabel("throughput \n(ops/rtts)*clients")
+    ax.set_title("ycsb-w")
+
+    plt.tight_layout()
+    plt.savefig("virtual_lock_table.pdf")
+
+def run_fault_rate():
+    print("Running Fault Rate")
+    table_size = 1024 * 1024 * 10
+    memory_size = entry_size * table_size
+    clients = 24
+    # clients = [10,20,40,80,160,320,400]
+    # clients = [160]
+    # clients = [400]
+    config["indexes"] = str(table_size)
+    config["memory_size"] = str(memory_size)
+    config["search_function"]="bfs"
+
+    config["prime"]="true"
+    config["prime_fill"]="60"
+    config["max_fill"]="90"
+
+
+    config["buckets_per_lock"] = str(1)
+    config["locks_per_message"] = str(locks_per_message)
+    config["read_threshold_bytes"] = str(128)
+
+    config['trials'] = 1
+    config["num_clients"]=clients
+    config["workload"]="ycsb-a"
+
+    config["runtime"]=str(5)
+    # workloads = ["ycsb-w"]
+    # workloads=["ycsb-a"]
+    delay_between_failures_us=[1000000,500000,250000,125000,62500,31250,15625,7812,3906,1953,976]
+    # delay_between_failures_us=[1000000]
+
+    runs=[]
+    orchestrator.boot(config.copy())
+    for delay in delay_between_failures_us:
+        lconfig=config.copy()
+        lconfig["delay_between_failures_us"]=str(delay)
+        runs.append(orchestrator.run_trials(lconfig))
+    dirname="data/fault-rate"
+    dm.save_statistics(runs, dirname=dirname)
+
+def plot_fault_rate():
+    print("TODO")
+
+run_fault_rate()
+plot_fault_rate()
+
+# run_virtual_lock_table()
+# plot_virtual_lock_table()
+
+# run_hero_ycsb_update()
+# plot_hero_ycsb_update()
 
 
 # search_success_lock_size()
