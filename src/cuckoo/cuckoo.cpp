@@ -507,6 +507,7 @@ namespace cuckoo_rcuckoo {
         _wr_id++;
 
 
+
         bool inside_rows = read_message.row < _table.get_row_count();
         bool inside_buckets = read_message.offset < _table.get_buckets_per_row();
         if (!inside_rows) {
@@ -536,6 +537,7 @@ namespace cuckoo_rcuckoo {
             _wr_id
         );
         _wr_id++;
+        wr[1].exp_send_flags |= IBV_EXP_SEND_FENCE;
         INFO("send lock and cover", "read: row, offset, size %d, %d, %d\n", read_message.row, read_message.offset, read_message.size);
         
         send_bulk(READ_AND_COVER_MESSAGE_COUNT, _qp, wr);
@@ -562,7 +564,7 @@ namespace cuckoo_rcuckoo {
 
     void RCuckoo::send_read(vector <VRReadData> reads) {
 
-        #define MAX_READ_PACKETS 2
+        #define MAX_READ_PACKETS 64
         struct ibv_sge sg [MAX_READ_PACKETS];
         struct ibv_exp_send_wr wr [MAX_READ_PACKETS];
         assert(reads.size() <= MAX_READ_PACKETS);
@@ -707,20 +709,30 @@ namespace cuckoo_rcuckoo {
         }
         lock_string += "]";
 
-        if (fault == FAULT_CASE_0 || fault == FAULT_CASE_4) {
-            total_messages=0;
-        }
-
-        if (fault == FAULT_CASE_1) {
-            total_messages=1;
-        }
-
-        if (fault == FAULT_CASE_2) {
-            total_messages=2;
-        }
-
-        if (fault == FAULT_CASE_3) {
-            total_messages=3;
+        if (insert_messages.size() > 1) {
+            if (fault == FAULT_CASE_0 || fault == FAULT_CASE_4) {
+                total_messages=0;
+            }
+            if (fault == FAULT_CASE_1) {
+                total_messages=1;
+            }
+            if (fault == FAULT_CASE_2) {
+                total_messages=2;
+            }
+            if (fault == FAULT_CASE_3) {
+                total_messages=3;
+            }
+        } else if (insert_messages.size() == 1) {
+            if (fault == FAULT_CASE_0) {
+                total_messages=0;
+            }
+            if (fault == FAULT_CASE_3) {
+                total_messages=1;
+            }
+        } else {
+            //we can only generate case 0
+            ALERT("FAILURE FAULTING", "we should not be inserting with path length 0 HOW?");
+            exit(0);
         }
 
         _faults_injected++;
@@ -732,7 +744,16 @@ namespace cuckoo_rcuckoo {
             bulk_poll(_completion_queue,1,_wc);
         }
 
-        ALERT(log_id(), "Fault #%d injected on locks %s %s. Sleeping for %d %ss", fault, lock_string.c_str(), "\U0001F608",max_fault_rate_us, "\u00b5");
+        string bucket_string = "[";
+        for (int i=0;i<total_messages;i++) {
+            bucket_string += std::to_string(_search_context.path[i].bucket_index);
+            if (i < _search_context.path.size() -1){
+                bucket_string += ",";
+            }
+        }
+        bucket_string += "]";
+
+        ALERT(log_id(), "Fault #%d injected on locks %s and buckets %s %s. Sleeping for %d %ss", fault, lock_string.c_str(), bucket_string.c_str(), "\U0001F608",max_fault_rate_us, "\u00b5");
         usleep(max_fault_rate_us);
         return true;
     }
@@ -749,14 +770,27 @@ namespace cuckoo_rcuckoo {
         #endif
 
 
-
+        int fault = -1;
         if (_simulate_failures) {
             if (_id == 0 ){
-                int fault = rand()%FAULT_CASE_4;
-                bool injected_fault = send_insert_crc_and_unlock_messages_with_fault(insert_messages,unlock_messages,fault,_delay_between_failures_us);
-                if (injected_fault) {
-                    return;
+                if (insert_messages.size() > 1){
+                    fault = rand()%FAULT_CASE_4;
+                } else if (insert_messages.size() == 1) {
+                    //we can only generate case 0, 3
+                    fault = rand()%2;
+                    if (fault == 0) {
+                        fault = FAULT_CASE_0;
+                    } else {
+                        fault = FAULT_CASE_3;
+                    }
+                } 
+                if (fault >= 0) {
+                    bool injected_fault = send_insert_crc_and_unlock_messages_with_fault(insert_messages,unlock_messages,fault,_delay_between_failures_us);
+                    if (injected_fault) {
+                        return;
+                    }
                 }
+
             }
         }
 
@@ -1043,6 +1077,9 @@ namespace cuckoo_rcuckoo {
         } else if (!_table.crc_valid_row(hloc.secondary)){
             broken_row = hloc.secondary;
         } else {
+
+            ALERT(log_id(), "Checking row %d %s",hloc.primary,_table.row_to_string(hloc.primary).c_str());
+            ALERT(log_id(), "Checking row %d %s",hloc.secondary, _table.row_to_string(hloc.secondary).c_str());
             ALERT(log_id(), "We are attemptying to repair, however neither of the rows has a bad CRC crashing...");
             exit(0);
         }
@@ -1207,10 +1244,12 @@ namespace cuckoo_rcuckoo {
             }
             //If we find that the CRC is bad here, we know that we are in state 1 or 3
             if (!_table.crc_valid_row(row)) {
-                INFO(log_id(), "Bucket %d is corrupted, in recovery state %d or %d",row, FAULT_CASE_1, FAULT_CASE_3);
+                ALERT(log_id(), "Bucket %d is corrupted, in recovery state %d or %d",row, FAULT_CASE_1, FAULT_CASE_3);
                 if(bad_crc) {
                     ALERT(log_id(), "We have found more than one corrupted CRC behind a lock. This is an unknown error condition. Crashing...");
-                    exit(0);
+                    ALERT(log_id(), "Failure Row %s",_table.row_to_string(row).c_str());
+                    ALERT(log_id(), "For now we are not going to exit, we are going to leave a broken row so that I can take the measurement Jan 12 2023");
+                    // exit(0);
                 }
                 bad_crc=true;
             }
@@ -1226,6 +1265,7 @@ namespace cuckoo_rcuckoo {
         bool found_duplicates = false;
         Entry broken_entry;
         for(int i=0;i<entries_to_check.size();i++){
+            bad_crc = false;
             //TODO I can issue these in bulk and deduplicate read rows for better performance.
             //TODO I'm issuing one read at a time because it's a bit easier for me
             Entry e = entries_to_check[i];
@@ -1269,7 +1309,7 @@ namespace cuckoo_rcuckoo {
         }
 
         //At this point we have the error code corretly determined
-        WARNING(log_id(), "Error State %d detected on lock %d Begin Repair...",error_state, lock);
+        ALERT(log_id(), "Error State %d detected on lock %d Begin Repair...",error_state, lock);
         repair_table(broken_entry,error_state);
 
         //Final step is to release the lock
@@ -1297,7 +1337,7 @@ namespace cuckoo_rcuckoo {
             }
         }
         lock_string += "]";
-        WARNING(log_id(), "😇 Repaired Locks %s from failures case %d", lock_string.c_str(), error_state);
+        ALERT(log_id(), "😇 Repaired Locks %s from failures case %d", lock_string.c_str(), error_state);
         #endif
 
         vector<VRCasData> insert_messages;
