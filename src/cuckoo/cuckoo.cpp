@@ -753,7 +753,7 @@ namespace cuckoo_rcuckoo {
         }
         bucket_string += "]";
 
-        ALERT(log_id(), "Fault #%d injected on locks %s and buckets %s %s. Sleeping for %d %ss", fault, lock_string.c_str(), bucket_string.c_str(), "\U0001F608",max_fault_rate_us, "\u00b5");
+        WARNING(log_id(), "Fault #%d injected on locks %s and buckets %s %s. Sleeping for %d %ss", fault, lock_string.c_str(), bucket_string.c_str(), "\U0001F608",max_fault_rate_us, "\u00b5");
         usleep(max_fault_rate_us);
         return true;
     }
@@ -1244,7 +1244,7 @@ namespace cuckoo_rcuckoo {
             }
             //If we find that the CRC is bad here, we know that we are in state 1 or 3
             if (!_table.crc_valid_row(row)) {
-                ALERT(log_id(), "Bucket %d is corrupted, in recovery state %d or %d",row, FAULT_CASE_1, FAULT_CASE_3);
+                INFO(log_id(), "Bucket %d is corrupted, in recovery state %d or %d",row, FAULT_CASE_1, FAULT_CASE_3);
                 if(bad_crc) {
                     ALERT(log_id(), "We have found more than one corrupted CRC behind a lock. This is an unknown error condition. Crashing...");
                     ALERT(log_id(), "Failure Row %s",_table.row_to_string(row).c_str());
@@ -1309,7 +1309,7 @@ namespace cuckoo_rcuckoo {
         }
 
         //At this point we have the error code corretly determined
-        ALERT(log_id(), "Error State %d detected on lock %d Begin Repair...",error_state, lock);
+        WARNING(log_id(), "Error State %d detected on lock %d Begin Repair...",error_state, lock);
         repair_table(broken_entry,error_state);
 
         //Final step is to release the lock
@@ -1337,7 +1337,7 @@ namespace cuckoo_rcuckoo {
             }
         }
         lock_string += "]";
-        ALERT(log_id(), "😇 Repaired Locks %s from failures case %d", lock_string.c_str(), error_state);
+        // ALERT(log_id(), "😇 Repaired Locks %s from failures case %d", lock_string.c_str(), error_state);
         #endif
 
         vector<VRCasData> insert_messages;
@@ -1701,9 +1701,6 @@ namespace cuckoo_rcuckoo {
         _locking_context.buckets.push_back(buckets.max_bucket());
 
         bool have_locks = top_level_aquire_locks();
-        // while(!have_locks) {
-        //     have_locks = top_level_aquire_locks();
-        // }
 
         bool b1 = _table.bucket_contains(buckets.primary, _current_update_key);
         bool b2 = _table.bucket_contains(buckets.secondary, _current_update_key);
