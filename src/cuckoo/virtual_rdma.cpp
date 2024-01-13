@@ -561,6 +561,26 @@ namespace cuckoo_virtual_rdma {
         return;
     }
 
+    void get_covering_reads_for_update(LockingContext context, vector<vector<VRReadData>> &read_data_list, Table& table, unsigned int buckets_per_lock) {
+        //This is a very special case, we should need only 1 or two locks and they should both be ordered.
+        assert(context.lock_list.size() <=2);
+        assert(context.buckets.size() ==2);
+        assert(context.buckets[0] < context.buckets[1]);
+
+        read_data_list.clear();
+        if (context.lock_list.size() == 1) {
+            read_data_list.push_back(vector<VRReadData>());
+            read_data_list[0].push_back(read_request_data(context.buckets[0], 0, table.row_size_bytes()));
+            read_data_list[0].push_back(read_request_data(context.buckets[1], 0, table.row_size_bytes()));
+        } else {
+            read_data_list.push_back(vector<VRReadData>());
+            read_data_list.push_back(vector<VRReadData>());
+            read_data_list[0].push_back(read_request_data(context.buckets[0], 0, table.row_size_bytes()));
+            read_data_list[1].push_back(read_request_data(context.buckets[1], 0, table.row_size_bytes()));
+        }
+        return;
+    }
+
     VRCasData cas_table_entry_cas_data(unsigned int bucket_index, unsigned int bucket_offset, Key old, Key new_value) {
         VRCasData cas_message;
         cas_message.row = bucket_index;

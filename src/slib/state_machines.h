@@ -218,6 +218,7 @@ namespace state_machines {
         AQUIRE_LOCKS,
         RELEASE_LOCKS_TRY_AGAIN,
         INSERTING,
+        UPDATING,
     };
 
     const char* get_client_state_name(client_state state);

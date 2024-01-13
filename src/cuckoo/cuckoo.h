@@ -87,7 +87,7 @@ namespace cuckoo_rcuckoo {
 
             void rdma_fsm(void);
             void init_rdma_structures(rdma_info info);
-            bool top_level_aquire_locks();
+            bool top_level_aquire_locks(bool covering_reads);
             void put_direct();
             void get_direct(void);
             void insert_direct();

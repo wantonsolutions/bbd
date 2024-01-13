@@ -509,7 +509,7 @@ namespace cuckoo_rcuckoo {
             false,
             _wr_id);
         _wr_id++;
-
+        wr[0].exp_send_flags |= IBV_EXP_SEND_FENCE;
 
         for (int i=0;i<read_messages.size();i++){
 
@@ -562,11 +562,11 @@ namespace cuckoo_rcuckoo {
 
         //Increment Measurement Counters
 
-        // int outstanding_messages = 1; //It's two because we send the read and CAS
-        int n = bulk_poll(_completion_queue, 1, _wc);
-        // while (n < outstanding_messages) {
-        //     n += bulk_poll(_completion_queue, outstanding_messages - n, _wc + n);
-        // }
+        int outstanding_messages = 1; //It's two because we send the read and CAS
+        int n = bulk_poll(_completion_queue, outstanding_messages, _wc);
+        while (n < outstanding_messages) {
+            n += bulk_poll(_completion_queue, outstanding_messages - n, _wc + n);
+        }
 
         //This is just extra safty we can probably remove it
         // _outstanding_read_requests--;
@@ -785,7 +785,7 @@ namespace cuckoo_rcuckoo {
         }
         bucket_string += "]";
 
-        WARNING(log_id(), "Fault #%d injected on locks %s and buckets %s %s. Sleeping for %d %ss", fault, lock_string.c_str(), bucket_string.c_str(), "\U0001F608",max_fault_rate_us, "\u00b5");
+        ALERT(log_id(), "Fault #%d injected on locks %s and buckets %s %s. Sleeping for %d %ss", fault, lock_string.c_str(), bucket_string.c_str(), "\U0001F608",max_fault_rate_us, "\u00b5");
         usleep(max_fault_rate_us);
         return true;
     }
@@ -851,6 +851,7 @@ namespace cuckoo_rcuckoo {
             set_unlock_message(unlock_messages[i], &sg[i + insert_messages_with_crc], &wr[i + insert_messages_with_crc], &_wr_id);
             // ALERT("ROW CRC", "sending unlock message %d %lX %lX\n", unlock_messages[i].min_lock_index, unlock_messages[i].old, unlock_messages[i].new_value);
         }
+        wr[insert_messages_with_crc].exp_send_flags |= IBV_EXP_SEND_FENCE;
         set_signal(&wr[total_messages-1]);
         //Send and receive messages
         send_bulk(total_messages, _qp, wr);
@@ -1408,11 +1409,16 @@ namespace cuckoo_rcuckoo {
 
 
     //Precondition _locking_context.buckets contains the locks we want to get
-    bool RCuckoo::top_level_aquire_locks() {
+    bool RCuckoo::top_level_aquire_locks(bool covering_reads) {
         get_lock_list_fast_context(_locking_context);
         INFO(log_id(), "[aquire_locks] gathering locks for buckets %s\n", vector_to_string(_locking_context.buckets).c_str());
 
-        get_covering_reads_context(_locking_context, _covering_reads, _table, _buckets_per_lock);
+        if (covering_reads) {
+            get_covering_reads_context(_locking_context, _covering_reads, _table, _buckets_per_lock);
+        } else {
+            get_covering_reads_for_update(_locking_context, _covering_reads, _table, _buckets_per_lock);
+        }
+
         for (unsigned int i = 0; i < _locking_context.lock_list.size(); i++) {
             INFO(log_id(), "[aquire_locks] lock %d -> [lock %s] [read %s]\n", i, _locking_context.lock_list[i].to_string().c_str(), _covering_reads[i].to_string().c_str());
         }
@@ -1420,8 +1426,6 @@ namespace cuckoo_rcuckoo {
             ALERT(log_id(), "[aquire_locks] lock_list.size() != covering_reads.size() %lu != %lu\n", _locking_context.lock_list.size(), _covering_reads.size());
             exit(1);
         }
-
-
         assert(_locking_context.lock_list.size() == _covering_reads.size());
 
         bool locking_complete = false;
@@ -1476,7 +1480,7 @@ namespace cuckoo_rcuckoo {
                     clear_retry_counter(retries);
 
                     unsigned int lock_we_will_reclaim = get_reclaim_lock(lock, timed_out_lock);
-                    WARNING(log_id(), "Timed out on lock %d", lock_we_will_reclaim)
+                    ALERT(log_id(), "Timed out on lock %d", lock_we_will_reclaim)
                     INFO(log_id(), "Timeout while Inserting %s. Begin reclaim, while holding %d locks", _current_insert_key.to_string().c_str(), message_index);
                     bool aquired=false;
                     int lease_retries=0;
@@ -1643,7 +1647,8 @@ namespace cuckoo_rcuckoo {
         search_path_to_buckets_fast(_search_context.path, _locking_context.buckets);
         VERBOSE("locally computed path", "key %s path %s\n", _current_insert_key.to_string().c_str(), path_to_string(_search_context.path).c_str());
 
-        bool have_locks = top_level_aquire_locks();
+        bool covering_reads = true;
+        bool have_locks = top_level_aquire_locks(covering_reads);
         if(!have_locks){
             ALERT(log_id(), "Unable to aquire locks for key %s\n", _current_insert_key.to_string().c_str());
             exit(1);
@@ -1698,7 +1703,8 @@ namespace cuckoo_rcuckoo {
         _locking_context.buckets.push_back(buckets.min_bucket());
         _locking_context.buckets.push_back(buckets.max_bucket());
 
-        bool have_locks = top_level_aquire_locks();
+        bool covering_reads = false;
+        bool have_locks = top_level_aquire_locks(covering_reads);
 
         bool b1 = _table.bucket_contains(buckets.primary, _current_update_key);
         bool b2 = _table.bucket_contains(buckets.secondary, _current_update_key);
@@ -1711,40 +1717,36 @@ namespace cuckoo_rcuckoo {
         } else if (b2) {
             SUCCESS("[update-direct]", "%2d found key %s in secondary bucket\n", _id, _current_update_key.to_string().c_str());
             bucket = buckets.secondary;
+        } 
+        
+        _insert_messages.clear();
+        if (success) {
+            VRCasData insert;
+            insert.row = bucket;
+            insert.offset = _table.get_keys_offset_in_row(bucket, _current_update_key);
+            insert.new_value = 0xFFFFFFFFFFFFFFFF;
+            _insert_messages.push_back(insert);
         } else {
-            ALERT("[update-direct]", "%2d did not find key %s \n", _id, _current_update_key.to_string().c_str());
-            ALERT("[update-direct]", "primany,seconday [%d,%d]\n", buckets.primary, buckets.secondary);
-            return;
+            WARNING("[update-direct]", "%2d did not find key %s \n", _id, _current_update_key.to_string().c_str());
+            if (_covering_reads.size() == 2){
+                WARNING("[update-direct]", "primany,seconday [%d,%d] - read p[%d,%d]\n", buckets.primary, buckets.secondary, _covering_reads[0][0].row, _covering_reads[1][0].row);
+            } else {
+                WARNING("[update-direct]", "primany,seconday [%d,%d] - read p[%d,%d]\n", buckets.primary, buckets.secondary, _covering_reads[0][0].row, _covering_reads[0][1].row);
+            }
         }
 
-        VRCasData insert;
-        insert.row = bucket;
-        insert.offset = _table.get_keys_offset_in_row(bucket, _current_update_key);
-        insert.new_value = 1337;
-        _insert_messages.clear();
-        _insert_messages.push_back(insert);
         //get offset
 
         _locking_message_index = 0;
         fill_current_unlock_list();
 
         INFO("update direct", "about to unlock a total of %d lock messages\n", _locking_context.lock_list.size());
-        unsigned int total_messages = _locking_context.lock_list.size();
-
         #ifdef ROW_CRC
         send_insert_crc_and_unlock_messages(_insert_messages, _locking_context.lock_list);
         #else
         send_insert_and_unlock_messages(_insert_messages, _locking_context.lock_list, _wr_id);
         #endif
 
-        //Bulk poll to receive all messages
-        // if (_id == 0) {
-        //     printf("start poll\n");
-        // }
-        // bulk_poll(_completion_queue, 1, _wc + 1);
-        // if (_id == 0) {
-        //     printf("end poll\n");
-        // }
         _locks_held.clear();
         complete_update(success);
 

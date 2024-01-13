@@ -137,6 +137,8 @@ namespace cuckoo_virtual_rdma {
 
 
     VRReadData get_covering_read_from_lock(VRMaskedCasData masked_cas, unsigned int buckets_per_lock, unsigned int row_size_bytes);
+
+    void get_covering_reads_for_update(LockingContext context, vector<vector<VRReadData>> &read_data_list, Table& table, unsigned int buckets_per_lock);
     unsigned int byte_aligned_index(unsigned int index);
     unsigned int sixty_four_aligned_index(unsigned int index);
     unsigned int get_min_sixty_four_aligned_index(vector<unsigned int> &indexes);
