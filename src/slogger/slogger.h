@@ -12,6 +12,7 @@ using namespace replicated_log;
 
 #define MAX_CONCURRENT_MESSAGES 32
 #define ID_SIZE 64
+#define NOOP_BUFFER_SIZE 1024 * 1024 * 8
 
 enum log_entry_types {
     control = 0,
@@ -41,8 +42,11 @@ namespace slogger {
 
 
             void Write_Operation(void* op, int size);
+            void Write_NoOp(int size);
             void * Next_Operation();
             uint64_t local_to_remote_log_address(uint64_t local_address);
+
+            void fill_allocated_log_with_noops(uint64_t size);
 
             void init_rdma_structures(rdma_info info);
             void fsm();

@@ -14,7 +14,7 @@ namespace replicated_log {
         uint16_t size;
         uint8_t type;
         string ToString();
-        bool is_vaild_entry() {return this->size > 0;}
+        bool is_vaild_entry() {return this->size >= 0;}
         int Get_Total_Entry_Size();
     } Log_Entry;
 
@@ -30,6 +30,7 @@ namespace replicated_log {
             void Reset_Tail_Pointer();
             void Chase_Tail_Pointer();
             void Chase_Locally_Synced_Tail_Pointer();
+            void Check_And_Roll_Over_Tail_Pointer(uint64_t *tail_pointer);
             Log_Entry * Next_Locally_Synced_Tail_Pointer();
             Log_Entry * Next_Operation();
 

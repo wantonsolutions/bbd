@@ -10,6 +10,9 @@
 using namespace replicated_log;
 using namespace rdma_helper;
 
+char no_op_buffer[NOOP_BUFFER_SIZE];
+
+
 namespace slogger {
 
 
@@ -164,7 +167,13 @@ namespace slogger {
         uint64_t add  = le.Get_Total_Entry_Size();
         uint64_t current_tail_value = _replicated_log.get_tail_pointer();
 
-        // ALERT("SLOG", "MFAA_Allocate_Log_Entry: local_tail_pointer_address %lu, remote_tail_pointer_address %lu, add %lu, current_tail_value %lu", local_tail_pointer_address, remote_tail_pointer_address, add, current_tail_value);
+        // ALERT("SLOG", "MFAA_Allocate_Log_Entry:
+        // local_tail_pointer_address %lu,
+        // remote_tail_pointer_address %lu, add %lu,
+        // current_tail_value %lu",
+        // local_tail_pointer_address,
+        // remote_tail_pointer_address, add,
+        // current_tail_value);
 
 
 
@@ -190,14 +199,41 @@ namespace slogger {
 
         // printf("FETCH AND ADD DONE tail value at the time of the faa is %lu\n", _replicated_log.get_tail_pointer());
 
-        // ALERT("TODO", "Here is where we need to perform some roll over calculations. If the size we requested + the current tail pointer is greater than the size of the log, then we need to roll over the tail pointer. We also need to roll over the tail pointer if the size we requested + the current tail pointer is greater than the size of the log minus the size of the log header. We also need to roll over the tail pointer if the size we requested + the current tail pointer is greater than the size of the log minus the size of the log header minus the size of the log footer. We also need to roll over the tail pointer if the size we requested + the current tail pointer is greater than the size of the log minus the size of the log header minus the size of the log footer minus the size of the log control. We also need to roll over the tail pointer if the size we requested + the current tail pointer is greater than the size of the log minus the size of the log header minus the size of the log footer minus the size of the log control minus the size of the log control.");
+        // ALERT("TODO", "Here is where we need to perform
+        // some roll over calculations. If the size we
+        // requested + the current tail pointer is greater
+        // than the size of the log, then we need to roll
+        // over the tail pointer. We also need to roll over
+        // the tail pointer if the size we requested + the
+        // current tail pointer is greater than the size of
+        // the log minus the size of the log header. We also
+        // need to roll over the tail pointer if the size we
+        // requested + the current tail pointer is greater
+        // than the size of the log minus the size of the
+        // log header minus the size of the log footer. We
+        // also need to roll over the tail pointer if the
+        // size we requested + the current tail pointer is
+        // greater than the size of the log minus the size
+        // of the log header minus the size of the log
+        // footer minus the size of the log control. We also
+        // need to roll over the tail pointer if the size we
+        // requested + the current tail pointer is greater
+        // than the size of the log minus the size of the
+        // log header minus the size of the log footer minus
+        // the size of the log control minus the size of the
+        // log control.");
+
+        ALERT("SLOG", "Tail Pointer %lu", _replicated_log.get_tail_pointer());
 
         if (_replicated_log.get_tail_pointer() + add > _replicated_log.get_memory_size()) {
             ALERT("SLOG", "ALERT we have detected that we are on the boundry and need to do the roll over");
+            fill_allocated_log_with_noops(add);
+            MFAA_Allocate_Log_Entry(le);
+            ALERT("SLOG", "ALERT we have rolled over and completed the allocation");
         }
 
 
-        assert(current_tail_value <= _replicated_log.get_tail_pointer());
+        // assert(current_tail_value <= _replicated_log.get_tail_pointer());
         #ifdef MEASURE_ESSENTIAL
         uint64_t request_size = RDMA_FAA_REQUEST_SIZE + RDMA_FAA_RESPONSE_SIZE;
         _faa_bytes += request_size;
@@ -211,8 +247,37 @@ namespace slogger {
         //Also the remote tail is allocated
 
         return true;
+    }
 
+    void SLogger::fill_allocated_log_with_noops(uint64_t size) {
+        //The first thing we need to do is construct two no-ops one at the beginning and one at the end of the log
+        //This function should only be called when we have a region of the log allocated that spans the log and must be 
+        //broken into two pieces.
+        // log [xxx______xxxx]
+        // imagine that we called allocate and got size x = 7 but it rolled over
+        // now we are going to allocate two entries of size 4 at the end, and size 3 at the beginning
 
+        assert(_replicated_log.get_tail_pointer() + size > _replicated_log.get_memory_size());
+        uint64_t first_entry_size = _replicated_log.get_memory_size() - _replicated_log.get_tail_pointer();
+        uint64_t second_entry_size = size - first_entry_size;
+        //we have to make sure that the log entries can fit.
+        //If they cant we are in trouble.
+        //One fix is to make sure that the log entries can always fit in a byte.
+        //That is not the case for now
+        ALERT("SLOG", "Filling log with noops. First entry size %lu, second entry size %lu", first_entry_size, second_entry_size);
+
+        assert(first_entry_size >= sizeof(Log_Entry) || first_entry_size == 0);
+        assert(second_entry_size >= sizeof(Log_Entry) || second_entry_size == 0);
+
+        if (first_entry_size > 0) {
+            Write_NoOp(first_entry_size - sizeof(Log_Entry));
+            ALERT("SLOG", "Wrote first noop");
+        }
+        if (second_entry_size > 0) {
+            Write_NoOp(second_entry_size - sizeof(Log_Entry));
+            ALERT("SLOG", "Wrote second noop");
+        }
+        Sync_To_Last_Write();
     }
 
     void * SLogger::Next_Operation() {
@@ -239,6 +304,16 @@ namespace slogger {
         if((this->*_allocate_log_entry)(le)) {
             Write_Log_Entry(le, op);
         }
+    }
+
+    //Assumes that we have memory allready allocated
+    void SLogger::Write_NoOp(int size) {
+        Log_Entry le;
+        le.type = log_entry_types::control;
+        le.size = size;
+        //No Op buffer is only here so we have something to put in the NoOp
+        memset(no_op_buffer, 0, size);
+        Write_Log_Entry(le, no_op_buffer);
     }
 
     bool SLogger::CAS_Allocate_Log_Entry(Log_Entry &bs) {

@@ -138,7 +138,7 @@ int main(int argc, char **argv)
         ALERT("parse error", "ERROR Too many arguemnts Usage: ./rdma_server <config_file>\n");
         exit(1);
     }
-    string config_filename = "configs/default_config.json";
+    string config_filename = "configs/slogger_default.json";
     if (argc == 2) {
         config_filename = argv[1];
     }

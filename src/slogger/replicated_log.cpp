@@ -62,17 +62,28 @@ namespace replicated_log {
         return true;
     }
 
+    void Replicated_Log::Check_And_Roll_Over_Tail_Pointer(uint64_t *tail_pointer) {
+        if (*tail_pointer == this->_memory_size) {
+            ALERT("REPLICATED_LOG", "we are perfectly at the end of the log rolling over\n");
+            *tail_pointer = 0;
+        }
+    }
+
 
     void Replicated_Log::Append_Log_Entry(Log_Entry &bs, void * data) {
 
         int total_entry_size = bs.size + sizeof(Log_Entry);
         if (!this->Can_Append(bs)) {
-            return;
-        }
+            ALERT("REPLICATED_LOG", "not enough space in log. Total size %d, remaining size %d, log size %d", total_entry_size, this->_memory_size - this->_tail_pointer, this->_memory_size);
+            ALERT("REPLICATED_LOG", "we are not at the end of the log, something is wrong\n");
+            exit(0);
+        } 
         uint64_t old_tail_pointer = (uint64_t) this->_log + this->_tail_pointer;
         this->_tail_pointer += total_entry_size;
         memcpy((void*) old_tail_pointer, (void*) &bs, sizeof(Log_Entry));
         memcpy((void*) (old_tail_pointer + sizeof(Log_Entry)), data, bs.size);
+
+        Check_And_Roll_Over_Tail_Pointer(&this->_tail_pointer);
     }
 
     void Replicated_Log::Print_All_Entries() {
@@ -107,6 +118,8 @@ namespace replicated_log {
         Log_Entry * bs = (Log_Entry*) ((uint64_t) this->_log + *tail_pointer);
         while(bs->is_vaild_entry()) {
             *tail_pointer += bs->size + sizeof(Log_Entry);
+            //Perform local roll over
+            Check_And_Roll_Over_Tail_Pointer(tail_pointer);
             bs = (Log_Entry*) ((uint64_t) this->_log + *tail_pointer);
         }
     }
