@@ -329,7 +329,7 @@ int RDMAConnectionManager::client_setup_shared_resources()
 
 
 
-    CheckCapabilities();
+    // CheckCapabilities();
 
     /* Create shared resources for all conections per device i.e., cq, pd, etc */
     /* Protection Domain (PD) is similar to a "process abstraction" 

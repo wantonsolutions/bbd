@@ -419,6 +419,15 @@ namespace cuckoo_virtual_rdma {
         unlock_chunks_to_masked_cas_data_context(context);
     }
 
+    void fast_get_unlock_list_from_lock_indexes(LockingContext &context) {
+        //assume we have the lock list
+        for (size_t i=0; i<context.lock_list.size(); i++) {
+            context.lock_list[i].old = context.lock_list[i].new_value;
+            context.lock_list[i].new_value = 0;
+        }
+        return;
+    }
+
     unsigned int get_unique_lock_indexes_fast(vector<unsigned int> &buckets, unsigned int buckets_per_lock, unsigned int *unique_buckets, unsigned int unique_buckets_size)
     {
         assert(unique_buckets_size >= buckets.size());

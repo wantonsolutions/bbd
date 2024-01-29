@@ -129,6 +129,7 @@ namespace cuckoo_virtual_rdma {
     unsigned int get_unique_lock_indexes_fast(vector<unsigned int> &buckets, unsigned int buckets_per_lock, unsigned int *unique_buckets, unsigned int unique_buckets_size);
 
     void get_lock_or_unlock_list_fast_context(LockingContext & context);
+    void fast_get_unlock_list_from_lock_indexes(LockingContext &context);
     void get_unlock_list_from_lock_indexes(LockingContext &context);
     void get_lock_list_fast_context(LockingContext &context);
     void get_unlock_list_fast_context(LockingContext &context);

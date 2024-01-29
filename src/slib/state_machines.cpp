@@ -4,6 +4,7 @@
 #include <unordered_map>
 #include <vector>
 #include <any>
+#include <fstream>
 
 #include "state_machines.h"
 #include "util.h"
@@ -330,6 +331,30 @@ namespace state_machines {
         _last_request = Request();
     }
 
+    void Client_Workload_Driver::read_in_distribution_from_file(string filename){
+        string filename_with_path = "workloads/"+filename;
+        ifstream infile(filename_with_path);
+        if(!infile.is_open()){
+            ALERT("ERROR", "Could not open file %s\n", filename_with_path.c_str());
+            exit(0);
+        }
+        try {
+            string line;
+            while (getline(infile, line)) {
+                int key = stoi(line);
+                // ALERT("DEBUG", "Read in key %d", key);
+                key_distribution.push_back(key);
+            }
+        } catch (exception& e) {
+            printf("ERROR: Client_Workload_Driver config missing required field :%s \n", e.what());
+            infile.close();
+            exit(0);
+        }
+        string id = to_string(_client_id);
+        ALERT(filename.c_str(), "Read in %lu keys", key_distribution.size());
+        infile.close();
+    }
+
     Client_Workload_Driver::Client_Workload_Driver(unordered_map<string, string> config) {
         _completed_requests = 0;
         _completed_puts = 0;
@@ -353,6 +378,12 @@ namespace state_machines {
             printf("ERROR: Client_Workload_Driver config missing required field :%s \n", e.what());
             throw logic_error("ERROR: Client_Workload_Driver config missing required field");
         }
+
+        // string workload_filename = config["workload_filename"];
+        // string workload_filename = "zipf_50.txt";
+        string workload_filename = "zipf_99.txt";
+        // string workload_filename = "uniform.txt";
+        read_in_distribution_from_file(workload_filename);
         
         if (_deterministic) {
             _random_factor = 1;
@@ -422,10 +453,23 @@ namespace state_machines {
         return key;
     }
 
+    Key Client_Workload_Driver::unique_update(int get_index, int client_id, int total_clients, int factor) {
+        uint64_t key_int = ((get_index + 1) * total_clients * factor) + client_id;
+        Key key;
+        key.set(key_int);
+        return key;
+    }
+
     Key Client_Workload_Driver::unique_get(int get_index, int client_id, int total_clients, int factor) {
         uint64_t key_int = ((get_index + 1) * total_clients * factor) + client_id;
         Key key;
         key.set(key_int);
+        return key;
+    }
+
+    Key Client_Workload_Driver::direct_get(int get_index) {
+        Key key;
+        key.set(get_index);
         return key;
     }
 
@@ -449,10 +493,13 @@ namespace state_machines {
             if (_completed_puts <=1 ) {
                 next_key_index = 0;
             } else {
-                next_key_index = rand_r(&_time_seed) % (_completed_puts - 1);
+                // next_key_index = rand_r(&_time_seed) % (_completed_puts - 1);
+                next_key_index = key_distribution[rand_r(&_time_seed) % key_distribution.size()];
             }
         }
-        Key key = unique_get(next_key_index, _client_id, _global_clients, _random_factor);
+        // Key key = unique_get(next_key_index, _client_id, _global_clients, _random_factor);
+        Key key = direct_get(next_key_index);
+        // ALERT("DEBUG", "next get key %d\n", next_key_index);
         Request req = Request{GET, key, Value()};
         _last_request = req;
         return req;
@@ -466,10 +513,15 @@ namespace state_machines {
             if (_completed_puts <=1 ) {
                 next_key_index = 0;
             } else {
-                next_key_index = rand_r(&_time_seed) % (_completed_puts - 1);
+                // next_key_index = rand_r(&_time_seed) % (_completed_puts - 1);
+                next_key_index = key_distribution[rand_r(&_time_seed) % key_distribution.size()];
             }
         }
-        Key key = unique_get(next_key_index, _client_id, _global_clients, _random_factor);
+        // Key key = unique_get(next_key_index, _client_id, _global_clients, _random_factor);
+        // if (next_key_index == 1){
+        //     ALERT("1","1");
+        // }
+        Key key = direct_get(next_key_index);
         Request req = Request{UPDATE, key, Value()};
         _last_request = req;
         return req;

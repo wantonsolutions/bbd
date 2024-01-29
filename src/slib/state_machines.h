@@ -182,6 +182,7 @@ namespace state_machines {
             unordered_map<string,string> get_stats();
             void set_workload(ycsb_workload workload);
             void set_workload(string workload);
+            void read_in_distribution_from_file(string filename);
             Request next();
 
         private:
@@ -197,17 +198,21 @@ namespace state_machines {
             int _completed_gets;
             int _completed_updates;
             unsigned int _time_seed;
+            vector<int> key_distribution;
             ycsb_workload _workload;
             Request _last_request;
 
             void record_last_request();
             Key unique_insert(int insert_index, int client_id, int total_clients, int factor);
             Key unique_get(int get_index, int client_id, int total_clients, int factor);
+            Key direct_get(int get_index);
             Key unique_update(int get_index, int client_id, int total_clients, int factor);
             Request next_put();
             Request next_get();
             Request next_update();
             operation gen_next_operation();
+
+
 
     };
 
