@@ -41,7 +41,6 @@ namespace replicated_log {
             void Reset_Tail_Pointer();
             void Chase_Tail_Pointer();
             void Chase_Locally_Synced_Tail_Pointer();
-            void Check_And_Roll_Over_Tail_Pointer(uint64_t *tail_pointer);
             void * Next_Locally_Synced_Tail_Pointer();
             void * Next_Operation();
 
@@ -60,8 +59,13 @@ namespace replicated_log {
             void * get_tail_pointer_address() {return (void*) &this->_tail_pointer;}
             int get_tail_pointer_size_bytes() {return sizeof(this->_tail_pointer);}
             unsigned int get_memory_size() {return this->_memory_size;}
-            unsigned int get_epoch() {return this->_epoch;}
-            void set_epoch(unsigned int epoch) {this->_epoch = epoch;}
+            // unsigned int get_epoch() {return this->_epoch;}
+            unsigned int get_epoch(uint64_t tail_pointer) {return (tail_pointer / this->_number_of_entries) + 1;}
+            unsigned int get_entry(uint64_t tail_pointer) {return tail_pointer % this->_number_of_entries;}
+
+            unsigned int epoch() {return get_epoch(this->_tail_pointer);}
+            unsigned int entry() {return get_entry(this->_tail_pointer);}
+            // void set_epoch(unsigned int epoch) {this->_epoch = epoch;}
 
         private:
             void * Next(uint64_t *tail_pointer);
@@ -69,7 +73,7 @@ namespace replicated_log {
             unsigned int _memory_size;
             unsigned int _entry_size;
             unsigned int _number_of_entries;
-            unsigned int _epoch;
+            // unsigned int _epoch;
             uint8_t* _log;
             //Tail pointer references the remote tail pointer. This value is DMA's to and from directly
             uint64_t _tail_pointer;

@@ -24,7 +24,6 @@ namespace replicated_log {
         this->_tail_pointer = 0;
         this->_locally_synced_tail_pointer = 0;
         this->_operation_tail_pointer = 0;
-        this->_epoch = 1;
     }
 
     Replicated_Log::Replicated_Log(){
@@ -37,23 +36,15 @@ namespace replicated_log {
     }
 
     void * Replicated_Log::get_reference_to_tail_pointer_entry() {
-        return (void*) ((uint64_t) this->_log) + (this->_tail_pointer * this->_entry_size);
+        return (void*) ((uint64_t) this->_log) + (get_entry(this->_tail_pointer) * this->_entry_size);
     }
 
     void * Replicated_Log::get_reference_to_locally_synced_tail_pointer_entry() {
-        return (void*) ((uint64_t) this->_log) + (this->_locally_synced_tail_pointer * this->_entry_size);
+        return (void*) ((uint64_t) this->_log) + (get_entry(this->_locally_synced_tail_pointer) * this->_entry_size);
     }
 
     bool Replicated_Log::Can_Append() {
         return this->_number_of_entries - this->_tail_pointer > 1;
-    }
-
-    void Replicated_Log::Check_And_Roll_Over_Tail_Pointer(uint64_t *tail_pointer) {
-        if (*tail_pointer == this->_number_of_entries) {
-            ALERT("REPLICATED_LOG", "we are perfectly at the end of the log rolling over on epoch %d", this->_epoch);
-            *tail_pointer = 0;
-            this->_epoch++;
-        }
     }
 
     bool Replicated_Log::Will_Fit_In_Entry(size_t size) {
@@ -65,15 +56,16 @@ namespace replicated_log {
 
 
     void Replicated_Log::Append_Log_Entry(void * data, size_t size) {
-        ALERT("Append Entry", "[%5d] epoch[%d]: size: %d and value %d", this->_tail_pointer, this->_epoch, size, *(int *)data);
+        ALERT("Append Entry", "[%5d] epoch[%d]: size: %d and value %d", get_entry(this->_tail_pointer), get_epoch(this->_tail_pointer), size, *(int *)data);
         assert(sizeof(Entry_Metadata) + size <= this->_entry_size); // we must be able to fit the entry in the log
         void* old_tail_pointer = get_reference_to_tail_pointer_entry();
-        this->_tail_pointer++;
-        Check_And_Roll_Over_Tail_Pointer(&this->_tail_pointer);
-
         Entry_Metadata em;
         em.type = app;
-        em.epoch = this->_epoch % 2;
+        em.epoch = get_epoch(this->_tail_pointer) % 2;
+
+        this->_tail_pointer++;
+        // Check_And_Roll_Over_Tail_Pointer(&this->_tail_pointer);
+
         bzero((void*) old_tail_pointer, this->_entry_size);
         memcpy((void*) old_tail_pointer, (void*) &em, sizeof(Entry_Metadata));
         memcpy((void*) (old_tail_pointer + sizeof(Entry_Metadata)), data, size);
@@ -116,14 +108,14 @@ namespace replicated_log {
     }
 
     void Replicated_Log::Chase(uint64_t * tail_pointer) {
-        Entry_Metadata * em = (Entry_Metadata*) ((uint64_t) this->_log + (*tail_pointer * this->_entry_size));
-        while(em->is_vaild_entry(this->_epoch)) {
-            ALERT("Chase", "[%d] epoch %d", *tail_pointer, _epoch);
+        Entry_Metadata * em = (Entry_Metadata*) ((uint64_t) this->_log + (get_entry(*tail_pointer) * this->_entry_size));
+        //Print the epoch of the entry metadata and the epoch of the tail pointer
+        ALERT("Chase", "[%d] epoch %d em-epoch[%d]", get_entry(*tail_pointer), get_epoch(*tail_pointer), em->epoch);
+        //Print the entry we are chasing
+        while(em->is_vaild_entry(get_epoch(*tail_pointer))) {
+            ALERT("Chase", "[%d] epoch %d", get_entry(*tail_pointer), get_epoch(*tail_pointer));
             (*tail_pointer)++;
-            em = (Entry_Metadata*) ((uint64_t) this->_log + (*tail_pointer * this->_entry_size));
-            //Perform local roll over
-            Check_And_Roll_Over_Tail_Pointer(tail_pointer);
-            // bs = (Log_Entry*) ((uint64_t) this->_log + *tail_pointer);
+            em = (Entry_Metadata*) ((uint64_t) this->_log + (get_entry(*tail_pointer) * this->_entry_size));
         }
     }
 
@@ -137,7 +129,7 @@ namespace replicated_log {
 
     void * Replicated_Log::Next(uint64_t *tail_pointer) {
         Entry_Metadata * em = (Entry_Metadata*) ((uint64_t) this->_log + (*tail_pointer * this->_entry_size));
-        if (em->is_vaild_entry(this->_epoch)) {
+        if (em->is_vaild_entry(get_epoch(*tail_pointer))) {
             (*tail_pointer)++;
             return (void*) ((uint64_t) this->_log + (*tail_pointer * this->_entry_size));
         }
