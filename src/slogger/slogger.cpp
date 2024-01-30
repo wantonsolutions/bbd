@@ -98,7 +98,7 @@ namespace slogger {
             _operation_start_time = get_current_ns();
             // INFO(log_id(), "SLogger FSM iteration %d\n", i);
             // sleep(1);
-            i = (i+1)%50;
+            i = (i+1);
 
             bool res = test_insert_log_entry(i, adjusted_entry_size);
             if (!res) {
@@ -173,28 +173,6 @@ namespace slogger {
         return true;
     }
 
-    // //In remote memory we simply add to the tail pointer. We have logs of size 2 and we just roll over the 
-    // //Log at a specific power of 2.
-    // //[epochbits:32,tailbits:32] is an example of a 64 bit tail pointer with 32 bits for the epoch and 32 bits for the tail
-    // //We determine how big the log is simply by how much we allocated at the beginning.
-    // void SLogger::set_epoch_and_tail_pointer_after_FAA(uint64_t add) {
-    //     //This function is more of a test we run it after having grabbed a remote tail pointer
-    //     uint64_t tail_pointer = _replicated_log.get_tail_pointer();
-    //     // tail_pointer += add;
-    //     //We are going to adjust locally for the addtion made remotely
-    //     uint64_t epoch = tail_pointer / _replicated_log.get_number_of_entries();
-    //     //We start at epoch 1
-    //     epoch = epoch + 1;
-    //     uint64_t tail_pointer_position = tail_pointer % _replicated_log.get_number_of_entries();
-
-    //     ALERT("SLOG", "Tail Pointer raw %lu", tail_pointer);
-    //     ALERT("SLOG", "Tail Pointer %lu", tail_pointer_position);
-    //     ALERT("SLOG", "Epoch %lu", epoch);
-    //     // _replicated_log.set_epoch(epoch);
-    //     _replicated_log.set_tail_pointer(tail_pointer_position);
-
-    // }
-
     bool SLogger::MFAA_Allocate_Log_Entry(unsigned int entries) {
         // printf("FETCH AND ADD\n");
         uint64_t local_tail_pointer_address = (uint64_t) _replicated_log.get_tail_pointer_address();
@@ -209,9 +187,6 @@ namespace slogger {
         ALERT("SLOG", "add %lu", add);
         ALERT("SLOG", "current_tail_value %lu", current_tail_value);
         ALERT("SLOG", "tail_pointer_mr->lkey %lu", _tail_pointer_mr->lkey);
-
-
-
 
         rdmaMaskedFetchAndAddExp(
             _qp,
@@ -232,44 +207,8 @@ namespace slogger {
             ALERT(log_id(), "Error polling completion queue");
             exit(1);
         }
-        // set_epoch_and_tail_pointer_after_FAA(add);
 
         printf("FETCH AND ADD DONE tail value at the time of the faa is %lu\n", _replicated_log.get_tail_pointer());
-
-
-        // printf("FETCH AND ADD DONE tail value at the time of the faa is %lu\n", _replicated_log.get_tail_pointer());
-        // ALERT("TODO", "Here is where we need to perform
-        // some roll over calculations. If the size we
-        // requested + the current tail pointer is greater
-        // than the size of the log, then we need to roll
-        // over the tail pointer. We also need to roll over
-        // the tail pointer if the size we requested + the
-        // current tail pointer is greater than the size of
-        // the log minus the size of the log header. We also
-        // need to roll over the tail pointer if the size we
-        // requested + the current tail pointer is greater
-        // than the size of the log minus the size of the
-        // log header minus the size of the log footer. We
-        // also need to roll over the tail pointer if the
-        // size we requested + the current tail pointer is
-        // greater than the size of the log minus the size
-        // of the log header minus the size of the log
-        // footer minus the size of the log control. We also
-        // need to roll over the tail pointer if the size we
-        // requested + the current tail pointer is greater
-        // than the size of the log minus the size of the
-        // log header minus the size of the log footer minus
-        // the size of the log control minus the size of the
-        // log control.");
-
-        // ALERT("SLOG", "Tail Pointer %lu", _replicated_log.get_tail_pointer());
-
-        // if (_replicated_log.get_tail_pointer() + add > _replicated_log.get_memory_size()) {
-        //     ALERT("SLOG", "ALERT we have detected that we are on the boundry and need to do the roll over");
-        //     fill_allocated_log_with_noops(add);
-        //     MFAA_Allocate_Log_Entry(entries);
-        //     ALERT("SLOG", "ALERT we have rolled over and completed the allocation");
-        // }
 
 
         // assert(current_tail_value <= _replicated_log.get_tail_pointer());
@@ -288,36 +227,6 @@ namespace slogger {
         return true;
     }
 
-    // void SLogger::fill_allocated_log_with_noops(uint64_t size) {
-    //     //The first thing we need to do is construct two no-ops one at the beginning and one at the end of the log
-    //     //This function should only be called when we have a region of the log allocated that spans the log and must be 
-    //     //broken into two pieces.
-    //     // log [xxx______xxxx]
-    //     // imagine that we called allocate and got size x = 7 but it rolled over
-    //     // now we are going to allocate two entries of size 4 at the end, and size 3 at the beginning
-
-    //     assert(_replicated_log.get_tail_pointer() + size > _replicated_log.get_memory_size());
-    //     uint64_t first_entry_size = _replicated_log.get_memory_size() - _replicated_log.get_tail_pointer();
-    //     uint64_t second_entry_size = size - first_entry_size;
-    //     //we have to make sure that the log entries can fit.
-    //     //If they cant we are in trouble.
-    //     //One fix is to make sure that the log entries can always fit in a byte.
-    //     //That is not the case for now
-    //     ALERT("SLOG", "Filling log with noops. First entry size %lu, second entry size %lu", first_entry_size, second_entry_size);
-
-    //     assert(first_entry_size >= sizeof(Log_Entry) || first_entry_size == 0);
-    //     assert(second_entry_size >= sizeof(Log_Entry) || second_entry_size == 0);
-
-    //     if (first_entry_size > 0) {
-    //         Write_NoOp(first_entry_size - sizeof(Log_Entry));
-    //         ALERT("SLOG", "Wrote first noop");
-    //     }
-    //     if (second_entry_size > 0) {
-    //         Write_NoOp(second_entry_size - sizeof(Log_Entry));
-    //         ALERT("SLOG", "Wrote second noop");
-    //     }
-    //     Sync_To_Last_Write();
-    // }
 
     void * SLogger::Next_Operation() {
         Entry_Metadata * em = (Entry_Metadata*) _replicated_log.Next_Operation();
@@ -353,7 +262,7 @@ namespace slogger {
             uint64_t local_tail_pointer_address = (uint64_t) _replicated_log.get_tail_pointer_address();
             uint64_t remote_tail_pointer_address = _slog_config->tail_pointer_address;
             uint64_t compare  = _replicated_log.get_tail_pointer();
-            uint64_t new_tail_pointer = compare + 1;
+            uint64_t new_tail_pointer = compare + entries;
             uint64_t current_tail_value = compare;
 
             rdmaCompareAndSwapExp(
@@ -485,7 +394,7 @@ namespace slogger {
 
     void SLogger::Syncronize_Log(uint64_t offset){
 
-        ALERT("SLOG", "Syncronizing log from %lu to %lu", _replicated_log.get_locally_synced_tail_pointer(), offset);
+        INFO("SLOG", "Syncronizing log from %lu to %lu", _replicated_log.get_locally_synced_tail_pointer(), offset);
         //Step One reset our local tail pointer and chase to the end of vaild entries
         _replicated_log.Chase_Locally_Synced_Tail_Pointer(); // This will bring us to the last up to date entry
 
@@ -574,7 +483,7 @@ namespace slogger {
         // if (CAS_Allocate_Log_Entry(bs)) {
         // if (FAA_Allocate_Log_Entry(bs)) {
         if((this->*_allocate_log_entry)(entries_per_insert)) {
-            ALERT("SLOG", "Allocated log entry successfully %lu", _replicated_log.get_tail_pointer());
+            INFO("SLOG", "Allocated log entry successfully %lu", _replicated_log.get_tail_pointer());
             // Write_Log_Entry(data, size);
             Write_Log_Entry(&i, sizeof(int));
             Sync_To_Last_Write();

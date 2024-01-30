@@ -53,7 +53,7 @@ CORRPUTER_CLIENT_OBJ := $(patsubst %.cpp, obj/%.o, $(CORRPUTER_CLIENT_CPP))
 # 	$(CC) $(CFLAGS) $(INCLUDES) $(LIBRARIES) -c $< -o $@
 
 # tests: virtual_rdma_test
-all: rdma_memory_server slogger_server cuckoo_client slogger_client corrupter_client corrupter_server virtual_rdma_test
+all: rdma_memory_server slogger_server cuckoo_client slogger_client corrupter_client corrupter_server virtual_rdma_test replicated_log_test
 
 
 obj/%.o: %.cpp
@@ -78,11 +78,11 @@ corrupter_server: $(CORRPUTER_SERVER_OBJ)
 	$(CC) $(CFLAGS) $(INCLUDES) $(CORRPUTER_SERVER_OBJ) -o corrupter_server $(LIBRARIES)
 
 
-# REPLICATED_LOG_CPP = $(SLIB_CPP) $(RDMA_CPP) $(CUCKOO_CPP) $(CORRUPTER_CPP) $(SLOGGER_CPP) $(TEST_DIR)/test_replicated_log.cpp
-# REPLICATED_LOG_OBJ := $(patsubst %.cpp, obj/%.o, $(REPLICATED_LOG_CPP))
-# replicated_log_test: $(REPLICATED_LOG_OBJ)
-# 	$(CC) $(CFLAGS) $(INCLUDES) $(REPLICATED_LOG_OBJ) -o test_replicated_log $(LIBRARIES)
-# 	mv test_replicated_log test/
+REPLICATED_LOG_CPP = $(SLIB_CPP) $(RDMA_CPP) $(CUCKOO_CPP) $(CORRUPTER_CPP) $(SLOGGER_CPP) $(TEST_DIR)/test_replicated_log.cpp
+REPLICATED_LOG_OBJ := $(patsubst %.cpp, obj/%.o, $(REPLICATED_LOG_CPP))
+replicated_log_test: $(REPLICATED_LOG_OBJ)
+	$(CC) $(CFLAGS) $(INCLUDES) $(REPLICATED_LOG_OBJ) -o test_replicated_log $(LIBRARIES)
+	mv test_replicated_log test/
 
 VIRTUAL_RDMA_CPP = $(SLIB_CPP) $(RDMA_CPP) $(CUCKOO_CPP) $(CORRUPTER_CPP) $(SLOGGER_CPP) $(TEST_DIR)/test_virtual_rdma.cpp
 VIRTUAL_RDMA_OBJ := $(patsubst %.cpp, obj/%.o, $(VIRTUAL_RDMA_CPP))

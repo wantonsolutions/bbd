@@ -26,15 +26,24 @@ using namespace replicated_log;
 
 static on_chip_memory_attr device_memory;
 
+void copy_tail_pointer_from_device_memory(Replicated_Log &rl) {
+    copy_device_memory_to_host_object((void *)rl.get_tail_pointer_address(), rl.get_tail_pointer_size_bytes(), device_memory);
+}
+
+
+uint64_t get_epoch(Replicated_Log &rl) {
+    copy_tail_pointer_from_device_memory(rl);
+    uint64_t tail_pointer = *((uint64_t*)rl.get_tail_pointer_address());
+    uint64_t epoch = tail_pointer / rl.get_number_of_entries();
+    return epoch;
+}
+
 static void send_final_memory_stats_to_memcached_server(Replicated_Log rl){
     memory_stats ms;
     ms.finished_run = true;
-    // ms.fill = rl.get_fill_percentage();
-    memcached_publish_memory_stats(&ms);
-}
 
-void copy_tail_pointer_from_device_memory(Replicated_Log &rl) {
-    copy_device_memory_to_host_object((void *)rl.get_tail_pointer(), rl.get_tail_pointer_size_bytes(), device_memory);
+    ms.fill = get_epoch(rl);
+    memcached_publish_memory_stats(&ms);
 }
 
 static void send_slog_config_to_memcached_server(Replicated_Log& rl)
@@ -64,38 +73,44 @@ static void send_slog_config_to_memcached_server(Replicated_Log& rl)
 
 
 
-void moniter_run(int num_qps, int print_frequency, bool prime, int runtime, bool use_runtime, int prime_epochs, int max_epochs, Replicated_Log& rl) {
+void moniter_run(int print_frequency, bool prime, int runtime, bool use_runtime, int prime_epochs, int max_epochs, Replicated_Log& rl) {
 
     //print buffers every second
+
+    ALERT("RUN MONITER", "Starting run moniter Runtime: %d, Prime Epochs: %d, Max Epochs: %d", runtime, prime_epochs, max_epochs);
     int print_step=0;
     bool priming_complete = false;
     time_t last_print;
     time_t experiment_start_time;
+    time(&experiment_start_time);
     time(&last_print);
     while(true) {
         time_t now;
         time(&now);
+        // ALERT("EPOCH", "epoch %ld", epoch);
+        // rl.Chase_Tail_Pointer();
+        uint64_t epoch = get_epoch(rl);
+
+        // ALERT("EPOCH", "epoch %ld", epoch);
         if(now - last_print >= print_frequency) {
-            ALERT("TODO", "CALCULATE FILL PERCENTAGE");
             last_print = now;
-            printf("Printing table after %d seconds\n", print_step * print_frequency);
-            print_step++;
-            rl.Chase_Tail_Pointer();
-            rl.Print_All_Entries();
+
+            // rl.Print_All_Entries();
+            // copy_tail_pointer_from_device_memory(rl);
             // copy_device_memory_to_host_lock_table(msm);
             // msm.print_table();
             // msm.print_lock_table();
-            unsigned int data_written_gb = rl.get_epoch() * rl.get_log_size_bytes() / 1000000000;
-            printf("%2.3f GB written\n", data_written_gb);
-            ALERT("RUN MONITER", "TODO add the priming logic back in");
+            unsigned int data_written_mb = (epoch * rl.get_log_size_bytes()) / 1000000;
+            printf("[Runtime %d] %d MB written [epoch %ld] \n", print_step* print_frequency, data_written_mb, epoch);
+            print_step++;
         }
 
         //TODO add priming critera
         if(prime && 
         !priming_complete &&
-        (rl.get_epoch() >= prime_epochs)
+        (epoch >= (uint64_t)prime_epochs)
         ) {
-            printf("Table has reached it's priming epoch %d (current epoch %d)\n", prime_epochs, rl.get_epoch());
+            printf("Table has reached it's priming epoch %d (current epoch %ld)\n", prime_epochs, epoch);
             announce_priming_complete();
             priming_complete = true;
             if (use_runtime) {
@@ -104,8 +119,8 @@ void moniter_run(int num_qps, int print_frequency, bool prime, int runtime, bool
         }
 
         //Max fill of zero means we are not using max fill
-        if((max_epochs != 0) && (rl.get_epoch() >= max_epochs)){
-            printf("Table has reached it's max epoch %d (current fill %d). Exiting globally\n", max_epochs, rl.get_epoch());
+        if((max_epochs != 0) && (epoch >= (uint64_t)max_epochs)){
+            printf("Table has reached it's max epoch %d (current fill %ld). Exiting globally\n", max_epochs, epoch);
             end_experiment_globally();
             break;
         }
@@ -149,8 +164,8 @@ int main(int argc, char **argv)
     Replicated_Log rl = Replicated_Log(memory_size_bytes, entry_size_bytes);
 
     bool prime = (config["prime"] == "true");
-    float prime_fill = stof(config["prime_fill"]);
-    float max_fill = stof(config["max_fill"]);
+    unsigned int prime_epochs = stoi(config["prime_epochs"]);
+    unsigned int  max_epochs = stoi(config["max_epochs"]);
 
     //resolve the address from the config
     struct sockaddr_in server_sockaddr = server_address_to_socket_addr(config["server_address"]);
@@ -164,7 +179,6 @@ int main(int argc, char **argv)
     bool use_runtime = true;
 
 
-    int i; 
     int ret = setup_shared_resources();
     if (ret) { 
         rdma_error("Failed to setup shared resources, ret = %d \n", ret);
@@ -188,9 +202,7 @@ int main(int argc, char **argv)
 
 
     printf("All server setup complete, now serving memory requests\n");
-    int prime_epochs = 0;
-    int max_epochs = 2;
-    moniter_run(num_qps, 1 ,prime, runtime, use_runtime, prime_epochs, max_epochs,rl);
+    moniter_run(1 ,prime, runtime, use_runtime, prime_epochs, max_epochs,rl);
 
 
     // ALERT("RDMA memory server", "Sending results to the memcached server\n");

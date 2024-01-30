@@ -56,7 +56,7 @@ namespace replicated_log {
 
 
     void Replicated_Log::Append_Log_Entry(void * data, size_t size) {
-        ALERT("Append Entry", "[%5d] epoch[%d]: size: %d and value %d", get_entry(this->_tail_pointer), get_epoch(this->_tail_pointer), size, *(int *)data);
+        INFO("Append Entry", "[%5d] epoch[%d]: size: %d and value %d", get_entry(this->_tail_pointer), get_epoch(this->_tail_pointer), size, *(int *)data);
         assert(sizeof(Entry_Metadata) + size <= this->_entry_size); // we must be able to fit the entry in the log
         void* old_tail_pointer = get_reference_to_tail_pointer_entry();
         Entry_Metadata em;
@@ -98,22 +98,22 @@ namespace replicated_log {
     }
 
     void Replicated_Log::Chase_Tail_Pointer() {
-        ALERT("Chasing Tail Pointer", "Start Index %d", this->_tail_pointer);
+        VERBOSE("Chasing Tail Pointer", "Start Index %d", this->_tail_pointer);
         Chase(&this->_tail_pointer);
     }
 
     void Replicated_Log::Chase_Locally_Synced_Tail_Pointer() {
-        ALERT("Chasing Locally Synced Tail Pointer", "Start Index %d", this->_locally_synced_tail_pointer);
+        VERBOSE("Chasing Locally Synced Tail Pointer", "Start Index %d", this->_locally_synced_tail_pointer);
         Chase(&this->_locally_synced_tail_pointer);
     }
 
     void Replicated_Log::Chase(uint64_t * tail_pointer) {
         Entry_Metadata * em = (Entry_Metadata*) ((uint64_t) this->_log + (get_entry(*tail_pointer) * this->_entry_size));
         //Print the epoch of the entry metadata and the epoch of the tail pointer
-        ALERT("Chase", "[%d] epoch %d em-epoch[%d]", get_entry(*tail_pointer), get_epoch(*tail_pointer), em->epoch);
+        INFO("Chase", "[%d] epoch %d em-epoch[%d]", get_entry(*tail_pointer), get_epoch(*tail_pointer), em->epoch);
         //Print the entry we are chasing
         while(em->is_vaild_entry(get_epoch(*tail_pointer))) {
-            ALERT("Chase", "[%d] epoch %d", get_entry(*tail_pointer), get_epoch(*tail_pointer));
+            INFO("Chase", "[%d] epoch %d", get_entry(*tail_pointer), get_epoch(*tail_pointer));
             (*tail_pointer)++;
             em = (Entry_Metadata*) ((uint64_t) this->_log + (get_entry(*tail_pointer) * this->_entry_size));
         }
