@@ -28,16 +28,27 @@ namespace slogger {
                 ALERT("SLOG", "Error: memory size must be a power of 2, input was %d", memory_size);
                 exit(1);
             }
+            _entry_size = stoi(config["entry_size"]);
+            if (_entry_size < 1) {
+                ALERT("SLOG", "Error: entry size must be greater than 0");
+                exit(1);
+            }
+            if (!IsPowerOfTwo(_entry_size)) {
+                ALERT("SLOG", "Error: entry size must be a power of 2, input was %d", _entry_size);
+                exit(1);
+            }
+            if (memory_size % _entry_size != 0) {
+                ALERT("SLOG", "Error: memory size must be a multiple of entry size");
+                exit(1);
+            }
+            _replicated_log = Replicated_Log(memory_size, _entry_size);
             _workload_driver = Client_Workload_Driver(config);
 
-
-            _replicated_log = Replicated_Log(memory_size);
             set_allocate_function(config);
             set_workload(config["workload"]);
 
             ALERT("SLOG", "Creating SLogger with id %s", config["id"].c_str());
             _id = stoi(config["id"]);
-            _entry_size = stoi(config["entry_size"]);
             sprintf(_log_identifier, "Client: %3d", stoi(config["id"]));
             _local_prime_flag = false;
             ALERT(log_id(), "Done creating SLogger");
@@ -115,12 +126,12 @@ namespace slogger {
         return _slog_config->slog_address + address_offset;
     }
 
-    bool SLogger::FAA_Allocate_Log_Entry(Log_Entry &bs) {
+    bool SLogger::FAA_Allocate_Log_Entry(unsigned int entries) {
 
         // printf("FETCH AND ADD\n");
         uint64_t local_tail_pointer_address = (uint64_t) _replicated_log.get_tail_pointer_address();
         uint64_t remote_tail_pointer_address = _slog_config->tail_pointer_address;
-        uint64_t add  = bs.Get_Total_Entry_Size();
+        uint64_t add  = entries;
         uint64_t current_tail_value = _replicated_log.get_tail_pointer();
 
         rdmaFetchAndAddExp(
@@ -160,11 +171,11 @@ namespace slogger {
         return true;
     }
 
-    bool SLogger::MFAA_Allocate_Log_Entry(Log_Entry &le) {
+    bool SLogger::MFAA_Allocate_Log_Entry(unsigned int entries) {
         // printf("FETCH AND ADD\n");
         uint64_t local_tail_pointer_address = (uint64_t) _replicated_log.get_tail_pointer_address();
         uint64_t remote_tail_pointer_address = _slog_config->tail_pointer_address;
-        uint64_t add  = le.Get_Total_Entry_Size();
+        uint64_t add  = entries;
         uint64_t current_tail_value = _replicated_log.get_tail_pointer();
 
         // ALERT("SLOG", "MFAA_Allocate_Log_Entry:
@@ -223,14 +234,14 @@ namespace slogger {
         // the size of the log control minus the size of the
         // log control.");
 
-        ALERT("SLOG", "Tail Pointer %lu", _replicated_log.get_tail_pointer());
+        // ALERT("SLOG", "Tail Pointer %lu", _replicated_log.get_tail_pointer());
 
-        if (_replicated_log.get_tail_pointer() + add > _replicated_log.get_memory_size()) {
-            ALERT("SLOG", "ALERT we have detected that we are on the boundry and need to do the roll over");
-            fill_allocated_log_with_noops(add);
-            MFAA_Allocate_Log_Entry(le);
-            ALERT("SLOG", "ALERT we have rolled over and completed the allocation");
-        }
+        // if (_replicated_log.get_tail_pointer() + add > _replicated_log.get_memory_size()) {
+        //     ALERT("SLOG", "ALERT we have detected that we are on the boundry and need to do the roll over");
+        //     fill_allocated_log_with_noops(add);
+        //     MFAA_Allocate_Log_Entry(entries);
+        //     ALERT("SLOG", "ALERT we have rolled over and completed the allocation");
+        // }
 
 
         // assert(current_tail_value <= _replicated_log.get_tail_pointer());
@@ -249,87 +260,73 @@ namespace slogger {
         return true;
     }
 
-    void SLogger::fill_allocated_log_with_noops(uint64_t size) {
-        //The first thing we need to do is construct two no-ops one at the beginning and one at the end of the log
-        //This function should only be called when we have a region of the log allocated that spans the log and must be 
-        //broken into two pieces.
-        // log [xxx______xxxx]
-        // imagine that we called allocate and got size x = 7 but it rolled over
-        // now we are going to allocate two entries of size 4 at the end, and size 3 at the beginning
+    // void SLogger::fill_allocated_log_with_noops(uint64_t size) {
+    //     //The first thing we need to do is construct two no-ops one at the beginning and one at the end of the log
+    //     //This function should only be called when we have a region of the log allocated that spans the log and must be 
+    //     //broken into two pieces.
+    //     // log [xxx______xxxx]
+    //     // imagine that we called allocate and got size x = 7 but it rolled over
+    //     // now we are going to allocate two entries of size 4 at the end, and size 3 at the beginning
 
-        assert(_replicated_log.get_tail_pointer() + size > _replicated_log.get_memory_size());
-        uint64_t first_entry_size = _replicated_log.get_memory_size() - _replicated_log.get_tail_pointer();
-        uint64_t second_entry_size = size - first_entry_size;
-        //we have to make sure that the log entries can fit.
-        //If they cant we are in trouble.
-        //One fix is to make sure that the log entries can always fit in a byte.
-        //That is not the case for now
-        ALERT("SLOG", "Filling log with noops. First entry size %lu, second entry size %lu", first_entry_size, second_entry_size);
+    //     assert(_replicated_log.get_tail_pointer() + size > _replicated_log.get_memory_size());
+    //     uint64_t first_entry_size = _replicated_log.get_memory_size() - _replicated_log.get_tail_pointer();
+    //     uint64_t second_entry_size = size - first_entry_size;
+    //     //we have to make sure that the log entries can fit.
+    //     //If they cant we are in trouble.
+    //     //One fix is to make sure that the log entries can always fit in a byte.
+    //     //That is not the case for now
+    //     ALERT("SLOG", "Filling log with noops. First entry size %lu, second entry size %lu", first_entry_size, second_entry_size);
 
-        assert(first_entry_size >= sizeof(Log_Entry) || first_entry_size == 0);
-        assert(second_entry_size >= sizeof(Log_Entry) || second_entry_size == 0);
+    //     assert(first_entry_size >= sizeof(Log_Entry) || first_entry_size == 0);
+    //     assert(second_entry_size >= sizeof(Log_Entry) || second_entry_size == 0);
 
-        if (first_entry_size > 0) {
-            Write_NoOp(first_entry_size - sizeof(Log_Entry));
-            ALERT("SLOG", "Wrote first noop");
-        }
-        if (second_entry_size > 0) {
-            Write_NoOp(second_entry_size - sizeof(Log_Entry));
-            ALERT("SLOG", "Wrote second noop");
-        }
-        Sync_To_Last_Write();
-    }
+    //     if (first_entry_size > 0) {
+    //         Write_NoOp(first_entry_size - sizeof(Log_Entry));
+    //         ALERT("SLOG", "Wrote first noop");
+    //     }
+    //     if (second_entry_size > 0) {
+    //         Write_NoOp(second_entry_size - sizeof(Log_Entry));
+    //         ALERT("SLOG", "Wrote second noop");
+    //     }
+    //     Sync_To_Last_Write();
+    // }
 
     void * SLogger::Next_Operation() {
-        Log_Entry * le = _replicated_log.Next_Operation();
-        if (le == NULL) {
+        Entry_Metadata * em = (Entry_Metadata*) _replicated_log.Next_Operation();
+        if (em == NULL) {
             return NULL;
         }
         //TODO here is where we would put controls in the log.
         //For now we just return the data.
         //For instance, if we wanted to have contorl log entries with different types we could embed them here.
-        if (le->type == log_entry_types::control) {
+        if (em->type == log_entry_types::control) {
             ALERT("SLOG", "Got a control log entry");
         }
 
         //return a pointer to the data of the log entry. Leave it to the application to figure out what's next;
-        return (void *) le + sizeof(Log_Entry);
+        return (void *) em + sizeof(Entry_Metadata);
     }
 
     void SLogger::Write_Operation(void* op, int size) {
-        Log_Entry le;
-        le.type = log_entry_types::app;
-        le.size = size;
 
-        if((this->*_allocate_log_entry)(le)) {
-            Write_Log_Entry(le, op);
+        assert(_replicated_log.Will_Fit_In_Entry(size));
+        unsigned int entries_per_insert = 1;
+
+        if((this->*_allocate_log_entry)(1)) {
+            Write_Log_Entry(op, size);
         }
     }
 
-    //Assumes that we have memory allready allocated
-    void SLogger::Write_NoOp(int size) {
-        Log_Entry le;
-        le.type = log_entry_types::control;
-        le.size = size;
-        //No Op buffer is only here so we have something to put in the NoOp
-        memset(no_op_buffer, 0, size);
-        Write_Log_Entry(le, no_op_buffer);
-    }
-
-    bool SLogger::CAS_Allocate_Log_Entry(Log_Entry &bs) {
+    bool SLogger::CAS_Allocate_Log_Entry(unsigned int entries) {
 
         bool allocated = false;
 
         while(!allocated) {
-            if (!_replicated_log.Can_Append(bs)) {
-                ALERT(log_id(), "Unable to allocate. Try again later.  Current tail value is %lu", _replicated_log.get_tail_pointer());
-                return false;
-            }
             uint64_t local_tail_pointer_address = (uint64_t) _replicated_log.get_tail_pointer_address();
             uint64_t remote_tail_pointer_address = _slog_config->tail_pointer_address;
             uint64_t compare  = _replicated_log.get_tail_pointer();
-            uint64_t new_tail_pointer = compare + bs.Get_Total_Entry_Size();
-            uint64_t current_tail_value = _replicated_log.get_tail_pointer();
+            uint64_t new_tail_pointer = compare + 1;
+            uint64_t current_tail_value = compare;
 
             rdmaCompareAndSwapExp(
                 _qp,
@@ -404,23 +401,24 @@ namespace slogger {
             #endif
     }
 
-    void SLogger::Write_Log_Entry(Log_Entry &bs, void* data){
+    void SLogger::Write_Log_Entry(void* data, unsigned int in_size){
         //we have to have allocated the remote entry at this point.
         //TODO assert somehow that we have allocated
+        assert(_replicated_log.Will_Fit_In_Entry(in_size));
         uint64_t local_log_tail_address = (uint64_t) _replicated_log.get_reference_to_tail_pointer_entry();
         uint64_t remote_log_tail_address = local_to_remote_log_address(local_log_tail_address);
-        uint64_t size = bs.Get_Total_Entry_Size();
+        uint64_t size = in_size;
 
         // printf("writing to local addr %ul remote log %ul\n", local_log_tail_address, remote_log_tail_address);
 
         //Make the local change
-        _replicated_log.Append_Log_Entry(bs, data);
+        _replicated_log.Append_Log_Entry(data, size);
 
         rdmaWriteExp(
             _qp,
             local_log_tail_address,
             remote_log_tail_address,
-            size,
+            this->_entry_size,
             _log_mr->lkey,
             _slog_config->slog_key,
             -1,
@@ -535,9 +533,7 @@ namespace slogger {
         for (int j = 0; j < size; j++) {
             data[j] = digits[i%36];
         }
-        Log_Entry bs;
-        bs.size = size;
-        bs.type = _id;
+        unsigned int entries_per_insert = 1;
 
         // bs.repeating_value = digits[i%36];
 
@@ -547,8 +543,8 @@ namespace slogger {
 
         // if (CAS_Allocate_Log_Entry(bs)) {
         // if (FAA_Allocate_Log_Entry(bs)) {
-        if((this->*_allocate_log_entry)(bs)) {
-            Write_Log_Entry(bs,data);
+        if((this->*_allocate_log_entry)(entries_per_insert)) {
+            Write_Log_Entry(data, size);
             Sync_To_Last_Write();
             // if (_id == 0){
             //     _replicated_log.Print_All_Entries();
@@ -606,14 +602,14 @@ namespace slogger {
 
         _slog_config = memcached_get_slog_config();
         assert(_slog_config != NULL);
-        assert(_slog_config->slog_size_bytes == _replicated_log.get_size_bytes());
+        assert(_slog_config->slog_size_bytes == _replicated_log.get_log_size_bytes());
         INFO(log_id(),"got a slog config from the memcached server and it seems to line up\n");
 
         ALERT("SLOG", "SLogger Done Initializing RDMA Structures");
         ALERT("SLOG", "TODO - register local log with a mr");
 
         // INFO(log_id(), "Registering table with RDMA device size %d, location %p\n", get_table_size_bytes(), get_table_pointer()[0]);
-        _log_mr = rdma_buffer_register(_protection_domain, _replicated_log.get_log_pointer(), _replicated_log.get_size_bytes(), MEMORY_PERMISSION);
+        _log_mr = rdma_buffer_register(_protection_domain, _replicated_log.get_log_pointer(), _replicated_log.get_log_size_bytes(), MEMORY_PERMISSION);
         // INFO(log_id(), "Registering lock table with RDMA device size %d, location %p\n", get_lock_table_size_bytes(), get_lock_table_pointer());
         _tail_pointer_mr = rdma_buffer_register(_protection_domain, _replicated_log.get_tail_pointer_address(), _replicated_log.get_tail_pointer_size_bytes(), MEMORY_PERMISSION);
 

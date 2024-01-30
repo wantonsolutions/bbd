@@ -29,7 +29,7 @@ static on_chip_memory_attr device_memory;
 static void send_final_memory_stats_to_memcached_server(Replicated_Log rl){
     memory_stats ms;
     ms.finished_run = true;
-    ms.fill = rl.get_fill_percentage();
+    // ms.fill = rl.get_fill_percentage();
     memcached_publish_memory_stats(&ms);
 }
 
@@ -44,7 +44,7 @@ static void send_slog_config_to_memcached_server(Replicated_Log& rl)
     //Send the info for the table
     void * log_ptr = rl.get_log_pointer();
 
-    ibv_mr * log_mr = register_server_object_at_mr_index(log_ptr, rl.get_size_bytes(), LOG_MR_INDEX);
+    ibv_mr * log_mr = register_server_object_at_mr_index(log_ptr, rl.get_log_size_bytes(), LOG_MR_INDEX);
 
     int tail_pointer_size = rl.get_tail_pointer_size_bytes();
     printf("asking for a tail pointer of size %d\n", tail_pointer_size);
@@ -54,7 +54,7 @@ static void send_slog_config_to_memcached_server(Replicated_Log& rl)
     // Table * table = msm.get_table();
     config.slog_address = (uint64_t) log_mr->addr;
     config.slog_key = (uint32_t) log_mr->lkey;
-    config.slog_size_bytes = rl.get_size_bytes();
+    config.slog_size_bytes = rl.get_log_size_bytes();
 
     config.tail_pointer_address = (uint64_t) TAIL_POINTER_STARTING_ADDRESS;
     config.tail_pointer_key = (uint32_t) device_memory.mr->lkey;
@@ -64,7 +64,7 @@ static void send_slog_config_to_memcached_server(Replicated_Log& rl)
 
 
 
-void moniter_run(int num_qps, int print_frequency, bool prime, int runtime, bool use_runtime, float prime_fill, float max_fill, Replicated_Log& rl) {
+void moniter_run(int num_qps, int print_frequency, bool prime, int runtime, bool use_runtime, int prime_epochs, int max_epochs, Replicated_Log& rl) {
 
     //print buffers every second
     int print_step=0;
@@ -75,7 +75,6 @@ void moniter_run(int num_qps, int print_frequency, bool prime, int runtime, bool
     while(true) {
         time_t now;
         time(&now);
-        float fill_percentage = rl.get_fill_percentage();
         if(now - last_print >= print_frequency) {
             ALERT("TODO", "CALCULATE FILL PERCENTAGE");
             last_print = now;
@@ -86,16 +85,17 @@ void moniter_run(int num_qps, int print_frequency, bool prime, int runtime, bool
             // copy_device_memory_to_host_lock_table(msm);
             // msm.print_table();
             // msm.print_lock_table();
-            printf("%2.3f Full (total bytes %d) \n", fill_percentage, rl.get_size_bytes());
+            unsigned int data_written_gb = rl.get_epoch() * rl.get_log_size_bytes() / 1000000000;
+            printf("%2.3f GB written\n", data_written_gb);
             ALERT("RUN MONITER", "TODO add the priming logic back in");
         }
 
         //TODO add priming critera
         if(prime && 
         !priming_complete &&
-        (fill_percentage * 100.0) >= prime_fill
+        (rl.get_epoch() >= prime_epochs)
         ) {
-            printf("Table has reached it's priming factor %f (current fill %f)\n", prime_fill, fill_percentage*100);
+            printf("Table has reached it's priming epoch %d (current epoch %d)\n", prime_epochs, rl.get_epoch());
             announce_priming_complete();
             priming_complete = true;
             if (use_runtime) {
@@ -104,8 +104,8 @@ void moniter_run(int num_qps, int print_frequency, bool prime, int runtime, bool
         }
 
         //Max fill of zero means we are not using max fill
-        if((max_fill != 0) && (fill_percentage * 100.0) >= max_fill) {
-            printf("Table has reached it's full capactiy %f (current fill %f). Exiting globally\n", max_fill, fill_percentage*100);
+        if((max_epochs != 0) && (rl.get_epoch() >= max_epochs)){
+            printf("Table has reached it's max epoch %d (current fill %d). Exiting globally\n", max_epochs, rl.get_epoch());
             end_experiment_globally();
             break;
         }
@@ -145,7 +145,8 @@ int main(int argc, char **argv)
 
     unordered_map<string, string> config = read_config_from_file(config_filename);
     int memory_size_bytes = stoi(config["memory_size"]);
-    Replicated_Log rl = Replicated_Log(memory_size_bytes);
+    int entry_size_bytes = stoi(config["entry_size"]);
+    Replicated_Log rl = Replicated_Log(memory_size_bytes, entry_size_bytes);
 
     bool prime = (config["prime"] == "true");
     float prime_fill = stof(config["prime_fill"]);
@@ -187,7 +188,10 @@ int main(int argc, char **argv)
 
 
     printf("All server setup complete, now serving memory requests\n");
-    moniter_run(num_qps, 1 ,prime, runtime, use_runtime, prime_fill, max_fill,rl);
+    int prime_epochs = 0;
+    int max_epochs = 2;
+    moniter_run(num_qps, 1 ,prime, runtime, use_runtime, prime_epochs, max_epochs,rl);
+
 
     // ALERT("RDMA memory server", "Sending results to the memcached server\n");
     ALERT("SLogger server", "TODO send the results to the memcached server");

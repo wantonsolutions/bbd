@@ -14,10 +14,6 @@ using namespace replicated_log;
 #define ID_SIZE 64
 #define NOOP_BUFFER_SIZE 1024 * 1024 * 8
 
-enum log_entry_types {
-    control = 0,
-    app = 1,
-};
 
 namespace slogger {
 
@@ -26,15 +22,15 @@ namespace slogger {
             SLogger(){};
             SLogger(unordered_map<string, string> config);
             // ~SLogger() {ALERT("SLOG", "deleting slog");}
-            bool MFAA_Allocate_Log_Entry(Log_Entry &le);
-            bool FAA_Allocate_Log_Entry(Log_Entry &bs);
-            bool CAS_Allocate_Log_Entry(Log_Entry &bs);
+            bool MFAA_Allocate_Log_Entry(unsigned int entries);
+            bool FAA_Allocate_Log_Entry(unsigned int entries);
+            bool CAS_Allocate_Log_Entry(unsigned int entries);
 
-            bool (SLogger::*_allocate_log_entry)(Log_Entry &bs);
+            bool (SLogger::*_allocate_log_entry)(unsigned int entries);
 
 
             void Read_Remote_Tail_Pointer();
-            void Write_Log_Entry(Log_Entry &bs, void* data);
+            void Write_Log_Entry(void* data, unsigned int size);
 
             void Sync_To_Remote_Log();
             void Sync_To_Last_Write();
@@ -42,7 +38,6 @@ namespace slogger {
 
 
             void Write_Operation(void* op, int size);
-            void Write_NoOp(int size);
             void * Next_Operation();
             uint64_t local_to_remote_log_address(uint64_t local_address);
 
