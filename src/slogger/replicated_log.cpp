@@ -6,7 +6,46 @@
 namespace replicated_log {
 
 
-    Replicated_Log::Replicated_Log(unsigned int memory_size, unsigned int entry_size) {
+    void Replicated_Log::allocate_client_positions(unsigned int total_clients, unsigned int bits_per_entry) {
+        assert(bits_per_entry > 0);
+        assert(total_clients > 0);
+        assert(bits_per_entry < 64);
+        assert(IsPowerOfTwo(bits_per_entry) + 1);
+        int bits = (bits_per_entry + 1);
+        int total_bits = bits * total_clients;
+        int total_bytes = 0;
+        if (total_bits % 8 == 0) {
+            total_bytes = total_bits / 8;
+        } else {
+            total_bytes = (total_bits / 8) + 1;
+        }
+        ALERT("Allocate Client Positions", "total clients %d, bits per entry %d, total bits %d, total bytes %d", total_clients, bits_per_entry, total_bits, total_bytes);
+        _client_positions = new uint8_t[total_bytes];
+    }
+
+
+    void Replicated_Log::print_client_positions() {
+        for (int i=0;i<this->_total_clients;i++) {
+            // ALERT("Client Positions", "client %d, position %d", i, this->_client_positions[i]);
+
+            // epoch is the first bit in the client position
+            // int epoch = (_client_positions[starting_byte] & (1 << starting_bit)) >> starting_bit;
+            int epoch = read_client_position_epoch(i);
+            uint64_t position = get_client_position(i);
+
+            ALERT("Client Positions", "client %d, position %ld, epoch %d", i, position, epoch);
+        }
+    }
+
+    void Replicated_Log::update_client_position(uint64_t tail_pointer) {
+
+        int epoch = get_epoch(tail_pointer) % 2;
+        set_client_position_epoch(this->_client_id, epoch);
+        set_client_position(this->_client_id, tail_pointer);
+
+    }
+
+    Replicated_Log::Replicated_Log(unsigned int memory_size, unsigned int entry_size, unsigned int total_clients, unsigned int client_id) {
         assert(memory_size > 0);
         assert(entry_size > 0);
         //make sure memory is a multiple of entry size
@@ -24,6 +63,14 @@ namespace replicated_log {
         this->_tail_pointer = 0;
         this->_locally_synced_tail_pointer = 0;
         this->_operation_tail_pointer = 0;
+
+        int bits_per_client_position = 3;
+
+        assert((1 << bits_per_client_position) < _number_of_entries);
+        allocate_client_positions(total_clients, bits_per_client_position);
+        this->_client_id = client_id;
+        this->_bits_per_client_position = bits_per_client_position;
+        this->_total_clients = total_clients;
     }
 
     Replicated_Log::Replicated_Log(){
@@ -65,6 +112,8 @@ namespace replicated_log {
 
         this->_tail_pointer++;
         // Check_And_Roll_Over_Tail_Pointer(&this->_tail_pointer);
+        update_client_position(this->_tail_pointer);
+        print_client_positions();
 
         bzero((void*) old_tail_pointer, this->_entry_size);
         memcpy((void*) old_tail_pointer, (void*) &em, sizeof(Entry_Metadata));

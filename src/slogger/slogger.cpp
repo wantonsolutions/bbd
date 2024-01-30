@@ -41,15 +41,19 @@ namespace slogger {
                 ALERT("SLOG", "Error: memory size must be a multiple of entry size");
                 exit(1);
             }
-            _replicated_log = Replicated_Log(memory_size, _entry_size);
+
+            ALERT("SLOG", "Creating SLogger with id %s", config["id"].c_str());
+            _id = stoi(config["id"]);
+            sprintf(_log_identifier, "Client: %3d", stoi(config["id"]));
+
+            _total_clients = stoi(config["global_clients"]);
+
+            _replicated_log = Replicated_Log(memory_size, _entry_size, _total_clients, _id);
             _workload_driver = Client_Workload_Driver(config);
 
             set_allocate_function(config);
             set_workload(config["workload"]);
 
-            ALERT("SLOG", "Creating SLogger with id %s", config["id"].c_str());
-            _id = stoi(config["id"]);
-            sprintf(_log_identifier, "Client: %3d", stoi(config["id"]));
             _local_prime_flag = false;
             ALERT(log_id(), "Done creating SLogger");
         } catch (exception& e) {
@@ -394,7 +398,7 @@ namespace slogger {
 
     void SLogger::Syncronize_Log(uint64_t offset){
 
-        INFO("SLOG", "Syncronizing log from %lu to %lu", _replicated_log.get_locally_synced_tail_pointer(), offset);
+        // ALERT(log_id(), "Syncronizing log from %lu to %lu", _replicated_log.get_locally_synced_tail_pointer(), offset);
         //Step One reset our local tail pointer and chase to the end of vaild entries
         _replicated_log.Chase_Locally_Synced_Tail_Pointer(); // This will bring us to the last up to date entry
 
@@ -414,11 +418,16 @@ namespace slogger {
             //Step Two we need to read the remote log and find out what the value of the tail pointer is
             uint64_t local_log_tail_address = (uint64_t) _replicated_log.get_reference_to_locally_synced_tail_pointer_entry();
             uint64_t remote_log_tail_address = local_to_remote_log_address(local_log_tail_address);
-            uint64_t size = offset - _replicated_log.get_locally_synced_tail_pointer();
+            uint64_t entries = offset - _replicated_log.get_locally_synced_tail_pointer();
 
-            if (_id == 0){
-                ALERT(log_id(), "Syncing log from %lu to %lu", _replicated_log.get_locally_synced_tail_pointer(), offset);
-            }
+            //Make sure that we only read up to the end of the log
+            //Rond off to the end of the log if we are there
+            //TODO we could batch this and the next read
+            uint64_t local_entry = _replicated_log.get_locally_synced_tail_pointer() % _replicated_log.get_number_of_entries();
+            if (local_entry + entries > _replicated_log.get_number_of_entries()) {
+                entries = _replicated_log.get_number_of_entries() - local_entry;
+            } 
+            uint64_t size = entries * _entry_size;
 
             rdmaReadExp(
                 _qp,

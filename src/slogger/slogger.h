@@ -55,6 +55,7 @@ namespace slogger {
 
             char _log_identifier[ID_SIZE];
             uint32_t _id;
+            uint32_t _total_clients;
 
 
         private:
