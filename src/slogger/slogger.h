@@ -42,7 +42,6 @@ namespace slogger {
             uint64_t local_to_remote_log_address(uint64_t local_address);
 
             void fill_allocated_log_with_noops(uint64_t size);
-
             void init_rdma_structures(rdma_info info);
             void fsm();
             void clear_statistics();
@@ -61,6 +60,7 @@ namespace slogger {
         private:
             bool test_insert_log_entry(int i, int size);
 
+            void set_epoch_and_tail_pointer_after_FAA(uint64_t add);
             void set_allocate_function(unordered_map<string, string> config);
 
 

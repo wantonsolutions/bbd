@@ -50,7 +50,7 @@ namespace replicated_log {
 
     void Replicated_Log::Check_And_Roll_Over_Tail_Pointer(uint64_t *tail_pointer) {
         if (*tail_pointer == this->_number_of_entries) {
-            ALERT("REPLICATED_LOG", "we are perfectly at the end of the log rolling over on epoic %d\n", this->_epoch);
+            ALERT("REPLICATED_LOG", "we are perfectly at the end of the log rolling over on epoch %d", this->_epoch);
             *tail_pointer = 0;
             this->_epoch++;
         }
@@ -65,18 +65,15 @@ namespace replicated_log {
 
 
     void Replicated_Log::Append_Log_Entry(void * data, size_t size) {
-        ALERT("REPLICATED_LOG", "appending log entry of size %d", size);
-        ALERT("APPENDING", "appending log entry with value %d", *(int *)data);
+        ALERT("Append Entry", "[%5d] epoch[%d]: size: %d and value %d", this->_tail_pointer, this->_epoch, size, *(int *)data);
         assert(sizeof(Entry_Metadata) + size <= this->_entry_size); // we must be able to fit the entry in the log
-        Check_And_Roll_Over_Tail_Pointer(&this->_tail_pointer);
         void* old_tail_pointer = get_reference_to_tail_pointer_entry();
         this->_tail_pointer++;
+        Check_And_Roll_Over_Tail_Pointer(&this->_tail_pointer);
 
         Entry_Metadata em;
         em.type = app;
         em.epoch = this->_epoch % 2;
-        ALERT("REPLICATED_LOG", "writing entry metadata to %p", old_tail_pointer);
-        ALERT("REPLICATED_LOG", "entry metadata size %d", sizeof(Entry_Metadata));
         bzero((void*) old_tail_pointer, this->_entry_size);
         memcpy((void*) old_tail_pointer, (void*) &em, sizeof(Entry_Metadata));
         memcpy((void*) (old_tail_pointer + sizeof(Entry_Metadata)), data, size);
@@ -109,18 +106,19 @@ namespace replicated_log {
     }
 
     void Replicated_Log::Chase_Tail_Pointer() {
+        ALERT("Chasing Tail Pointer", "Start Index %d", this->_tail_pointer);
         Chase(&this->_tail_pointer);
     }
 
     void Replicated_Log::Chase_Locally_Synced_Tail_Pointer() {
+        ALERT("Chasing Locally Synced Tail Pointer", "Start Index %d", this->_locally_synced_tail_pointer);
         Chase(&this->_locally_synced_tail_pointer);
     }
 
     void Replicated_Log::Chase(uint64_t * tail_pointer) {
-        ALERT("REPLICATED_LOG", "chasing tail pointer");
         Entry_Metadata * em = (Entry_Metadata*) ((uint64_t) this->_log + (*tail_pointer * this->_entry_size));
         while(em->is_vaild_entry(this->_epoch)) {
-            ALERT("tail pointer", "chasing tail pointer %d", *tail_pointer);
+            ALERT("Chase", "[%d] epoch %d", *tail_pointer, _epoch);
             (*tail_pointer)++;
             em = (Entry_Metadata*) ((uint64_t) this->_log + (*tail_pointer * this->_entry_size));
             //Perform local roll over

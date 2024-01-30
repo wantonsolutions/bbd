@@ -61,6 +61,7 @@ namespace replicated_log {
             int get_tail_pointer_size_bytes() {return sizeof(this->_tail_pointer);}
             unsigned int get_memory_size() {return this->_memory_size;}
             unsigned int get_epoch() {return this->_epoch;}
+            void set_epoch(unsigned int epoch) {this->_epoch = epoch;}
 
         private:
             void * Next(uint64_t *tail_pointer);
