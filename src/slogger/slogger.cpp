@@ -279,19 +279,19 @@ namespace slogger {
         //Round old_byte to the nearest 8 byte boundary
         uint64_t start_pos = byte_pos - (byte_pos % 8);
 
-        ALERT(log_id(), "Setting client tail update from %lu to %lu", old_tail, new_tail);
-        ALERT(log_id(), "old_position %lu", old_position);
-        ALERT(log_id(), "new_position %lu", new_position);
+        INFO(log_id(), "Setting client tail update from %lu to %lu", old_tail, new_tail);
+        INFO(log_id(), "old_position %lu", old_position);
+        INFO(log_id(), "new_position %lu", new_position);
         // ALERT(log_id(), "byte_pos %lu", byte_pos);
         // ALERT(log_id(), "start_pos %lu", start_pos);
-        ALERT(log_id(), "old_epoch %lu", old_epoch);
-        ALERT(log_id(), "new_epoch %lu", new_epoch);
+        INFO(log_id(), "old_epoch %lu", old_epoch);
+        INFO(log_id(), "new_epoch %lu", new_epoch);
 
         
         //Set two uin64 values with old position and new position
         int starting_bit_offset = _replicated_log.client_position_bit(_id) + (_replicated_log.client_position_byte(_id) * 8);
-        ALERT(log_id(), "starting_bit_offset %d", starting_bit_offset);
-        ALERT(log_id(), "client position byte %d", _replicated_log.client_position_byte(_id));
+        INFO(log_id(), "starting_bit_offset %d", starting_bit_offset);
+        INFO(log_id(), "client position byte %d", _replicated_log.client_position_byte(_id));
         uint64_t new_val = 0;
         uint64_t old_val = 0;
         uint64_t mask = 0;
@@ -310,9 +310,9 @@ namespace slogger {
             new_val |= (new_position & (one << i)) << (starting_bit_offset);
         }
         //Print out the hex of each value
-        ALERT(log_id(), "old_val %16lx", old_val);
-        ALERT(log_id(), "new_val %16lx", new_val);
-        ALERT(log_id(), "mask    %16lx", mask);
+        INFO(log_id(), "old_val %16lx", old_val);
+        INFO(log_id(), "new_val %16lx", new_val);
+        INFO(log_id(), "mask    %16lx", mask);
 
         //Get the address of the lock
         uint64_t local_address = (uint64_t) _replicated_log.get_client_positions_pointer() + start_pos;
@@ -334,26 +334,20 @@ namespace slogger {
         int outstanding_messages = 1;
         int n = bulk_poll(_completion_queue, outstanding_messages, _wc);
 
-        ALERT(log_id(), "Just received response from tail update, printing table");
-        // _replicated_log.print_client_positions();
-
         //Assert that we got the old value back. This prevents errors
         uint64_t read_position = _replicated_log.get_client_position(_id);
-        ALERT(log_id(), "my id is %d", _id);
+
         if (read_position != old_position) {
             ALERT(log_id(), "Read position %lu does not match old position %lu", read_position, old_position);
             ALERT(log_id(), "HEX TABLE");
             _replicated_log.print_client_position_raw_hex();
             ALERT(log_id(), "FORMAT TABLE");
             _replicated_log.print_client_positions();
+            assert(read_position == old_position);
         }
 
-        assert(read_position == old_position);
         //The write will have overwritten the local copy
         _replicated_log.set_client_position(_id, new_tail);
-        ALERT(log_id(), "Printing table again after setting local position");
-        // _replicated_log.print_client_positions();
-        // sleep(1);
 
         return success;
     }
@@ -538,14 +532,14 @@ namespace slogger {
         _replicated_log.Chase_Locally_Synced_Tail_Pointer(); // This will bring us to the last up to date entry
         uint64_t new_tail = _replicated_log.get_locally_synced_tail_pointer();
         if (_replicated_log.tail_pointer_to_client_position(old_tail) == _replicated_log.tail_pointer_to_client_position(new_tail)) {
-            ALERT(log_id(), "No need to update tail pointer stayed the same");
+            INFO(log_id(), "No need to update tail pointer stayed the same");
             //We are up to date
             return;
         } else {
             //We need to update the remote tail pointer
             // uint64_t old_tail = _replicated_log.get_client_entry(_id);
             // uint64_t new_tail = local_tail_pointer;
-            ALERT(log_id(), "Updating Remote Pointer old tail %ld, new tail %ld");
+            INFO(log_id(), "Updating Remote Pointer old tail %ld, new tail %ld");
             Send_Client_Tail_Update(old_tail, new_tail);
             _replicated_log.update_client_position(new_tail);
         }

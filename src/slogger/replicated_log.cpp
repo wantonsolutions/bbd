@@ -82,7 +82,7 @@ namespace replicated_log {
                 min_client = i;
             }
         }
-        ALERT("Min Client Position", "client %d, position %ld, epoch %ld", min_client, min_position, min_epoch);
+        VERBOSE("Min Client Position", "client %d, position %ld, epoch %ld", min_client, min_position, min_epoch);
         return position_to_entry(min_position);
 
     }
@@ -143,7 +143,7 @@ namespace replicated_log {
     bool Replicated_Log::Can_Append() {
         int min_entry = get_min_client_position();
         int current_entry = get_entry(this->_tail_pointer);
-        ALERT("Can Append", "min entry %d, current entry %d", min_entry, current_entry);
+        VERBOSE("Can Append", "min entry %d, current entry %d", min_entry, current_entry);
         if ((current_entry + 1)%get_number_of_entries() == min_entry) {
             return false;
         }
@@ -160,7 +160,7 @@ namespace replicated_log {
 
 
     void Replicated_Log::Append_Log_Entry(void * data, size_t size) {
-        ALERT("Append Entry", "[id %d] [%5d] epoch[%d]: size: %d and value %d",this->_client_id, get_entry(this->_tail_pointer), get_epoch(this->_tail_pointer), size, *(int *)data);
+        INFO("Append Entry", "[id %d] [%5d] epoch[%d]: size: %d and value %d",this->_client_id, get_entry(this->_tail_pointer), get_epoch(this->_tail_pointer), size, *(int *)data);
         assert(sizeof(Entry_Metadata) + size <= this->_entry_size); // we must be able to fit the entry in the log
         void* old_tail_pointer = get_reference_to_tail_pointer_entry();
         Entry_Metadata em;

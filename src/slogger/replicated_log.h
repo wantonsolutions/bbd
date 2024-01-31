@@ -87,7 +87,6 @@ namespace replicated_log {
                 if (epoch == 0) {
                     _client_positions[byte] &= ~(1 << bit);
                 } else {
-                    ALERT("REPLICATED_LOG", "setting bit %d bits per entry %d", bit, bits_per_entry());
                     _client_positions[byte] |= (1 << bit);
                 }
             }
