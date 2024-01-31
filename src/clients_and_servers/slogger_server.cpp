@@ -175,7 +175,8 @@ int main(int argc, char **argv)
 
     int memory_size_bytes = stoi(config["memory_size"]);
     int entry_size_bytes = stoi(config["entry_size"]);
-    Replicated_Log rl = Replicated_Log(memory_size_bytes, entry_size_bytes, num_qps, 0);
+    int bits_per_client_position = stoi(config["bits_per_client_position"]);
+    Replicated_Log rl = Replicated_Log(memory_size_bytes, entry_size_bytes, num_qps, 0, bits_per_client_position);
 
     string workload = config["workload"];
     int runtime = stoi(config["runtime"]);

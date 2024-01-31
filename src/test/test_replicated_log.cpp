@@ -10,7 +10,8 @@ int test_0() {
     unsigned int entry_size = 8;
     unsigned int total_clients = 2;
     unsigned int client_id = 0;
-    Replicated_Log* rl = new Replicated_Log(memory_size, entry_size, total_clients, client_id);
+    unsigned int bits_per_client_position = 2;
+    Replicated_Log* rl = new Replicated_Log(memory_size, entry_size, total_clients, client_id, bits_per_client_position);
     char buf[1024];
 
     int entries_per_epoch = memory_size / entry_size;

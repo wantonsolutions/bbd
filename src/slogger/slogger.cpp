@@ -43,6 +43,7 @@ namespace slogger {
             }
 
             _batch_size = stoi(config["batch_size"]);            
+            _bits_per_client_position = stoi(config["bits_per_client_position"]);
 
             ALERT("SLOG", "Creating SLogger with id %s", config["id"].c_str());
             _id = stoi(config["id"]);
@@ -53,7 +54,7 @@ namespace slogger {
             //This is merely a safty concern I don't want to be allocating over the end of the log
             assert(_total_clients * _batch_size < 2 * (memory_size / _entry_size));
 
-            _replicated_log = Replicated_Log(memory_size, _entry_size, _total_clients, _id);
+            _replicated_log = Replicated_Log(memory_size, _entry_size, _total_clients, _id, _bits_per_client_position);
             _workload_driver = Client_Workload_Driver(config);
 
             set_allocate_function(config);

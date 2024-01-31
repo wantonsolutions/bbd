@@ -87,6 +87,7 @@ namespace slogger {
             //silly variables
             int _entry_size;
             int _batch_size;
+            int _bits_per_client_position;
 
     };
 }

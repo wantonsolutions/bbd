@@ -95,7 +95,7 @@ namespace replicated_log {
 
     }
 
-    Replicated_Log::Replicated_Log(unsigned int memory_size, unsigned int entry_size, unsigned int total_clients, unsigned int client_id) {
+    Replicated_Log::Replicated_Log(unsigned int memory_size, unsigned int entry_size, unsigned int total_clients, unsigned int client_id, unsigned int bits_per_client_position) {
         assert(memory_size > 0);
         assert(entry_size > 0);
         //make sure memory is a multiple of entry size
@@ -114,8 +114,8 @@ namespace replicated_log {
         this->_locally_synced_tail_pointer = 0;
         this->_operation_tail_pointer = 0;
 
-        int bits_per_client_position = 3;
 
+        //This part does not really matter but it makes my life easy
         assert((1 << bits_per_client_position) < _number_of_entries);
         this->_bits_per_client_position = bits_per_client_position;
         this->_client_id = client_id;

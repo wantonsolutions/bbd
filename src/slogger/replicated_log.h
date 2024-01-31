@@ -27,7 +27,7 @@ namespace replicated_log {
     class Replicated_Log {
         public:
             Replicated_Log();
-            Replicated_Log(unsigned int memory_size, unsigned int entry_size, unsigned int total_clients, unsigned int client_id);
+            Replicated_Log(unsigned int memory_size, unsigned int entry_size, unsigned int total_clients, unsigned int client_id, unsigned int bits_per_client_position);
             // ~Replicated_Log() {ALERT("REPLICATED_LOG", "deleting replicated log");}
             void Append_Log_Entry(void * data, size_t size);
             bool Can_Append();
