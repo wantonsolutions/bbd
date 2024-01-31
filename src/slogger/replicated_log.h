@@ -22,6 +22,7 @@ namespace replicated_log {
         app = 1,
     };
 
+    #define EPOCH_BIT 1
 
     class Replicated_Log {
         public:
@@ -62,12 +63,15 @@ namespace replicated_log {
             unsigned int entry() {return get_entry(this->_tail_pointer);}
             // void set_epoch(unsigned int epoch) {this->_epoch = epoch;}
 
-
-            int client_position_byte(int id) {return (id * this->_bits_per_client_position) / 8;}
-            int client_position_bit(int id) {return (id * this->_bits_per_client_position) % 8;}
-
+            void print_client_positions();
+            void print_client_position_raw_hex();
+            unsigned int bits_per_position() {return this->_bits_per_client_position;}
+            unsigned int bits_per_entry() {return bits_per_position() + EPOCH_BIT;}
+            int client_position_byte(int id) {return (id * bits_per_entry()) / 8;}
+            int client_position_bit(int id) {return (id * bits_per_entry()) % 8;}
             void * get_client_positions_pointer() {return (void*) this->_client_positions;}
             int get_client_positions_size_bytes() {return this->_client_positions_size_bytes;}
+            void update_client_position(uint64_t tail_pointer);
 
             uint64_t get_min_client_position();
 
@@ -83,6 +87,7 @@ namespace replicated_log {
                 if (epoch == 0) {
                     _client_positions[byte] &= ~(1 << bit);
                 } else {
+                    ALERT("REPLICATED_LOG", "setting bit %d bits per entry %d", bit, bits_per_entry());
                     _client_positions[byte] |= (1 << bit);
                 }
             }
@@ -150,10 +155,8 @@ namespace replicated_log {
             void * Next(uint64_t *tail_pointer);
             void Chase(uint64_t * tail_pointer);
             void allocate_client_positions(unsigned int total_clients, unsigned int bits_per_entry);
-            void update_client_position(uint64_t tail_pointer);
 
 
-            void print_client_positions();
             unsigned int _memory_size;
             unsigned int _entry_size;
             unsigned int _number_of_entries;

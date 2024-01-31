@@ -103,6 +103,7 @@ void moniter_run(int print_frequency, bool prime, int runtime, bool use_runtime,
             last_print = now;
             unsigned int data_written_mb = (epoch * rl.get_log_size_bytes()) / 1000000;
             printf("[Runtime %d] %d MB written [epoch %ld] \n", print_step* print_frequency, data_written_mb, epoch);
+            rl.print_client_position_raw_hex();
             print_step++;
         }
 

@@ -19,9 +19,22 @@ namespace replicated_log {
         } else {
             total_bytes = (total_bits / 8) + 1;
         }
+        //Round up total bytes to the nearest 8 byte boundary
+        if (total_bytes % 8 != 0) {
+            total_bytes = total_bytes + (8 - (total_bytes % 8));
+        }
         _client_positions_size_bytes = total_bytes;
         ALERT("Allocate Client Positions", "total clients %d, bits per entry %d, total bits %d, total bytes %d", total_clients, bits_per_entry, total_bits, total_bytes);
         _client_positions = new uint8_t[total_bytes];
+        //Zero out client positions
+        memset(_client_positions, 0, total_bytes);
+
+        //Set the epoch of each entry to 1
+        for (int i=0;i<total_clients;i++) {
+            set_client_position_epoch(i, 1);
+        }
+        ALERT("Allocate Client Positions", "client positions size bytes %d", _client_positions_size_bytes);
+        print_client_position_raw_hex();
     }
 
 
@@ -36,6 +49,12 @@ namespace replicated_log {
             uint64_t entry = get_client_entry(i);
 
             ALERT("Client Positions", "client %d, position %ld, entry %ld epoch %d", i, position, entry, epoch);
+        }
+    }
+
+    void Replicated_Log::print_client_position_raw_hex() {
+        for (int i=0;i<this->_client_positions_size_bytes;i++) {
+            ALERT("Client Positions", "client %d, position %x", i, this->_client_positions[i]);
         }
     }
 
@@ -98,10 +117,10 @@ namespace replicated_log {
         int bits_per_client_position = 3;
 
         assert((1 << bits_per_client_position) < _number_of_entries);
-        allocate_client_positions(total_clients, bits_per_client_position);
-        this->_client_id = client_id;
         this->_bits_per_client_position = bits_per_client_position;
+        this->_client_id = client_id;
         this->_total_clients = total_clients;
+        allocate_client_positions(total_clients, bits_per_client_position);
     }
 
     Replicated_Log::Replicated_Log(){
@@ -141,7 +160,7 @@ namespace replicated_log {
 
 
     void Replicated_Log::Append_Log_Entry(void * data, size_t size) {
-        INFO("Append Entry", "[%5d] epoch[%d]: size: %d and value %d", get_entry(this->_tail_pointer), get_epoch(this->_tail_pointer), size, *(int *)data);
+        ALERT("Append Entry", "[id %d] [%5d] epoch[%d]: size: %d and value %d",this->_client_id, get_entry(this->_tail_pointer), get_epoch(this->_tail_pointer), size, *(int *)data);
         assert(sizeof(Entry_Metadata) + size <= this->_entry_size); // we must be able to fit the entry in the log
         void* old_tail_pointer = get_reference_to_tail_pointer_entry();
         Entry_Metadata em;
@@ -155,12 +174,11 @@ namespace replicated_log {
             exit(0);
         }
 
-
-
         this->_tail_pointer++;
-        // Check_And_Roll_Over_Tail_Pointer(&this->_tail_pointer);
-        update_client_position(this->_tail_pointer);
-        print_client_positions();
+        //Dont update the client position here. We have only written, not consumed.
+        //This tail pointer is the remote tail pointer we want to sync the local one.
+        // update_client_position(this->_tail_pointer);
+        // print_client_positions();
 
         bzero((void*) old_tail_pointer, this->_entry_size);
         memcpy((void*) old_tail_pointer, (void*) &em, sizeof(Entry_Metadata));

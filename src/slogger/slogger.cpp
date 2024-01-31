@@ -42,11 +42,16 @@ namespace slogger {
                 exit(1);
             }
 
+            _batch_size = stoi(config["batch_size"]);            
+
             ALERT("SLOG", "Creating SLogger with id %s", config["id"].c_str());
             _id = stoi(config["id"]);
             sprintf(_log_identifier, "Client: %3d", stoi(config["id"]));
 
             _total_clients = stoi(config["global_clients"]);
+
+            //This is merely a safty concern I don't want to be allocating over the end of the log
+            assert(_total_clients * _batch_size < 2 * (memory_size / _entry_size));
 
             _replicated_log = Replicated_Log(memory_size, _entry_size, _total_clients, _id);
             _workload_driver = Client_Workload_Driver(config);
@@ -258,6 +263,100 @@ namespace slogger {
         }
     }
 
+    bool SLogger::Send_Client_Tail_Update(uint64_t old_tail, uint64_t new_tail){
+        struct ibv_sge sg;
+        struct ibv_exp_send_wr wr;
+
+        uint64_t old_position = _replicated_log.tail_pointer_to_client_position(old_tail);
+        uint64_t new_position = _replicated_log.tail_pointer_to_client_position(new_tail);
+
+        uint64_t old_epoch = _replicated_log.get_epoch(old_tail) % 2;
+        uint64_t new_epoch = _replicated_log.get_epoch(new_tail) % 2;
+
+        uint64_t byte_pos = _replicated_log.client_position_byte(_id);
+
+        //Round old_byte to the nearest 8 byte boundary
+        uint64_t start_pos = byte_pos - (byte_pos % 8);
+
+        ALERT(log_id(), "Setting client tail update from %lu to %lu", old_tail, new_tail);
+        ALERT(log_id(), "old_position %lu", old_position);
+        ALERT(log_id(), "new_position %lu", new_position);
+        // ALERT(log_id(), "byte_pos %lu", byte_pos);
+        // ALERT(log_id(), "start_pos %lu", start_pos);
+        ALERT(log_id(), "old_epoch %lu", old_epoch);
+        ALERT(log_id(), "new_epoch %lu", new_epoch);
+
+        
+        //Set two uin64 values with old position and new position
+        int starting_bit_offset = _replicated_log.client_position_bit(_id) + (_replicated_log.client_position_byte(_id) * 8);
+        ALERT(log_id(), "starting_bit_offset %d", starting_bit_offset);
+        ALERT(log_id(), "client position byte %d", _replicated_log.client_position_byte(_id));
+        uint64_t new_val = 0;
+        uint64_t old_val = 0;
+        uint64_t mask = 0;
+        uint64_t one = 1;
+
+        //Shift in epoch
+        uint64_t epoch_shift = starting_bit_offset;
+        mask    |= one << epoch_shift;
+        old_val |= (old_epoch & one) << epoch_shift;
+        new_val |= (new_epoch & one) << epoch_shift;
+
+        starting_bit_offset++;
+        for (int i=0;i<_replicated_log.bits_per_position(); i++) {
+            mask    |= one << (starting_bit_offset + i);
+            old_val |= (old_position & (one << i)) << (starting_bit_offset);
+            new_val |= (new_position & (one << i)) << (starting_bit_offset);
+        }
+        //Print out the hex of each value
+        ALERT(log_id(), "old_val %16lx", old_val);
+        ALERT(log_id(), "new_val %16lx", new_val);
+        ALERT(log_id(), "mask    %16lx", mask);
+
+        //Get the address of the lock
+        uint64_t local_address = (uint64_t) _replicated_log.get_client_positions_pointer() + start_pos;
+        uint64_t remote_address = _slog_config->client_position_table_address + start_pos;
+
+        bool success = rdmaCompareAndSwapMask(
+            _qp,
+            local_address,
+            remote_address,
+            old_val,
+            new_val,
+            _client_position_table_mr->lkey,
+            _slog_config->client_position_table_key,
+            mask,
+            true,
+            _wr_id);
+
+        _wr_id++;
+        int outstanding_messages = 1;
+        int n = bulk_poll(_completion_queue, outstanding_messages, _wc);
+
+        ALERT(log_id(), "Just received response from tail update, printing table");
+        // _replicated_log.print_client_positions();
+
+        //Assert that we got the old value back. This prevents errors
+        uint64_t read_position = _replicated_log.get_client_position(_id);
+        ALERT(log_id(), "my id is %d", _id);
+        if (read_position != old_position) {
+            ALERT(log_id(), "Read position %lu does not match old position %lu", read_position, old_position);
+            ALERT(log_id(), "HEX TABLE");
+            _replicated_log.print_client_position_raw_hex();
+            ALERT(log_id(), "FORMAT TABLE");
+            _replicated_log.print_client_positions();
+        }
+
+        assert(read_position == old_position);
+        //The write will have overwritten the local copy
+        _replicated_log.set_client_position(_id, new_tail);
+        ALERT(log_id(), "Printing table again after setting local position");
+        // _replicated_log.print_client_positions();
+        // sleep(1);
+
+        return success;
+    }
+
     bool SLogger::CAS_Allocate_Log_Entry(unsigned int entries) {
 
         bool allocated = false;
@@ -342,6 +441,41 @@ namespace slogger {
             #endif
     }
 
+    void SLogger::Read_Client_Positions() {
+        uint64_t local_address = (uint64_t) _replicated_log.get_client_positions_pointer();
+        uint64_t remote_address = _slog_config->client_position_table_address;
+        uint64_t size = _replicated_log.get_client_positions_size_bytes();
+        rdmaReadExp(
+            _qp,
+            local_address,
+            remote_address,
+            size,
+            _client_position_table_mr->lkey,
+            _slog_config->client_position_table_key,
+            true,
+            _wr_id);
+
+        _wr_id++;
+        int outstanding_messages = 1;
+        int n = bulk_poll(_completion_queue, outstanding_messages, _wc);
+
+        if (n < 0) {
+            ALERT("SLOG", "Error polling completion queue");
+            exit(1);
+        }
+
+        #ifdef MEASURE_ESSENTIAL
+        uint64_t request_size = size + RDMA_READ_REQUSET_SIZE + RDMA_READ_RESPONSE_BASE_SIZE;
+        _read_bytes += request_size;
+        _total_bytes += request_size;
+        _read_operation_bytes += request_size;
+        _current_read_rtt++;
+        _read_rtt_count++;
+        _total_reads++;
+        #endif
+    }
+
+
     void SLogger::Write_Log_Entry(void* data, unsigned int in_size){
         //we have to have allocated the remote entry at this point.
         //TODO assert somehow that we have allocated
@@ -353,6 +487,9 @@ namespace slogger {
         // printf("writing to local addr %ul remote log %ul\n", local_log_tail_address, remote_log_tail_address);
 
         //Make the local change
+        while(!_replicated_log.Can_Append()){
+            Read_Client_Positions();
+        }
         _replicated_log.Append_Log_Entry(data, size);
 
         rdmaWriteExp(
@@ -395,12 +532,31 @@ namespace slogger {
         Syncronize_Log(_replicated_log.get_tail_pointer()); 
     }
 
+    void SLogger::Chase_Tail_And_Update_Remote() {
+        uint64_t old_tail = _replicated_log.get_locally_synced_tail_pointer();
+        _replicated_log.Chase_Locally_Synced_Tail_Pointer(); // This will bring us to the last up to date entry
+        uint64_t new_tail = _replicated_log.get_locally_synced_tail_pointer();
+        if (_replicated_log.tail_pointer_to_client_position(old_tail) == _replicated_log.tail_pointer_to_client_position(new_tail)) {
+            ALERT(log_id(), "No need to update tail pointer stayed the same");
+            //We are up to date
+            return;
+        } else {
+            //We need to update the remote tail pointer
+            // uint64_t old_tail = _replicated_log.get_client_entry(_id);
+            // uint64_t new_tail = local_tail_pointer;
+            ALERT(log_id(), "Updating Remote Pointer old tail %ld, new tail %ld");
+            Send_Client_Tail_Update(old_tail, new_tail);
+            _replicated_log.update_client_position(new_tail);
+        }
+    }
+
 
     void SLogger::Syncronize_Log(uint64_t offset){
 
         // ALERT(log_id(), "Syncronizing log from %lu to %lu", _replicated_log.get_locally_synced_tail_pointer(), offset);
         //Step One reset our local tail pointer and chase to the end of vaild entries
-        _replicated_log.Chase_Locally_Synced_Tail_Pointer(); // This will bring us to the last up to date entry
+        // _replicated_log.Chase_Locally_Synced_Tail_Pointer(); // This will bring us to the last up to date entry
+        Chase_Tail_And_Update_Remote();
 
         if (_replicated_log.get_locally_synced_tail_pointer() >= offset) {
             SUCCESS(log_id(), "Log is already up to date");
@@ -459,7 +615,8 @@ namespace slogger {
             #endif
 
             //Finally chase to the end of what we have read. If the entry is not vaild read again.
-            _replicated_log.Chase_Locally_Synced_Tail_Pointer(); // This will bring us to the last up to date entry
+            // _replicated_log.Chase_Locally_Synced_Tail_Pointer(); // This will bring us to the last up to date entry
+            Chase_Tail_And_Update_Remote();
         }
     }
 

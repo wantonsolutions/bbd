@@ -25,11 +25,16 @@ namespace slogger {
             bool MFAA_Allocate_Log_Entry(unsigned int entries);
             bool FAA_Allocate_Log_Entry(unsigned int entries);
             bool CAS_Allocate_Log_Entry(unsigned int entries);
+            // bool Set_Client_Tail_Update(ibv_sge *sg, ibv_exp_send_wr* wr, uint64_t old_tail, uint64_t new_tail);
+            bool Send_Client_Tail_Update(uint64_t old_tail, uint64_t new_tail);
 
+            void Chase_Tail_And_Update_Remote();
             bool (SLogger::*_allocate_log_entry)(unsigned int entries);
 
 
             void Read_Remote_Tail_Pointer();
+
+            void Read_Client_Positions();
             void Write_Log_Entry(void* data, unsigned int size);
 
             void Sync_To_Remote_Log();
@@ -81,6 +86,7 @@ namespace slogger {
 
             //silly variables
             int _entry_size;
+            int _batch_size;
 
     };
 }
