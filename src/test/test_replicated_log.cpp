@@ -8,7 +8,7 @@ int test_0() {
     ALERT("SLOGGER_TEST", "starting test_replicated_log.cpp");
     unsigned int memory_size = 128;
     unsigned int entry_size = 8;
-    unsigned int total_clients = 1;
+    unsigned int total_clients = 2;
     unsigned int client_id = 0;
     Replicated_Log* rl = new Replicated_Log(memory_size, entry_size, total_clients, client_id);
     char buf[1024];
@@ -16,7 +16,7 @@ int test_0() {
     int entries_per_epoch = memory_size / entry_size;
 
     int base = 0;
-    int total = entries_per_epoch;
+    int total = entries_per_epoch + 4;
     int i = 0;
 
     for (int i=base;i<base+total;i++) {

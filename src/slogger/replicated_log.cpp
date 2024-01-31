@@ -19,6 +19,7 @@ namespace replicated_log {
         } else {
             total_bytes = (total_bits / 8) + 1;
         }
+        _client_positions_size_bytes = total_bytes;
         ALERT("Allocate Client Positions", "total clients %d, bits per entry %d, total bits %d, total bytes %d", total_clients, bits_per_entry, total_bits, total_bytes);
         _client_positions = new uint8_t[total_bytes];
     }
@@ -30,11 +31,41 @@ namespace replicated_log {
 
             // epoch is the first bit in the client position
             // int epoch = (_client_positions[starting_byte] & (1 << starting_bit)) >> starting_bit;
-            int epoch = read_client_position_epoch(i);
+            int epoch = get_client_position_epoch(i);
             uint64_t position = get_client_position(i);
+            uint64_t entry = get_client_entry(i);
 
-            ALERT("Client Positions", "client %d, position %ld, epoch %d", i, position, epoch);
+            ALERT("Client Positions", "client %d, position %ld, entry %ld epoch %d", i, position, entry, epoch);
         }
+    }
+
+    uint64_t Replicated_Log::get_min_client_position() {
+        if (this->_total_clients == 1) {
+            return get_client_position(0);
+        }
+        int min_client = 0;
+        uint64_t min_position = get_client_position(0);
+        uint64_t min_epoch = get_client_position_epoch(0);
+
+        for (int i=1;i<this->_total_clients;i++) {
+            uint64_t position = get_client_position(i);
+            uint64_t epoch = get_client_position_epoch(i);
+
+            if (min_epoch == epoch && position < min_position) {
+                min_position = position;
+                min_epoch = epoch;
+                min_client = i;
+            }
+
+            if (epoch != min_epoch && position > min_position) {
+                min_position = position;
+                min_epoch = epoch;
+                min_client = i;
+            }
+        }
+        ALERT("Min Client Position", "client %d, position %ld, epoch %ld", min_client, min_position, min_epoch);
+        return position_to_entry(min_position);
+
     }
 
     void Replicated_Log::update_client_position(uint64_t tail_pointer) {
@@ -91,7 +122,14 @@ namespace replicated_log {
     }
 
     bool Replicated_Log::Can_Append() {
-        return this->_number_of_entries - this->_tail_pointer > 1;
+        int min_entry = get_min_client_position();
+        int current_entry = get_entry(this->_tail_pointer);
+        ALERT("Can Append", "min entry %d, current entry %d", min_entry, current_entry);
+        if ((current_entry + 1)%get_number_of_entries() == min_entry) {
+            return false;
+        }
+        return true;
+
     }
 
     bool Replicated_Log::Will_Fit_In_Entry(size_t size) {
@@ -109,6 +147,15 @@ namespace replicated_log {
         Entry_Metadata em;
         em.type = app;
         em.epoch = get_epoch(this->_tail_pointer) % 2;
+
+        if (!Can_Append()){
+            ALERT("Append Entry", "Cannot append entry, min client position is %d", get_min_client_position());
+            ALERT("Append Entry", "This is where we will have to poll for client positions");
+            ALERT("Append Entry", "Exiting...");
+            exit(0);
+        }
+
+
 
         this->_tail_pointer++;
         // Check_And_Roll_Over_Tail_Pointer(&this->_tail_pointer);

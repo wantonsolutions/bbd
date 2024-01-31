@@ -562,6 +562,7 @@ namespace slogger {
         _log_mr = rdma_buffer_register(_protection_domain, _replicated_log.get_log_pointer(), _replicated_log.get_log_size_bytes(), MEMORY_PERMISSION);
         // INFO(log_id(), "Registering lock table with RDMA device size %d, location %p\n", get_lock_table_size_bytes(), get_lock_table_pointer());
         _tail_pointer_mr = rdma_buffer_register(_protection_domain, _replicated_log.get_tail_pointer_address(), _replicated_log.get_tail_pointer_size_bytes(), MEMORY_PERMISSION);
+        _client_position_table_mr = rdma_buffer_register(_protection_domain, _replicated_log.get_client_positions_pointer(), _replicated_log.get_client_positions_size_bytes(), MEMORY_PERMISSION);
 
         _wr_id = 10000000;
         _wc = (struct ibv_wc *) calloc (MAX_CONCURRENT_MESSAGES, sizeof(struct ibv_wc));

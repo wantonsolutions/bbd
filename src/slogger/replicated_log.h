@@ -23,13 +23,6 @@ namespace replicated_log {
     };
 
 
-    // typedef struct Log_Entry {
-    //     Entry_Metadata metadata;
-    //     uint8_t * data;
-    //     string ToString();
-    //     int Get_Total_Entry_Size();
-    // } Log_Entry;
-
     class Replicated_Log {
         public:
             Replicated_Log();
@@ -70,18 +63,23 @@ namespace replicated_log {
             // void set_epoch(unsigned int epoch) {this->_epoch = epoch;}
 
 
-            int client_position_byte() {return this->_client_id * this->_bits_per_client_position / 8;}
-            int client_position_bit() {return this->_client_id * this->_bits_per_client_position % 8;}
+            int client_position_byte(int id) {return (id * this->_bits_per_client_position) / 8;}
+            int client_position_bit(int id) {return (id * this->_bits_per_client_position) % 8;}
 
-            unsigned int read_client_position_epoch(int client_id) {
-                int byte = client_position_byte();
-                int bit = client_position_bit();
+            void * get_client_positions_pointer() {return (void*) this->_client_positions;}
+            int get_client_positions_size_bytes() {return this->_client_positions_size_bytes;}
+
+            uint64_t get_min_client_position();
+
+            unsigned int get_client_position_epoch(int id) {
+                int byte = client_position_byte(id);
+                int bit = client_position_bit(id);
                 return (_client_positions[byte] & (1 << bit)) >> bit;
             }
 
-            void set_client_position_epoch(int client_id, unsigned int epoch) {
-                int byte = client_position_byte();
-                int bit = client_position_bit();
+            void set_client_position_epoch(int id, unsigned int epoch) {
+                int byte = client_position_byte(id);
+                int bit = client_position_bit(id);
                 if (epoch == 0) {
                     _client_positions[byte] &= ~(1 << bit);
                 } else {
@@ -97,10 +95,10 @@ namespace replicated_log {
                 return position;
             }
 
-            void set_client_position(int client_id, uint64_t tail_pointer) {
+            void set_client_position(int id, uint64_t tail_pointer) {
                 unsigned int position = tail_pointer_to_client_position(tail_pointer);
-                int byte = client_position_byte();
-                int bit = client_position_bit();
+                int byte = client_position_byte(id);
+                int bit = client_position_bit(id);
                 bit = bit + 1;
 
                 for (int i =0; i < this->_bits_per_client_position; i++) {
@@ -114,10 +112,11 @@ namespace replicated_log {
                 }
             }
 
-            uint64_t get_client_position(int client_id) {
+            uint64_t get_client_position(int id) {
                 unsigned int position = 0;
-                int byte = client_position_byte();
-                int bit = client_position_bit();
+                int byte = client_position_byte(id);
+                int bit = client_position_bit(id);
+                // printf("byte: %d, bit %d\n", byte,bit);
                 bit = bit + 1;
                 // printf("bits per client position %d\n", this->_bits_per_client_position);
                 for (int j =0; j < this->_bits_per_client_position; j++) {
@@ -133,6 +132,20 @@ namespace replicated_log {
                 return position;
             }
 
+            uint64_t position_to_entry(uint64_t position) {
+                unsigned int bits_in_entries = log2(get_number_of_entries());
+                unsigned int left_shift = ((bits_in_entries - this->_bits_per_client_position));
+                position = position << left_shift;
+                return position;
+            }
+
+            uint64_t get_client_entry(int id) {
+                uint64_t position = get_client_position(id);
+                return position_to_entry(position);
+            }
+
+            
+
         private:
             void * Next(uint64_t *tail_pointer);
             void Chase(uint64_t * tail_pointer);
@@ -147,6 +160,7 @@ namespace replicated_log {
             unsigned int _total_clients;
             unsigned int _client_id;
             unsigned int _bits_per_client_position;
+            unsigned int _client_positions_size_bytes;
             // unsigned int _epoch;
             uint8_t* _log;
             //Tail pointer references the remote tail pointer. This value is DMA's to and from directly

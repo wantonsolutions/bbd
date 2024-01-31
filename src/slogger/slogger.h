@@ -74,6 +74,7 @@ namespace slogger {
 
             ibv_mr *_log_mr;
             ibv_mr *_tail_pointer_mr;
+            ibv_mr *_client_position_table_mr;
 
             struct ibv_wc *_wc;
             uint64_t _wr_id;

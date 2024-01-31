@@ -51,7 +51,10 @@ typedef struct slog_config {
             "slog_size_bytes: " + std::to_string(slog_size_bytes) + "\n" +  
             "tail_pointer_address: " + std::to_string(tail_pointer_address) + "\n" +
             "tail_pointer_key: " + std::to_string(tail_pointer_key) + "\n" +
-            "tail_pointer_size_bytes: " + std::to_string(tail_pointer_size_bytes) + "\n";
+            "tail_pointer_size_bytes: " + std::to_string(tail_pointer_size_bytes) + "\n" +
+            "client_position_table_address: " + std::to_string(client_position_table_address) + "\n" +
+            "client_position_table_key: " + std::to_string(client_position_table_key) + "\n" +
+            "client_position_table_size_byte: " + std::to_string(client_position_table_size_bytes) + "\n";
     }
     uint64_t slog_address;
     int slog_key;
@@ -60,6 +63,10 @@ typedef struct slog_config {
     uint64_t tail_pointer_address;
     int tail_pointer_key;
     int tail_pointer_size_bytes;
+
+    uint64_t client_position_table_address;
+    int client_position_table_key;
+    int client_position_table_size_bytes;
 } slog_config;
 
 typedef struct corrupter_config {

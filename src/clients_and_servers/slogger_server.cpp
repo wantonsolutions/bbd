@@ -20,6 +20,7 @@ using namespace std;
 using namespace replicated_log;
 
 #define LOG_MR_INDEX 0
+#define CLIENT_POSITION_TALBE 1
 // #define LOCK_TABLE_MR_INDEX 1
 #define TAIL_POINTER_STARTING_ADDRESS 0
 
@@ -59,6 +60,8 @@ static void send_slog_config_to_memcached_server(Replicated_Log& rl)
     printf("asking for a tail pointer of size %d\n", tail_pointer_size);
     device_memory = register_device_memory(TAIL_POINTER_STARTING_ADDRESS, tail_pointer_size);
 
+    ibv_mr * client_position_table_mr = register_server_object_at_mr_index(rl.get_client_positions_pointer(), rl.get_client_positions_size_bytes(), CLIENT_POSITION_TALBE);
+
     slog_config config;
     // Table * table = msm.get_table();
     config.slog_address = (uint64_t) log_mr->addr;
@@ -68,6 +71,10 @@ static void send_slog_config_to_memcached_server(Replicated_Log& rl)
     config.tail_pointer_address = (uint64_t) TAIL_POINTER_STARTING_ADDRESS;
     config.tail_pointer_key = (uint32_t) device_memory.mr->lkey;
     config.tail_pointer_size_bytes = tail_pointer_size;
+
+    config.client_position_table_address = (uint64_t) client_position_table_mr->addr;
+    config.client_position_table_key = (uint32_t) client_position_table_mr->lkey;
+    config.client_position_table_size_bytes = rl.get_client_positions_size_bytes();
     memcached_publish_slog_config(&config);
 }
 
@@ -94,12 +101,6 @@ void moniter_run(int print_frequency, bool prime, int runtime, bool use_runtime,
         // ALERT("EPOCH", "epoch %ld", epoch);
         if(now - last_print >= print_frequency) {
             last_print = now;
-
-            // rl.Print_All_Entries();
-            // copy_tail_pointer_from_device_memory(rl);
-            // copy_device_memory_to_host_lock_table(msm);
-            // msm.print_table();
-            // msm.print_lock_table();
             unsigned int data_written_mb = (epoch * rl.get_log_size_bytes()) / 1000000;
             printf("[Runtime %d] %d MB written [epoch %ld] \n", print_step* print_frequency, data_written_mb, epoch);
             print_step++;
@@ -159,9 +160,6 @@ int main(int argc, char **argv)
     }
 
     unordered_map<string, string> config = read_config_from_file(config_filename);
-    int memory_size_bytes = stoi(config["memory_size"]);
-    int entry_size_bytes = stoi(config["entry_size"]);
-    Replicated_Log rl = Replicated_Log(memory_size_bytes, entry_size_bytes);
 
     bool prime = (config["prime"] == "true");
     unsigned int prime_epochs = stoi(config["prime_epochs"]);
@@ -173,6 +171,10 @@ int main(int argc, char **argv)
     printf("assigning base_port %s\n", config["base_port"].c_str());
     int base_port = stoi(config["base_port"]);
     int num_qps = stoi(config["num_clients"]);
+
+    int memory_size_bytes = stoi(config["memory_size"]);
+    int entry_size_bytes = stoi(config["entry_size"]);
+    Replicated_Log rl = Replicated_Log(memory_size_bytes, entry_size_bytes, num_qps, 0);
 
     string workload = config["workload"];
     int runtime = stoi(config["runtime"]);
