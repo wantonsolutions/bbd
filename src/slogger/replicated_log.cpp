@@ -24,7 +24,7 @@ namespace replicated_log {
             total_bytes = total_bytes + (8 - (total_bytes % 8));
         }
         _client_positions_size_bytes = total_bytes;
-        ALERT("Allocate Client Positions", "total clients %d, bits per entry %d, total bits %d, total bytes %d", total_clients, bits_per_entry, total_bits, total_bytes);
+        INFO("Allocate Client Positions", "total clients %d, bits per entry %d, total bits %d, total bytes %d", total_clients, bits_per_entry, total_bits, total_bytes);
         _client_positions = new uint8_t[total_bytes];
         //Zero out client positions
         memset(_client_positions, 0, total_bytes);
@@ -33,8 +33,8 @@ namespace replicated_log {
         for (int i=0;i<total_clients;i++) {
             set_client_position_epoch(i, 1);
         }
-        ALERT("Allocate Client Positions", "client positions size bytes %d", _client_positions_size_bytes);
-        print_client_position_raw_hex();
+        // ALERT("Allocate Client Positions", "client positions size bytes %d", _client_positions_size_bytes);
+        // print_client_position_raw_hex();
     }
 
 

@@ -194,11 +194,29 @@ void slogger_stat_collection(State_Machine ** state_machines, unordered_map<stri
     system_statistics["runtime_s"]= to_string(ms_int.count() / 1000.0);
     ALERT("RDMA Engine", "Runtime ms %d\n",(int)ms_int.count());
 
+    uint64_t puts = 0;
+    uint64_t gets = 0;
+    uint64_t updates = 0;
+    for (int i=0;i<num_clients;i++) {
+        puts += stoull(client_statistics[i]["completed_read_count"]);
+        gets += stoull(client_statistics[i]["completed_insert_count"]);
+        updates += stoull(client_statistics[i]["completed_update_count"]);
+    }
+    system_statistics["put_throughput"] = to_string(puts / (ms_int.count() / 1000.0));
+    system_statistics["get_throughput"] = to_string(gets / (ms_int.count() / 1000.0));
+    system_statistics["update_throughput"] = to_string(updates / (ms_int.count() / 1000.0));
+    system_statistics["throughput"]= to_string((puts + gets + updates) / (ms_int.count() / 1000.0));
+
+    float throughput = (puts + gets + updates) / (ms_int.count() / 1000.0);
+    SUCCESS("RDMA Engine", "Throughput: %f\n", throughput);
+    ALERT("Final Tput", "%d,%f\n", num_clients, throughput);
+
     unordered_map<string,string> memory_statistics;
     memory_statistics["fill"]="0.13371337666";
     ALERT("RDMA Engine", "Writing out statistics\n");
     write_statistics(config, system_statistics, client_statistics, memory_statistics);
-    // free(thread_ids);
+
+
     VERBOSE("RDMA Engine", "done running state machine!");
 }
 
@@ -217,7 +235,6 @@ void * slogger_thread_init(void * arg) {
     // SLogger * slogger = new NT(config);
 
 
-    ALERT("RDMA Engine", "TODO setup RDMA rdma resources within the slogger\n");
     struct rdma_info info;
     info.qp = slogger_arg->cm->client_qp[slogger_arg->id];
     info.completion_queue = slogger_arg->cm->client_cq_threads[slogger_arg->id];
@@ -228,7 +245,7 @@ void * slogger_thread_init(void * arg) {
 }
 
 void * slogger_fsm_runner(void * args){
-    ALERT("RDMA Engine","launching threads in a slogger fsm\n");
+    VERBOSE("RDMA Engine","launching threads in a slogger fsm\n");
     SLogger * slogger = (SLogger *) args;
     // NT * slogger = (NT *) args;
     slogger->fsm();
@@ -277,7 +294,6 @@ void * corrupter_thread_init(void * arg) {
     // SLogger * slogger = new NT(config);
 
 
-    ALERT("RDMA Engine", "TODO setup RDMA rdma resources within the slogger\n");
     struct rdma_info info;
     info.qp = corrupter_arg->cm->client_qp[corrupter_arg->id];
     info.completion_queue = corrupter_arg->cm->client_cq_threads[corrupter_arg->id];
@@ -495,9 +511,10 @@ namespace rdma_engine {
 
         //Get all of the threads to join
         for (int i=0;i<_num_clients;i++){
-            ALERT("RDMA Engine", "Joining Client Thread %d\n", i);
+            INFO("RDMA Engine", "Joining Client Thread %d\n", i);
             pthread_join(thread_ids[i],NULL);
         }
+
         ALERT("RDMA Engine", "Experiment Complete\n");
 
         collect_stats(state_machine_holder,_config, _num_clients, ms_int);

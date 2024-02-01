@@ -213,11 +213,13 @@ int main(int argc, char **argv)
     ALERT("SLogger server", "TODO send the results to the memcached server");
     send_final_memory_stats_to_memcached_server(rl);
 
-    ret = disconnect_and_cleanup(num_qps);
-    if (ret) { 
-        rdma_error("Failed to clean up resources properly, ret = %d \n", ret);
-        return ret;
-    }
+
+
+    // ret = disconnect_and_cleanup(num_qps);
+    // if (ret) { 
+    //     rdma_error("Failed to clean up resources properly, ret = %d \n", ret);
+    //     return ret;
+    // }
     return 0;
 }
 

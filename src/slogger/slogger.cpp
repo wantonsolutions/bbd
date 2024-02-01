@@ -49,6 +49,7 @@ namespace slogger {
             _id = stoi(config["id"]);
             sprintf(_log_identifier, "Client: %3d", stoi(config["id"]));
 
+            ALERT("SLOG", "TODO ensure that we don't have duplicate client ID's");
             _total_clients = stoi(config["global_clients"]);
 
             //This is merely a safty concern I don't want to be allocating over the end of the log
@@ -61,13 +62,11 @@ namespace slogger {
             set_workload(config["workload"]);
 
             _local_prime_flag = false;
-            ALERT(log_id(), "Done creating SLogger");
         } catch (exception& e) {
             ALERT("SLOG", "Error in SLogger constructor: %s", e.what());
             exit(1);
         }   
 
-        ALERT("Slogger", "Done creating SLogger");
     }
 
 
@@ -536,9 +535,6 @@ namespace slogger {
             //We are up to date
             return;
         } else {
-            //We need to update the remote tail pointer
-            // uint64_t old_tail = _replicated_log.get_client_entry(_id);
-            // uint64_t new_tail = local_tail_pointer;
             INFO(log_id(), "Updating Remote Pointer old tail %ld, new tail %ld");
             Send_Client_Tail_Update(old_tail, new_tail);
             _replicated_log.update_client_position(new_tail);
@@ -673,7 +669,7 @@ namespace slogger {
     }
 
     void SLogger::set_workload(string workload) {
-        ALERT("setting workload to %s\n", workload.c_str());
+        INFO(__func__: "%s", workload.c_str());
         if (workload == "ycsb-a"){
             _workload = A;
         } else if (workload == "ycsb-b"){
@@ -691,12 +687,10 @@ namespace slogger {
 
     void SLogger::init_rdma_structures(rdma_info info){ 
 
+        INFO("SLOG", "SLogger Initializing RDMA Structures");
         assert(info.qp != NULL);
         assert(info.completion_queue != NULL);
         assert(info.pd != NULL);
-
-        ALERT("SLOG", "SLogger Initializing RDMA Structures");
-
 
         _qp = info.qp;
         _completion_queue = info.completion_queue;
@@ -707,8 +701,7 @@ namespace slogger {
         assert(_slog_config->slog_size_bytes == _replicated_log.get_log_size_bytes());
         INFO(log_id(),"got a slog config from the memcached server and it seems to line up\n");
 
-        ALERT("SLOG", "SLogger Done Initializing RDMA Structures");
-        ALERT("SLOG", "TODO - register local log with a mr");
+        SUCCESS("SLOG", "Set RDMA Structs from memcached server");
 
         // INFO(log_id(), "Registering table with RDMA device size %d, location %p\n", get_table_size_bytes(), get_table_pointer()[0]);
         _log_mr = rdma_buffer_register(_protection_domain, _replicated_log.get_log_pointer(), _replicated_log.get_log_size_bytes(), MEMORY_PERMISSION);
@@ -718,7 +711,7 @@ namespace slogger {
 
         _wr_id = 10000000;
         _wc = (struct ibv_wc *) calloc (MAX_CONCURRENT_MESSAGES, sizeof(struct ibv_wc));
-        ALERT("SLOG", "Done registering memory regions for SLogger");
+        SUCCESS("SLOG", "Done registering memory regions for SLogger");
 
     }
 
