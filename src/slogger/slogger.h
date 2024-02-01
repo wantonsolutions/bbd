@@ -35,7 +35,7 @@ namespace slogger {
 
             void Read_Remote_Tail_Pointer();
 
-            void Read_Client_Positions();
+            void Read_Client_Positions(bool block);
             void Write_Log_Entry(void* data, unsigned int size);
 
             void Sync_To_Remote_Log();

@@ -145,6 +145,11 @@ namespace slogger {
         uint64_t add  = entries;
         uint64_t current_tail_value = _replicated_log.get_tail_pointer();
 
+        //Send out a request for client positions along with the fetch and add
+        //They are two seperate requests
+        //We can batch together for a bit better latency
+
+        // Read_Client_Positions(false);
         rdmaFetchAndAddExp(
             _qp,
             local_tail_pointer_address,
@@ -197,6 +202,10 @@ namespace slogger {
         ALERT("SLOG", "current_tail_value %lu", current_tail_value);
         ALERT("SLOG", "tail_pointer_mr->lkey %lu", _tail_pointer_mr->lkey);
 
+        //Send out a request for client positions along with the fetch and add
+        //They are two seperate requests
+        //We can batch together for a bit better latency.
+        // Read_Client_Positions(false);
         rdmaMaskedFetchAndAddExp(
             _qp,
             local_tail_pointer_address,
@@ -364,6 +373,10 @@ namespace slogger {
             uint64_t new_tail_pointer = compare + entries;
             uint64_t current_tail_value = compare;
 
+            //Send out a request for client positions along with the fetch and add
+            //They are two seperate requests
+            //We can batch together for a bit better latency.
+            // Read_Client_Positions(false);
             rdmaCompareAndSwapExp(
                 _qp,
                 local_tail_pointer_address,
@@ -437,7 +450,9 @@ namespace slogger {
             #endif
     }
 
-    void SLogger::Read_Client_Positions() {
+    //Block will wait for the request to terminate before returning.
+    //We could batch this with other requests but for now we are going to keep it simple
+    void SLogger::Read_Client_Positions(bool block) {
         uint64_t local_address = (uint64_t) _replicated_log.get_client_positions_pointer();
         uint64_t remote_address = _slog_config->client_position_table_address;
         uint64_t size = _replicated_log.get_client_positions_size_bytes();
@@ -448,16 +463,19 @@ namespace slogger {
             size,
             _client_position_table_mr->lkey,
             _slog_config->client_position_table_key,
-            true,
+            block,
             _wr_id);
 
         _wr_id++;
-        int outstanding_messages = 1;
-        int n = bulk_poll(_completion_queue, outstanding_messages, _wc);
 
-        if (n < 0) {
-            ALERT("SLOG", "Error polling completion queue");
-            exit(1);
+        if (block) {
+            int outstanding_messages = 1;
+            int n = bulk_poll(_completion_queue, outstanding_messages, _wc);
+
+            if (n < 0) {
+                ALERT("SLOG", "Error polling completion queue");
+                exit(1);
+            }
         }
 
         #ifdef MEASURE_ESSENTIAL
@@ -484,7 +502,7 @@ namespace slogger {
 
         //Make the local change
         while(!_replicated_log.Can_Append()){
-            Read_Client_Positions();
+            Read_Client_Positions(true);
         }
         _replicated_log.Append_Log_Entry(data, size);
 
@@ -536,6 +554,8 @@ namespace slogger {
             return;
         } else {
             INFO(log_id(), "Updating Remote Pointer old tail %ld, new tail %ld");
+            //Do a read here to keep ourselves up to date
+            Read_Client_Positions(false);
             Update_Remote_Client_Position(new_tail);
             _replicated_log.update_client_position(new_tail);
         }
