@@ -263,14 +263,16 @@ namespace slogger {
         }
     }
 
-    bool SLogger::Send_Client_Tail_Update(uint64_t old_tail, uint64_t new_tail){
+    bool SLogger::Update_Remote_Client_Position(uint64_t new_tail){
         struct ibv_sge sg;
         struct ibv_exp_send_wr wr;
 
-        uint64_t old_position = _replicated_log.tail_pointer_to_client_position(old_tail);
+        // uint64_t old_position = _replicated_log.tail_pointer_to_client_position(old_tail);
+        uint64_t old_position = _replicated_log.get_client_position(_id);
         uint64_t new_position = _replicated_log.tail_pointer_to_client_position(new_tail);
 
-        uint64_t old_epoch = _replicated_log.get_epoch(old_tail) % 2;
+        // uint64_t old_epoch = _replicated_log.get_epoch(old_tail) % 2;
+        uint64_t old_epoch = _replicated_log.get_client_position_epoch(_id);
         uint64_t new_epoch = _replicated_log.get_epoch(new_tail) % 2;
 
         uint64_t byte_pos = _replicated_log.client_position_byte(_id);
@@ -526,17 +528,15 @@ namespace slogger {
         Syncronize_Log(_replicated_log.get_tail_pointer()); 
     }
 
-    void SLogger::Chase_Tail_And_Update_Remote() {
-        uint64_t old_tail = _replicated_log.get_locally_synced_tail_pointer();
-        _replicated_log.Chase_Locally_Synced_Tail_Pointer(); // This will bring us to the last up to date entry
-        uint64_t new_tail = _replicated_log.get_locally_synced_tail_pointer();
-        if (_replicated_log.tail_pointer_to_client_position(old_tail) == _replicated_log.tail_pointer_to_client_position(new_tail)) {
+    void SLogger::Update_Client_Position(uint64_t new_tail) {
+        // if (_replicated_log.tail_pointer_to_client_position(old_tail) == _replicated_log.tail_pointer_to_client_position(new_tail)) {
+        if (_replicated_log.get_client_position(_id) == _replicated_log.tail_pointer_to_client_position(new_tail)) {
             INFO(log_id(), "No need to update tail pointer stayed the same");
             //We are up to date
             return;
         } else {
             INFO(log_id(), "Updating Remote Pointer old tail %ld, new tail %ld");
-            Send_Client_Tail_Update(old_tail, new_tail);
+            Update_Remote_Client_Position(new_tail);
             _replicated_log.update_client_position(new_tail);
         }
     }
@@ -544,10 +544,12 @@ namespace slogger {
 
     void SLogger::Syncronize_Log(uint64_t offset){
 
-        // ALERT(log_id(), "Syncronizing log from %lu to %lu", _replicated_log.get_locally_synced_tail_pointer(), offset);
+        INFO(log_id(), "Syncronizing log from %lu to %lu", _replicated_log.get_locally_synced_tail_pointer(), offset);
         //Step One reset our local tail pointer and chase to the end of vaild entries
         // _replicated_log.Chase_Locally_Synced_Tail_Pointer(); // This will bring us to the last up to date entry
-        Chase_Tail_And_Update_Remote();
+
+        //Now we can chase our tail untill we are up to date.
+        _replicated_log.Chase_Locally_Synced_Tail_Pointer();
 
         if (_replicated_log.get_locally_synced_tail_pointer() >= offset) {
             SUCCESS(log_id(), "Log is already up to date");
@@ -607,8 +609,11 @@ namespace slogger {
 
             //Finally chase to the end of what we have read. If the entry is not vaild read again.
             // _replicated_log.Chase_Locally_Synced_Tail_Pointer(); // This will bring us to the last up to date entry
-            Chase_Tail_And_Update_Remote();
+            _replicated_log.Chase_Locally_Synced_Tail_Pointer();
         }
+
+        Update_Client_Position(_replicated_log.get_locally_synced_tail_pointer());
+
     }
 
 
