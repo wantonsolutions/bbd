@@ -20,7 +20,7 @@ int main(int argc, char **argv){
         }
         exit(1);
     }
-    string config_filename = "configs/default_config.json";
+    string config_filename = "configs/slogger_default.json";
     if (argc == 2) {
         config_filename = argv[1];
     }

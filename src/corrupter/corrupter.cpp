@@ -32,7 +32,7 @@ namespace corrupter {
             _id = stoi(config["id"]);
             sprintf(_log_identifier, "Client: %3d", stoi(config["id"]));
             _local_prime_flag = false;
-            ALERT(log_id(), "Done creating SLogger");
+            INFO(log_id(), "Done creating SLogger");
         } catch (exception& e) {
             ALERT("Corrupter", "Error in SLogger constructor: %s", e.what());
             exit(1);

@@ -482,6 +482,10 @@ namespace cuckoo_tables {
         return false;
     }
 
+    bool Table::key_is_at(unsigned int bucket_index, unsigned int offset, Key &key){
+        return _table[bucket_index][offset].key == key;
+    }
+
 
     int Table::get_keys_offset_in_row(unsigned int row, Key &key) {
         unsigned int index;
@@ -493,6 +497,22 @@ namespace cuckoo_tables {
         ALERT("DEATH!", "Key not found in row, don't call this function like this.");
         assert(false);
         return -1;
+    }
+
+    bool Table::get_index_and_offset(Key &key, unsigned int row1, unsigned int row2, unsigned int *index, unsigned int *offset){
+        bool b1 = bucket_contains(row1, key);
+        if (b1) {
+            *index = row1;
+            *offset = get_keys_offset_in_row(row1, key);
+            return true;
+        }
+        bool b2 = bucket_contains(row2, key);
+        if (b2) {
+            *index = row2;
+            *offset = get_keys_offset_in_row(row2, key);
+            return true;
+        }
+        return false;
     }
 
     bool Table::contains(Key key){

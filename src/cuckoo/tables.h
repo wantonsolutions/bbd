@@ -294,6 +294,9 @@ namespace cuckoo_tables {
             bool bucket_contains(unsigned int bucket_index, Key &key);
             int get_keys_offset_in_row(unsigned int row, Key &key);
 
+            bool get_index_and_offset(Key &key, unsigned int row1, unsigned int row2, unsigned int *index, unsigned int *offset);
+            bool key_is_at(unsigned int bucket_index, unsigned int offset, Key &key);
+
             float get_fill_percentage_fast();
             float get_fill_percentage();
             bool full();

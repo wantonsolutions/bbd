@@ -129,6 +129,7 @@ namespace cuckoo_virtual_rdma {
     unsigned int get_unique_lock_indexes_fast(vector<unsigned int> &buckets, unsigned int buckets_per_lock, unsigned int *unique_buckets, unsigned int unique_buckets_size);
 
     void get_lock_or_unlock_list_fast_context(LockingContext & context);
+    void fast_get_unlock_list_from_lock_indexes(LockingContext &context);
     void get_unlock_list_from_lock_indexes(LockingContext &context);
     void get_lock_list_fast_context(LockingContext &context);
     void get_unlock_list_fast_context(LockingContext &context);
@@ -137,6 +138,8 @@ namespace cuckoo_virtual_rdma {
 
 
     VRReadData get_covering_read_from_lock(VRMaskedCasData masked_cas, unsigned int buckets_per_lock, unsigned int row_size_bytes);
+
+    void get_covering_reads_for_update(LockingContext context, vector<vector<VRReadData>> &read_data_list, Table& table, unsigned int buckets_per_lock);
     unsigned int byte_aligned_index(unsigned int index);
     unsigned int sixty_four_aligned_index(unsigned int index);
     unsigned int get_min_sixty_four_aligned_index(vector<unsigned int> &indexes);
@@ -149,7 +152,7 @@ namespace cuckoo_virtual_rdma {
     //RDMA specific functions
     vector<VRReadData> get_covering_reads_from_lock_list(vector<VRMaskedCasData> masked_cas_list, unsigned int buckets_per_lock, unsigned int row_size_bytes);
 
-    void get_covering_reads_context(LockingContext context, vector<VRReadData> &read_data_list, Table &table, unsigned int buckets_per_lock);
+    void get_covering_reads_context(LockingContext context, vector<vector<VRReadData>> &read_data_list, Table &table, unsigned int buckets_per_lock);
     void get_covering_reads_from_lock_list(vector<VRMaskedCasData> &masked_cas_list, vector<VRReadData> &read_data_list, unsigned int buckets_per_lock, unsigned int row_size_bytes);
     unsigned int lock_message_to_lock_indexes(VRMaskedCasData lock_message, unsigned int * lock_indexes);
 

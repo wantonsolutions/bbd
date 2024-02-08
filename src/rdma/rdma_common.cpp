@@ -439,6 +439,7 @@ int stick_this_thread_to_core(int core_id) {
 }
 
 int stick_thread_to_core(pthread_t thread, int core_id) {
+  INFO("STICK TO CORE","%s: core_id %d\n", __func__, core_id);
   int num_cores = sysconf(_SC_NPROCESSORS_ONLN);
   if (core_id < 0 || core_id >= num_cores) {
         ALERT("CORE_PIN_DEATH","%s: core_id %d invalid total cores %d\n", __func__, core_id,_SC_NPROCESSORS_ONLN);

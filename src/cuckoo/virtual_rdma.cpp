@@ -419,6 +419,15 @@ namespace cuckoo_virtual_rdma {
         unlock_chunks_to_masked_cas_data_context(context);
     }
 
+    void fast_get_unlock_list_from_lock_indexes(LockingContext &context) {
+        //assume we have the lock list
+        for (size_t i=0; i<context.lock_list.size(); i++) {
+            context.lock_list[i].old = context.lock_list[i].new_value;
+            context.lock_list[i].new_value = 0;
+        }
+        return;
+    }
+
     unsigned int get_unique_lock_indexes_fast(vector<unsigned int> &buckets, unsigned int buckets_per_lock, unsigned int *unique_buckets, unsigned int unique_buckets_size)
     {
         assert(unique_buckets_size >= buckets.size());
@@ -518,17 +527,22 @@ namespace cuckoo_virtual_rdma {
     }
 
 
-    void get_covering_reads_context(LockingContext context, vector<VRReadData> &read_data_list, Table &table, unsigned int buckets_per_lock){
+    void get_covering_reads_context(LockingContext context, vector<vector<VRReadData>> &read_data_list, Table &table, unsigned int buckets_per_lock){
         read_data_list.clear();
         for (size_t i=0; i<context.lock_list.size(); i++) {
+            read_data_list.push_back(vector<VRReadData>());
             VRMaskedCasData cas = context.lock_list[i]; 
-            unsigned int lock_index = (cas.min_set_lock + (BITS_PER_BYTE * cas.min_lock_index)) * buckets_per_lock;
+            // unsigned int lock_index = (cas.min_set_lock + (BITS_PER_BYTE * cas.min_lock_index)) * buckets_per_lock;
+            unsigned int lock_index = (cas.min_set_lock + (BITS_PER_BYTE * cas.min_lock_index));
             int found = 0;
             unsigned int original_lock;
 
             for(int j=0;j<context.virtual_lock_indexes_size; j++) {
                 unsigned int vlock = context.virtual_lock_indexes[j];
-                if((vlock % context.total_physical_locks) ==lock_index){
+                unsigned int virt_to_phys = vlock % context.total_physical_locks;
+                // ALERT("VIRTUAL COVER MAPING", "vlock %d virt_to_phys %d\n",vlock,virt_to_phys);
+                if(virt_to_phys ==lock_index){
+                    // ALERT("Found matching lock", "virt_to_phys %d lock_index \n",virt_to_phys, lock_index);
                     found++;
                     original_lock = vlock;
                 }
@@ -551,7 +565,27 @@ namespace cuckoo_virtual_rdma {
                 }
                 exit(0);
             }
-            read_data_list.push_back(get_covering_read_from_lock(cas, buckets_per_lock, table.row_size_bytes()));
+            read_data_list[read_data_list.size()-1].push_back(get_covering_read_from_lock(cas, buckets_per_lock, table.row_size_bytes()));
+        }
+        return;
+    }
+
+    void get_covering_reads_for_update(LockingContext context, vector<vector<VRReadData>> &read_data_list, Table& table, unsigned int buckets_per_lock) {
+        //This is a very special case, we should need only 1 or two locks and they should both be ordered.
+        assert(context.lock_list.size() <=2);
+        assert(context.buckets.size() ==2);
+        assert(context.buckets[0] < context.buckets[1]);
+
+        read_data_list.clear();
+        if (context.lock_list.size() == 1) {
+            read_data_list.push_back(vector<VRReadData>());
+            read_data_list[0].push_back(read_request_data(context.buckets[0], 0, table.row_size_bytes()));
+            read_data_list[0].push_back(read_request_data(context.buckets[1], 0, table.row_size_bytes()));
+        } else {
+            read_data_list.push_back(vector<VRReadData>());
+            read_data_list.push_back(vector<VRReadData>());
+            read_data_list[0].push_back(read_request_data(context.buckets[0], 0, table.row_size_bytes()));
+            read_data_list[1].push_back(read_request_data(context.buckets[1], 0, table.row_size_bytes()));
         }
         return;
     }

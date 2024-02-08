@@ -46,10 +46,16 @@ volatile bool global_end_flag = false;
 
 State_Machine *state_machine_holder[MAX_CLIENT_THREADS];
 
-const int yeti_core_order[40]={1,3,5,7,9,11,13,15,17,19,21,23,25,27,29,31,33,35,37,39,41,43,45,47,49,51,53,55,57,59,61,63,65,67,69,71,73,75,77,79};
-const int yeti_control_core = 0;
-int yak_core_order[24]={0,2,4,6,8,10,12,14,16,18,20,22,1,3,5,7,9,11,13,15,17,19,21,23};
+#define YETI_CORES 40
+#define YAK_CORES 24
+int yeti_core_order[YETI_CORES]={1,3,5,7,9,11,13,15,17,19,21,23,25,27,29,31,33,35,37,39,41,43,45,47,49,51,53,55,57,59,61,63,65,67,69,71,73,75,77,79};
+int yeti_control_core = 0;
+int yak_core_order[YAK_CORES]={0,2,4,6,8,10,12,14,16,18,20,22,1,3,5,7,9,11,13,15,17,19,21,23};
 int yak_control_core = 0;
+
+int control_core;
+int *core_order;
+int total_cores;
 
 //These are the functions we have to implement to run different state machines
 void (*collect_stats) (State_Machine ** state_machines, unordered_map<string,string> config, int num_clients, chrono::milliseconds ms_int);
@@ -62,6 +68,25 @@ void * cuckoo_fsm_runner(void * args){
     RCuckoo * cuck = (RCuckoo *) args;
     cuck->rdma_fsm();
     pthread_exit(NULL);
+}
+
+void set_core_order(void) {
+    char hostname[HOST_NAME_MAX];
+    gethostname(hostname, HOST_NAME_MAX);
+    if (strncmp(hostname,"yak",3)==0) {
+        ALERT("ENV CONF", "Running on a yak machine");
+        core_order = yak_core_order;
+        control_core = yak_control_core;
+        total_cores = YAK_CORES;
+    }else if (strncmp(hostname, "yeti",4) == 0){
+        ALERT("ENV CONF", "Running on a yeti machine");
+        core_order = yeti_core_order;
+        control_core = yeti_control_core;
+        total_cores = YETI_CORES;
+    } else {
+        ALERT("ENV CONF", "Runnin on an unknown host %s, please create a core config. Exiting...",hostname);
+        exit(0);
+    }
 }
 
 void * rcuckoo_thread_init(void * arg) {
@@ -169,11 +194,29 @@ void slogger_stat_collection(State_Machine ** state_machines, unordered_map<stri
     system_statistics["runtime_s"]= to_string(ms_int.count() / 1000.0);
     ALERT("RDMA Engine", "Runtime ms %d\n",(int)ms_int.count());
 
+    uint64_t puts = 0;
+    uint64_t gets = 0;
+    uint64_t updates = 0;
+    for (int i=0;i<num_clients;i++) {
+        puts += stoull(client_statistics[i]["completed_read_count"]);
+        gets += stoull(client_statistics[i]["completed_insert_count"]);
+        updates += stoull(client_statistics[i]["completed_update_count"]);
+    }
+    system_statistics["put_throughput"] = to_string(puts / (ms_int.count() / 1000.0));
+    system_statistics["get_throughput"] = to_string(gets / (ms_int.count() / 1000.0));
+    system_statistics["update_throughput"] = to_string(updates / (ms_int.count() / 1000.0));
+    system_statistics["throughput"]= to_string((puts + gets + updates) / (ms_int.count() / 1000.0));
+
+    float throughput = (puts + gets + updates) / (ms_int.count() / 1000.0);
+    SUCCESS("RDMA Engine", "Throughput: %f\n", throughput);
+    ALERT("Final Tput", "%d,%f\n", num_clients, throughput);
+
     unordered_map<string,string> memory_statistics;
     memory_statistics["fill"]="0.13371337666";
     ALERT("RDMA Engine", "Writing out statistics\n");
     write_statistics(config, system_statistics, client_statistics, memory_statistics);
-    // free(thread_ids);
+
+
     VERBOSE("RDMA Engine", "done running state machine!");
 }
 
@@ -192,7 +235,6 @@ void * slogger_thread_init(void * arg) {
     // SLogger * slogger = new NT(config);
 
 
-    ALERT("RDMA Engine", "TODO setup RDMA rdma resources within the slogger\n");
     struct rdma_info info;
     info.qp = slogger_arg->cm->client_qp[slogger_arg->id];
     info.completion_queue = slogger_arg->cm->client_cq_threads[slogger_arg->id];
@@ -203,7 +245,7 @@ void * slogger_thread_init(void * arg) {
 }
 
 void * slogger_fsm_runner(void * args){
-    ALERT("RDMA Engine","launching threads in a slogger fsm\n");
+    VERBOSE("RDMA Engine","launching threads in a slogger fsm\n");
     SLogger * slogger = (SLogger *) args;
     // NT * slogger = (NT *) args;
     slogger->fsm();
@@ -252,7 +294,6 @@ void * corrupter_thread_init(void * arg) {
     // SLogger * slogger = new NT(config);
 
 
-    ALERT("RDMA Engine", "TODO setup RDMA rdma resources within the slogger\n");
     struct rdma_info info;
     info.qp = corrupter_arg->cm->client_qp[corrupter_arg->id];
     info.completion_queue = corrupter_arg->cm->client_cq_threads[corrupter_arg->id];
@@ -350,6 +391,7 @@ namespace rdma_engine {
             RDMAConnectionManagerArguments args;
 
 
+            set_core_order();
             args.num_qps = _num_clients;
             if (args.num_qps < 1) {
                 ALERT("RDMA Engine", "Error: num_qps must be at least 1\n");
@@ -413,10 +455,13 @@ namespace rdma_engine {
 
         pthread_t thread_ids[MAX_CLIENT_THREADS];
         for(int i=0;i<_num_clients;i++){
+            assert(i < total_cores);
             INFO("RDMA Engine","Creating Client Thread %d\n", i);
             set_control_flag(state_machine_holder[i]);
             pthread_create(&thread_ids[i], NULL, thread_runner, (state_machine_holder[i]));
-            stick_thread_to_core(thread_ids[i], yak_core_order[i]);
+            // stick_thread_to_core(thread_ids[i], yak_core_order[i]);
+            // ALERT("stick core", "Core %d",yeti_core_order[i]);
+            stick_thread_to_core(thread_ids[i], core_order[i]);
         }
 
         stick_this_thread_to_core(yak_control_core);
@@ -469,6 +514,7 @@ namespace rdma_engine {
             INFO("RDMA Engine", "Joining Client Thread %d\n", i);
             pthread_join(thread_ids[i],NULL);
         }
+
         ALERT("RDMA Engine", "Experiment Complete\n");
 
         collect_stats(state_machine_holder,_config, _num_clients, ms_int);
