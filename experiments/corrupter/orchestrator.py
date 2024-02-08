@@ -90,7 +90,8 @@ class Orchestrator:
     build_server_name = 'yak-01.sysnet.ucsd.edu'
     # client_name = 'yak-01.sysnet.ucsd.edu' 
     client_names = [
-    'yak-01.sysnet.ucsd.edu',
+    # 'yak-01.sysnet.ucsd.edu',
+    'yeti-00.sysnet.ucsd.edu',
     # 'yeti-01.sysnet.ucsd.edu',
     # 'yeti-02.sysnet.ucsd.edu',
     # 'yeti-03.sysnet.ucsd.edu',
@@ -197,17 +198,16 @@ class Orchestrator:
         client_stat_filename = 'client_statistics.json'
         remote_client_stat_filename = self.project_directory + '/src/statistics/'+client_stat_filename
         local_client_stat_filename = temp_dir.name+'/'+client_stat_filename
-        success = False
+        success = True
         for i, client in enumerate(self.clients):
             success = client.get(remote_client_stat_filename, local_client_stat_filename)
 
             if not success:
                 print("ERROR: failed to get client statistics for client ", i, " from ", client.hostname)
-                continue
+                break
             f = open(local_client_stat_filename, 'r')
             client_stat = json.load(f)
             if i ==0:
-                success = True
                 master_stats = client_stat
                 print("master stats:", master_stats["system"])
             else:
@@ -249,7 +249,7 @@ class Orchestrator:
     def sync(self):
         sync_command=(
                 'cd rcuckoo_rdma;'
-                'rsync -a ' + self.build_location.hostname + ':' + self.project_directory + '/* ./;')
+                'rsync -a ' + self.build_location.hostname + ':' + self.project_directory + '* ./;')
         
         sync_threads=[]
         for dep in self.sync_dependents:
@@ -264,9 +264,6 @@ class Orchestrator:
             sync_thread.join()
 
         print("done syncing")
-            # dep.run_cmd(
-            #     'cd rcuckoo_rdma;'
-            #     'rsync -a ' + self.build_location.hostname + ':' + self.project_directory + '/* ./;')
 
     def sanity_check(self):
         for node in self.all_nodes:
@@ -359,29 +356,27 @@ def run_trials(config):
     runs = []
     trials = config['trials']
 
-
-    for i in tqdm(range(trials)):
+    while len(runs) < trials:
         c=copy.copy(config)
         orch = Orchestrator(c)
         #prepare for the run
         # orch.transfer_configs_to_nodes(config, "remote_config.json")
         orch.generate_and_send_configs(c, "corrupter_config.json")
         orch.kill()
-        stats_collected = False
         try:
             orch.run()
         except Exception as e:
-            print("Run ", i, " failed with exception -- we gotta fix this", e)
+            print("Run ", len(runs), " failed with exception -- we gotta fix this", e)
             exit()
 
         
-        if not stats_collected:
-            orch.validate_run()
-            stats, success = orch.collect_stats()
-            if not success:
-                print("ERROR: failed to get stats for trial ", i)
-                continue
+        orch.validate_run()
+        stats, success = orch.collect_stats()
+        if not success:
+            print("ERROR: failed to get stats for trial ", i)
+        else:
             stats = fix_stats(stats, c)
-        runs.append(stats)
+            runs.append(stats)
+
         del orch
     return runs

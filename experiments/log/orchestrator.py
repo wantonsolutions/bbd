@@ -329,6 +329,10 @@ class Orchestrator:
         print("All clients finished")
 
         self.kill()
+        print("exit sleeping for ", sleeptime, " seconds")
+        for i in tqdm(range(sleeptime)):
+            # print("Waiting for server to start")
+            time.sleep(1)
         # time.sleep(5)
 
 def fix_stats(stats, config):

@@ -1,0 +1,5 @@
+pyproject.toml
+cuckoo.egg-info/PKG-INFO
+cuckoo.egg-info/SOURCES.txt
+cuckoo.egg-info/dependency_links.txt
+cuckoo.egg-info/top_level.txt

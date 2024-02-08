@@ -1,0 +1,6 @@
+Metadata-Version: 2.1
+Name: cuckoo
+Version: 0.0.1
+Summary: disaggregation experimentation package
+Author-email: Stewart Grant <stewbertgrant@gmail.com>
+Requires-Python: >=3.8
