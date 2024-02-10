@@ -1064,6 +1064,8 @@ def detect_x_axis(stats):
 def get_x_axis(stats, name):
     if name == "clients":
         return get_client_x_axis(stats)
+    elif name == "batch size":
+        return get_batch_size_x_axis(stats)
     elif name == "table size":
         return get_table_size_x_axis(stats)
     elif name == "locks per message":
@@ -1161,6 +1163,9 @@ def get_hash_factor_x_axis(stats):
 
 def get_entry_size_x_axis(stats):
     return get_config_axis(stats,'entry_size')
+
+def get_batch_size_x_axis(stats):
+    return get_config_axis(stats,'batch_size')
 
 def calculate_total_runs(stats):
     s = np.array(stats).shape
