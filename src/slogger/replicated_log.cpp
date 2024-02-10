@@ -3,7 +3,7 @@
 #include "assert.h"
 #include "../slib/util.h"
 
-namespace replicated_log {
+namespace slogger {
 
 
     void Replicated_Log::allocate_client_positions(unsigned int total_clients, unsigned int bits_per_entry) {

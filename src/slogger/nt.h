@@ -12,7 +12,6 @@
 
 #include "../nedtries/nedtrie.h"
 
-using namespace replicated_log;
 using namespace slogger;
 using namespace rdma_helper;
 

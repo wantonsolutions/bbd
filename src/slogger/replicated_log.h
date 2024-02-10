@@ -8,7 +8,7 @@
 
 using namespace std;
 
-namespace replicated_log {
+namespace slogger {
 
 
     typedef struct Entry_Metadata {

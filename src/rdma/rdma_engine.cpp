@@ -239,7 +239,7 @@ void * slogger_thread_init(void * arg) {
     info.qp = slogger_arg->cm->client_qp[slogger_arg->id];
     info.completion_queue = slogger_arg->cm->client_cq_threads[slogger_arg->id];
     info.pd = slogger_arg->cm->pd;
-    slogger->init_rdma_structures(info);
+    slogger->add_remote(info);
     state_machine_holder[slogger_arg->id] = slogger;
     pthread_exit(NULL);
 }

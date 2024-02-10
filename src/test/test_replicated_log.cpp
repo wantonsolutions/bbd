@@ -2,7 +2,7 @@
 #include "../slib/log.h"
 
 using namespace std;
-using namespace replicated_log;
+using namespace slogger;
 
 int test_0() {
     ALERT("SLOGGER_TEST", "starting test_replicated_log.cpp");

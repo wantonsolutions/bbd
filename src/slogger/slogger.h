@@ -5,47 +5,17 @@
 #include "../slib/config.h"
 #include "../slib/state_machines.h"
 #include "../rdma/rdma_common.h"
+#include "rslog.h"
 #include "replicated_log.h"
 
 using namespace state_machines;
-using namespace replicated_log;
 
-#define MAX_CONCURRENT_MESSAGES 32
 #define ID_SIZE 64
 #define NOOP_BUFFER_SIZE 1024 * 1024 * 8
 
 
 namespace slogger {
 
-    class RSlog {
-        public:
-            RSlog(){};
-            RSlog(rdma_info remote_info, Replicated_Log * local_log);
-            void FAA_Alocate(unsigned int entries);
-            void CAS_Allocate(unsigned int entries);
-            void RCAS_Position(uint64_t compare, uint64_t swap, uint64_t mask, uint64_t offset);
-            void Read_Tail_Pointer();
-            void Read_Client_Positions(bool block);
-            void Write_Log_Entries(uint64_t local_address, uint64_t size_bytes);
-            void Batch_Read_Log(uint64_t local_address, uint64_t entries);
-
-            void poll_one();
-
-
-            uint64_t local_to_remote_log_address(uint64_t local_address);
-        
-        private:
-            Replicated_Log * _local_log;
-            ibv_qp * _qp;
-            ibv_pd *_protection_domain;
-            struct ibv_cq * _completion_queue;
-            ibv_mr *_log_mr;
-            ibv_mr *_tail_pointer_mr;
-            ibv_mr *_client_position_table_mr;
-            struct ibv_wc *_wc;
-            uint64_t _wr_id;
-            slog_config *_slog_config;
-    };
 
     class SLogger : public State_Machine {
         public:

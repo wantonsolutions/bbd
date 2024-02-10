@@ -17,7 +17,7 @@
 #include "../slogger/replicated_log.h"
 
 using namespace std;
-using namespace replicated_log;
+using namespace slogger;
 
 #define LOG_MR_INDEX 0
 #define CLIENT_POSITION_TALBE 1
