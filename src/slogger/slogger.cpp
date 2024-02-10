@@ -66,16 +66,13 @@ namespace slogger {
             ALERT("SLOG", "Error in SLogger constructor: %s", e.what());
             exit(1);
         }   
-
     }
-
 
     unordered_map<string, string> SLogger::get_stats() {
         unordered_map<string, string> stats = State_Machine::get_stats();
         unordered_map<string, string> workload_stats = _workload_driver.get_stats();
         stats.insert(workload_stats.begin(), workload_stats.end());
         return stats;
-
     }
 
     const char * SLogger::log_id() {
@@ -123,16 +120,10 @@ namespace slogger {
                 #endif
             #endif
         }
-
-
-        // ALERT(log_id(), "SLogger Ending FSM");
     }
 
     bool SLogger::insert_n_sequential_ints(int starting_int, int batch_size) {
-
-
         //Step 1 we are going to allocate some memory for the remote log
-
         //The assumption is that the local log tail pointer is at the end of the log.
         //For the first step we are going to get the current value of the tail pointer
         #define MAX_BATCH_SIZE 256
@@ -147,15 +138,7 @@ namespace slogger {
             data_pointers[i] = (void*)&ints[i];
         }
 
-
-        // bs.repeating_value = digits[i%36];
-
-        //Now we must find out the size of the new entry that we want to commit
-        // printf("This is where we are at currently\n");
-        // _replicated_log.Print_All_Entries();
-
-        // if (CAS_Allocate_Log_Entry(bs)) {
-        // if (FAA_Allocate_Log_Entry(bs)) {
+        //Allocate, write and then sync
         if((this->*_allocate_log_entry)(batch_size)) {
             INFO("SLOG", "Allocated log entry successfully %lu", _replicated_log.get_tail_pointer());
             // Write_Log_Entry(&i, sizeof(int));
@@ -167,33 +150,32 @@ namespace slogger {
 
     }
 
+    //Send out a request for client positions along with the fetch and add
     bool SLogger::FAA_Allocate_Log_Entry(unsigned int entries) {
 
-
-        //Send out a request for client positions along with the fetch and add
-        //They are two seperate requests
-        //We can batch together for a bit better latency
-
         uint64_t current_tail_value = _replicated_log.get_tail_pointer();
-        // Read_Client_Positions(false);
         _rslog.FAA_Alocate(entries);
         _rslog.poll_one();
-
-        // printf("FETCH AND ADD DONE tail value at the time of the faa is %lu\n", _replicated_log.get_tail_pointer());
-
         assert(current_tail_value <= _replicated_log.get_tail_pointer());
-        #ifdef MEASURE_ESSENTIAL
-        uint64_t request_size = RDMA_FAA_REQUEST_SIZE + RDMA_FAA_RESPONSE_SIZE;
-        _faa_bytes += request_size;
-        _total_bytes += request_size;
-        _insert_operation_bytes += request_size;
-        _current_insert_rtt++;
-        _insert_rtt_count++;
-        _total_cas++;
-        #endif
+
+
         //At this point we should have a local tail that is at least as large as the remote tail
         //Also the remote tail is allocated
+        faa_alloc_stats();
+        SUCCESS(log_id(), "FAA Allocated log entry successfully %lu", _replicated_log.get_tail_pointer());
+        return true;
+    }
 
+    bool SLogger::CAS_Allocate_Log_Entry(unsigned int entries) {
+        bool allocated = false;
+        while(!allocated) {
+            uint64_t current_tail_value  = _replicated_log.get_tail_pointer();
+            _rslog.CAS_Allocate(entries);
+            _rslog.poll_one();
+            allocated = (current_tail_value == _replicated_log.get_tail_pointer());
+            cas_alloc_stats(allocated);
+        }
+        SUCCESS(log_id(), "CAS Allocated log entry successfully %lu", _replicated_log.get_tail_pointer());
         return true;
     }
 
@@ -299,47 +281,11 @@ namespace slogger {
         return true;
     }
 
-    bool SLogger::CAS_Allocate_Log_Entry(unsigned int entries) {
-
-        bool allocated = false;
-
-        while(!allocated) {
-            uint64_t current_tail_value  = _replicated_log.get_tail_pointer();
-            _rslog.CAS_Allocate(entries);
-            _rslog.poll_one();
-
-            allocated = (current_tail_value == _replicated_log.get_tail_pointer());
-
-            #ifdef MEASURE_ESSENTIAL
-            uint64_t request_size = RDMA_CAS_REQUEST_SIZE + RDMA_CAS_RESPONSE_SIZE;
-            _cas_bytes += request_size;
-            _total_bytes += request_size;
-            _insert_operation_bytes += request_size;
-            _current_insert_rtt++;
-            _insert_rtt_count++;
-            _total_cas++;
-            if(!allocated) {
-                _total_cas_failures++;
-            }
-            #endif
-        }
-        SUCCESS(log_id(), "Allocated log entry successfully %lu", _replicated_log.get_tail_pointer());
-        return true;
-    }
-
     void SLogger::Read_Remote_Tail_Pointer() {
             _rslog.Read_Tail_Pointer();
             _rslog.poll_one();
+            read_tail_stats();
 
-            #ifdef MEASURE_ESSENTIAL
-            uint64_t request_size = sizeof(uint64_t) + RDMA_READ_REQUSET_SIZE + RDMA_READ_RESPONSE_BASE_SIZE;
-            _read_bytes += request_size;
-            _total_bytes += request_size;
-            _read_operation_bytes += request_size;
-            _current_read_rtt++;
-            _read_rtt_count++;
-            _total_reads++;
-            #endif
     }
 
     //Block will wait for the request to terminate before returning.
@@ -350,17 +296,7 @@ namespace slogger {
         if (block) {
             _rslog.poll_one();
         }
-
-        #ifdef MEASURE_ESSENTIAL
-        uint64_t size = _replicated_log.get_client_positions_size_bytes();
-        uint64_t request_size = size + RDMA_READ_REQUSET_SIZE + RDMA_READ_RESPONSE_BASE_SIZE;
-        _read_bytes += request_size;
-        _total_bytes += request_size;
-        _read_operation_bytes += request_size;
-        _current_read_rtt++;
-        _read_rtt_count++;
-        _total_reads++;
-        #endif
+        read_position_stats(_replicated_log.get_client_positions_size_bytes());
     }
 
     void SLogger::Write_Log_Entry(void* data, unsigned int size) {
@@ -404,16 +340,8 @@ namespace slogger {
 
         _rslog.Write_Log_Entries(local_log_tail_address, num_entries);
         _rslog.poll_one();
+        write_log_entries_stats(_entry_size*num_entries);
 
-        #ifdef MEASURE_ESSENTIAL
-        uint64_t request_size = _entry_size*num_entries + RDMA_WRITE_REQUEST_BASE_SIZE + RDMA_WRITE_RESPONSE_SIZE;
-        _cas_bytes += request_size;
-        _total_bytes += request_size;
-        _insert_operation_bytes += request_size;
-        _current_insert_rtt++;
-        _insert_rtt_count++;
-        _total_writes++;
-        #endif
 
     }
 

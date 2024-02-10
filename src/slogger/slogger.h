@@ -24,16 +24,11 @@ namespace slogger {
 
             bool FAA_Allocate_Log_Entry(unsigned int entries);
             bool CAS_Allocate_Log_Entry(unsigned int entries);
-            // bool Set_Client_Tail_Update(ibv_sge *sg, ibv_exp_send_wr* wr, uint64_t old_tail, uint64_t new_tail);
-
             bool Update_Remote_Client_Position(uint64_t new_tail);
             void Update_Client_Position(uint64_t new_tail);
 
             bool (SLogger::*_allocate_log_entry)(unsigned int entries);
-
-
             void Read_Remote_Tail_Pointer();
-
             void Read_Client_Positions(bool block);
             void Write_Log_Entry(void* data, unsigned int size);
             void Write_Log_Entries(void ** data, unsigned int * sizes, unsigned int num_entries);
@@ -41,7 +36,6 @@ namespace slogger {
             void Sync_To_Remote_Log();
             void Sync_To_Last_Write();
             void Syncronize_Log(uint64_t offset);
-
 
             void Write_Operation(void* op, int size);
             void * Next_Operation();
@@ -72,18 +66,6 @@ namespace slogger {
 
 
             Replicated_Log _replicated_log;
-            //RDMA Variables
-            // ibv_qp * _qp;
-            // ibv_pd *_protection_domain;
-            // struct ibv_cq * _completion_queue;
-            // slog_config *_slog_config;
-
-            // ibv_mr *_log_mr;
-            // ibv_mr *_tail_pointer_mr;
-            // ibv_mr *_client_position_table_mr;
-            // struct ibv_wc *_wc;
-            // uint64_t _wr_id;
-
             RSlog _rslog;
 
 
@@ -91,6 +73,12 @@ namespace slogger {
             int _entry_size;
             int _batch_size;
             int _bits_per_client_position;
+
+            void faa_alloc_stats();
+            void cas_alloc_stats(bool allocated);
+            void read_tail_stats();
+            void read_position_stats(int position_size);
+            void write_log_entries_stats(uint64_t size);
 
     };
 }
