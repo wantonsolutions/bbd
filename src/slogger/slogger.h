@@ -17,12 +17,41 @@ using namespace replicated_log;
 
 namespace slogger {
 
+    class RSlog {
+        public:
+            RSlog(){};
+            RSlog(rdma_info remote_info, Replicated_Log * local_log);
+            void FAA_Alocate(unsigned int entries);
+            void CAS_Allocate(unsigned int entries);
+            void RCAS_Position(uint64_t compare, uint64_t swap, uint64_t mask, uint64_t offset);
+            void Read_Tail_Pointer();
+            void Read_Client_Positions(bool block);
+            void Write_Log_Entries(uint64_t local_address, uint64_t size_bytes);
+            void Batch_Read_Log(uint64_t local_address, uint64_t entries);
+
+            void poll_one();
+
+
+            uint64_t local_to_remote_log_address(uint64_t local_address);
+        
+        private:
+            Replicated_Log * _local_log;
+            ibv_qp * _qp;
+            ibv_pd *_protection_domain;
+            struct ibv_cq * _completion_queue;
+            ibv_mr *_log_mr;
+            ibv_mr *_tail_pointer_mr;
+            ibv_mr *_client_position_table_mr;
+            struct ibv_wc *_wc;
+            uint64_t _wr_id;
+            slog_config *_slog_config;
+    };
+
     class SLogger : public State_Machine {
         public:
             SLogger(){};
             SLogger(unordered_map<string, string> config);
-            // ~SLogger() {ALERT("SLOG", "deleting slog");}
-            bool MFAA_Allocate_Log_Entry(unsigned int entries);
+
             bool FAA_Allocate_Log_Entry(unsigned int entries);
             bool CAS_Allocate_Log_Entry(unsigned int entries);
             // bool Set_Client_Tail_Update(ibv_sge *sg, ibv_exp_send_wr* wr, uint64_t old_tail, uint64_t new_tail);
@@ -37,7 +66,7 @@ namespace slogger {
 
             void Read_Client_Positions(bool block);
             void Write_Log_Entry(void* data, unsigned int size);
-            void Write_Log_Entry_Batch(void ** data, unsigned int * sizes, unsigned int batch_size);
+            void Write_Log_Entries(void ** data, unsigned int * sizes, unsigned int num_entries);
 
             void Sync_To_Remote_Log();
             void Sync_To_Last_Write();
@@ -49,7 +78,7 @@ namespace slogger {
             uint64_t local_to_remote_log_address(uint64_t local_address);
 
             void fill_allocated_log_with_noops(uint64_t size);
-            void init_rdma_structures(rdma_info info);
+            void add_remote(rdma_info info);
             void fsm();
             void clear_statistics();
             const char * log_id();
@@ -72,19 +101,21 @@ namespace slogger {
             void set_allocate_function(unordered_map<string, string> config);
 
 
-            //RDMA Variables
-            ibv_qp * _qp;
-            ibv_pd *_protection_domain;
-            struct ibv_cq * _completion_queue;
-            slog_config *_slog_config;
             Replicated_Log _replicated_log;
+            //RDMA Variables
+            // ibv_qp * _qp;
+            // ibv_pd *_protection_domain;
+            // struct ibv_cq * _completion_queue;
+            // slog_config *_slog_config;
 
-            ibv_mr *_log_mr;
-            ibv_mr *_tail_pointer_mr;
-            ibv_mr *_client_position_table_mr;
+            // ibv_mr *_log_mr;
+            // ibv_mr *_tail_pointer_mr;
+            // ibv_mr *_client_position_table_mr;
+            // struct ibv_wc *_wc;
+            // uint64_t _wr_id;
 
-            struct ibv_wc *_wc;
-            uint64_t _wr_id;
+            RSlog _rslog;
+
 
             //silly variables
             int _entry_size;
