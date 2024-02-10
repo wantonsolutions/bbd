@@ -1,0 +1,493 @@
+Client Input Config: configs/remote_config.json
+base_port                      : 20886
+bucket_size                    : 8
+buckets_per_lock               : 1
+commit                         : 33a252ec1fd2cf11c0c424fc19a807ef3286150d
+date                           : 2023-11-30
+description                    : This is a test run and a manditory field
+deterministic                  : True
+entry_size                     : 8
+global_clients                 : 24
+hash_factor                    : 2.3
+id                             : 0
+indexes                        : 10485760
+location_function              : dependent
+locks_per_message              : 64
+max_fill                       : 90
+memory_size                    : 10485760
+name                           : test_run
+num_clients                    : 4
+prime                          : true
+prime_fill                     : 60
+read_threshold_bytes           : 128
+runtime                        : 5
+search_function                : bfs
+server_address                 : 192.168.1.12
+starting_id                    : 0
+state_machine                  : cuckoo
+total_inserts                  : 1
+total_requests                 : 1
+trials                         : 16
+use_mask                       : true
+use_virtual_lock_table         : false
+virtual_lock_scale_factor      : 1
+workload                       : ycsb-a
+get_addr succeeded
+connecting to 192.168.1.12
+Checking Device Capabilities
+The RNIC has 256KB device memory
+UMR YES
+ODP NO
+Extended Atomics NO
+Extended Masked Atomics: NO
+Extended Capabilities NO
+EXT ATOMICS NO
+MASKED ATOMICS NO
+CROSS CHANNEL NO
+Maximum # of QPs: 131072
+Maximum # of outstanding WRs: 32768
+Maximum # of outstanding Atoms/Rds: 16
+Maximum depth for Atoms/Rds: 16
+-- Supported features --
+Atomic BEndian replies: NO
+Core-direct: NO
+Collectives:
+  [int operations]
+	* ADD    -> NO
+	* BAND   -> YES
+	* BXOR   -> YES
+	* BOR    -> NO
+	* MAXLOC -> NO
+  [uint operations]
+	* ADD    -> NO
+	* BAND   -> NO
+	* BXOR   -> NO
+	* BOR    -> YES
+	* MAXLOC -> NO
+  [fp operations]
+	* ADD    -> NO
+	* BAND   -> YES
+	* BXOR   -> YES
+	* BOR    -> NO
+	* MAXLOC -> YES
+	fw_ver:				16.32.1010
+	vendor_id:			0x02c9
+	vendor_part_id:			4119
+	hw_ver:				0x0
+					EXP_DC_TRANSPORT
+					EXP_CROSS_CHANNEL
+					EXP_MR_ALLOCATE
+					EXT_ATOMICS
+					EXT_SEND NOP
+					EXP_UMR
+					EXP_ODP
+					EXP_RX_CSUM_TCP_UDP_PKT
+					EXP_RX_CSUM_IP_PKT
+					EXP_MASKED_ATOMICS
+					EXP_RX_TCP_UDP_PKT_TYPE
+					EXP_SCATTER_FCS
+					EXP_WQ_DELAY_DROP
+					EXP_PHYSICAL_RANGE_MR
+					EXP_UMR_FIXED_SIZE
+					Unknown flags: 0x200000000000
+setting the state machine type
+  [1;31mRDMA Engine : "Created 4 Threads. Waiting for them to init...\n" [m
+  [1;31mRDMA Engine : "Joined 4 Threads\n" [m
+  [1;31mRDMA Engine : "Experiment Starting Globally\n" [m
+  [1;31mClient:   0 : "Fault #1 injected on locks [162257,162690] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   0 : "Fault #3 injected on locks [92265,92274] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   0 : "Fault #1 injected on locks [32493,32496] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   0 : "Fault #1 injected on locks [4763,4790] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   0 : "Fault #3 injected on locks [143999,144002] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   0 : "Fault #2 injected on locks [142865,142866] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   0 : "Fault #2 injected on locks [20413,20470] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   0 : "Fault #3 injected on locks [31201,31204] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   0 : "Fault #0 injected on locks [60545,60580] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   1 : "Error State 1 detected on lock 32493 Begin Repair..." [m
+  [1;31mClient:   1 : "😇 Repaired Locks [32493,32496] from failures case 1" [m
+  [1;31mClient:   2 : "Error State 2 detected on lock 142865 Begin Repair..." [m
+  [1;31mClient:   2 : "😇 Repaired Locks [142865,142866] from failures case 2" [m
+  [1;31mClient:   0 : "Fault #3 injected on locks [157961,157962] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   2 : "Error State 1 detected on lock 4790 Begin Repair..." [m
+  [1;31mClient:   2 : "😇 Repaired Locks [4763,4790] from failures case 1" [m
+  [1;31mClient:   0 : "Fault #2 injected on locks [136817,136828] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   0 : "Fault #3 injected on locks [118891,118892] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   3 : "Error State 3 detected on lock 92265 Begin Repair..." [m
+  [1;31mClient:   3 : "😇 Repaired Locks [92265] from failures case 3" [m
+  [1;31mClient:   2 : "Error State 0 detected on lock 60545 Begin Repair..." [m
+  [1;31mClient:   2 : "😇 Repaired Locks [60545] from failures case 0" [m
+  [1;31mClient:   0 : "Fault #3 injected on locks [44661,44764] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   2 : "Error State 0 detected on lock 60580 Begin Repair..." [m
+  [1;31mClient:   2 : "😇 Repaired Locks [60580] from failures case 0" [m
+  [1;31mClient:   0 : "Fault #1 injected on locks [67125,67130] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   1 : "Error State 3 detected on lock 31201 Begin Repair..." [m
+  [1;31mClient:   1 : "😇 Repaired Locks [31201] from failures case 3" [m
+  [1;31mClient:   0 : "Fault #2 injected on locks [28025,28026] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   2 : "Error State 1 detected on lock 67125 Begin Repair..." [m
+  [1;31mClient:   2 : "😇 Repaired Locks [67125,67130] from failures case 1" [m
+  [1;31mClient:   0 : "Fault #3 injected on locks [62389,62392] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   3 : "Error State 3 detected on lock 44661 Begin Repair..." [m
+  [1;31mClient:   3 : "😇 Repaired Locks [44661] from failures case 3" [m
+  [1;31mClient:   3 : "Error State 0 detected on lock 44764 Begin Repair..." [m
+  [1;31mClient:   3 : "😇 Repaired Locks [44764] from failures case 0" [m
+  [1;31mClient:   0 : "Fault #1 injected on locks [83945,83950] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   2 : "Error State 0 detected on lock 62392 Begin Repair..." [m
+  [1;31mClient:   2 : "😇 Repaired Locks [62392] from failures case 0" [m
+  [1;31mClient:   2 : "Error State 3 detected on lock 62389 Begin Repair..." [m
+  [1;31mClient:   2 : "😇 Repaired Locks [62389] from failures case 3" [m
+  [1;31mClient:   0 : "Fault #0 injected on locks [101067,101068] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   3 : "Error State 3 detected on lock 118891 Begin Repair..." [m
+  [1;31mClient:   3 : "😇 Repaired Locks [118891] from failures case 3" [m
+  [1;31mClient:   0 : "Fault #2 injected on locks [104797,104802] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   3 : "Error State 1 detected on lock 104797 Begin Repair..." [m
+  [1;31mClient:   3 : "😇 Repaired Locks [104797,104802] from failures case 1" [m
+  [1;31mClient:   0 : "Fault #1 injected on locks [137599,137612] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   2 : "Error State 1 detected on lock 20413 Begin Repair..." [m
+  [1;31mClient:   2 : "😇 Repaired Locks [20413,20470] from failures case 1" [m
+  [1;31mClient:   0 : "Fault #0 injected on locks [116237,116240] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   0 : "Fault #0 injected on locks [109397,109402] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   3 : "Error State 3 detected on lock 143999 Begin Repair..." [m
+  [1;31mClient:   3 : "😇 Repaired Locks [143999] from failures case 3" [m
+  [1;31mClient:   2 : "Error State 0 detected on lock 101067 Begin Repair..." [m
+  [1;31mClient:   2 : "😇 Repaired Locks [101067] from failures case 0" [m
+  [1;31mClient:   2 : "Error State 0 detected on lock 101068 Begin Repair..." [m
+  [1;31mClient:   2 : "😇 Repaired Locks [101068] from failures case 0" [m
+  [1;31mClient:   0 : "Fault #1 injected on locks [140933,140936] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   1 : "Error State 2 detected on lock 28025 Begin Repair..." [m
+  [1;31mClient:   1 : "😇 Repaired Locks [28025,28026] from failures case 2" [m
+  [1;31mClient:   0 : "Fault #2 injected on locks [20293,20296] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   3 : "Error State 0 detected on lock 137599 Begin Repair..." [m
+  [1;31mClient:   3 : "😇 Repaired Locks [137599] from failures case 0" [m
+  [1;31mClient:   3 : "Error State 3 detected on lock 137612 Begin Repair..." [m
+  [1;31mClient:   3 : "😇 Repaired Locks [137612] from failures case 3" [m
+  [1;31mClient:   2 : "Error State 0 detected on lock 109397 Begin Repair..." [m
+  [1;31mClient:   2 : "😇 Repaired Locks [109397] from failures case 0" [m
+  [1;31mClient:   0 : "Fault #1 injected on locks [162283,162284] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   3 : "Error State 0 detected on lock 109402 Begin Repair..." [m
+  [1;31mClient:   3 : "😇 Repaired Locks [109402] from failures case 0" [m
+  [1;31mClient:   3 : "Error State 1 detected on lock 83945 Begin Repair..." [m
+  [1;31mClient:   3 : "😇 Repaired Locks [83945,83950] from failures case 1" [m
+  [1;31mClient:   0 : "Fault #2 injected on locks [27075,27200] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   0 : "Fault #2 injected on locks [92825,92828] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   3 : "Error State 0 detected on lock 27075 Begin Repair..." [m
+  [1;31mClient:   3 : "😇 Repaired Locks [27075] from failures case 0" [m
+  [1;31mClient:   2 : "Error State 1 detected on lock 136817 Begin Repair..." [m
+  [1;31mClient:   2 : "😇 Repaired Locks [136817,136828] from failures case 1" [m
+  [1;31mClient:   1 : "Error State 0 detected on lock 118892 Begin Repair..." [m
+  [1;31mClient:   1 : "😇 Repaired Locks [118892] from failures case 0" [m
+  [1;31mClient:   3 : "Error State 2 detected on lock 27200 Begin Repair..." [m
+  [1;31mClient:   3 : "😇 Repaired Locks [27075,27200] from failures case 2" [m
+  [1;31mClient:   0 : "Fault #3 injected on locks [111673,111674] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   3 : "Error State 3 detected on lock 140936 Begin Repair..." [m
+  [1;31mClient:   3 : "😇 Repaired Locks [140936] from failures case 3" [m
+  [1;31mClient:   0 : "Fault #0 injected on locks [1245,1270] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   3 : "Error State 3 detected on lock 157961 Begin Repair..." [m
+  [1;31mClient:   3 : "😇 Repaired Locks [157961] from failures case 3" [m
+  [1;31mClient:   1 : "Error State 3 detected on lock 111673 Begin Repair..." [m
+  [1;31mClient:   1 : "😇 Repaired Locks [111673] from failures case 3" [m
+  [1;31mClient:   3 : "Error State 1 detected on lock 162283 Begin Repair..." [m
+  [1;31mClient:   3 : "😇 Repaired Locks [162283,162284] from failures case 1" [m
+  [1;31mClient:   1 : "Error State 0 detected on lock 111674 Begin Repair..." [m
+  [1;31mClient:   1 : "😇 Repaired Locks [111674] from failures case 0" [m
+  [1;31mClient:   0 : "Fault #0 injected on locks [14637,14748] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   3 : "Error State 0 detected on lock 157962 Begin Repair..." [m
+  [1;31mClient:   3 : "😇 Repaired Locks [157962] from failures case 0" [m
+  [1;31mClient:   1 : "Error State 0 detected on lock 31204 Begin Repair..." [m
+  [1;31mClient:   1 : "😇 Repaired Locks [31204] from failures case 0" [m
+  [1;31mClient:   0 : "Fault #1 injected on locks [135585,135586] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   1 : "Error State 2 detected on lock 140933 Begin Repair..." [m
+  [1;31mClient:   1 : "😇 Repaired Locks [140933,140936] from failures case 2" [m
+  [1;31mClient:   0 : "Fault #2 injected on locks [799,820] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   1 : "Error State 0 detected on lock 140933 Begin Repair..." [m
+  [1;31mClient:   1 : "😇 Repaired Locks [140933] from failures case 0" [m
+  [1;31mClient:   0 : "Fault #1 injected on locks [65215,65226] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   3 : "Error State 0 detected on lock 14637 Begin Repair..." [m
+  [1;31mClient:   3 : "😇 Repaired Locks [14637] from failures case 0" [m
+  [1;31mClient:   3 : "Error State 0 detected on lock 14748 Begin Repair..." [m
+  [1;31mClient:   3 : "😇 Repaired Locks [14748] from failures case 0" [m
+  [1;31mClient:   2 : "Error State 1 detected on lock 65215 Begin Repair..." [m
+  [1;31mClient:   2 : "😇 Repaired Locks [65215,65226] from failures case 1" [m
+  [1;31mClient:   0 : "Fault #0 injected on locks [69413,69416] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   0 : "Fault #1 injected on locks [151403,151414] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   2 : "Error State 0 detected on lock 116240 Begin Repair..." [m
+  [1;31mClient:   2 : "😇 Repaired Locks [116240] from failures case 0" [m
+  [1;31mClient:   0 : "Fault #0 injected on locks [29535,29540] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   1 : "Error State 2 detected on lock 20296 Begin Repair..." [m
+  [1;31mClient:   1 : "😇 Repaired Locks [20293,20296] from failures case 2" [m
+  [1;31mClient:   0 : "Fault #0 injected on locks [40531,40566] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   2 : "Error State 2 detected on lock 92825 Begin Repair..." [m
+  [1;31mClient:   2 : "😇 Repaired Locks [92825,92828] from failures case 2" [m
+  [1;31mClient:   0 : "Fault #3 injected on locks [18277,18280] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   3 : "Error State 0 detected on lock 69413 Begin Repair..." [m
+  [1;31mClient:   3 : "😇 Repaired Locks [69413] from failures case 0" [m
+  [1;31mClient:   3 : "Error State 0 detected on lock 69416 Begin Repair..." [m
+  [1;31mClient:   3 : "😇 Repaired Locks [69416] from failures case 0" [m
+  [1;31mClient:   1 : "Error State 1 detected on lock 135585 Begin Repair..." [m
+  [1;31mClient:   1 : "😇 Repaired Locks [135585,135586] from failures case 1" [m
+  [1;31mClient:   0 : "Fault #2 injected on locks [122381,122382] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   2 : "Error State 2 detected on lock 799 Begin Repair..." [m
+  [1;31mClient:   2 : "😇 Repaired Locks [799,820] from failures case 2" [m
+  [1;31mClient:   3 : "Error State 0 detected on lock 1270 Begin Repair..." [m
+  [1;31mClient:   3 : "😇 Repaired Locks [1270] from failures case 0" [m
+  [1;31mClient:   0 : "Fault #2 injected on locks [90607,90614] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   1 : "Error State 1 detected on lock 162257 Begin Repair..." [m
+  [1;31mClient:   1 : "😇 Repaired Locks [162257,162690] from failures case 1" [m
+  [1;31mClient:   3 : "Error State 0 detected on lock 1245 Begin Repair..." [m
+  [1;31mClient:   3 : "😇 Repaired Locks [1245] from failures case 0" [m
+  [1;31mClient:   0 : "Fault #2 injected on locks [17531,17534] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   3 : "Error State 1 detected on lock 151414 Begin Repair..." [m
+  [1;31mClient:   3 : "😇 Repaired Locks [151403,151414] from failures case 1" [m
+  [1;31mClient:   0 : "Fault #3 injected on locks [105145,105148] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   2 : "Error State 0 detected on lock 92274 Begin Repair..." [m
+  [1;31mClient:   2 : "😇 Repaired Locks [92274] from failures case 0" [m
+  [1;31mClient:   0 : "Fault #3 injected on locks [48487,48490] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   2 : "Error State 2 detected on lock 122382 Begin Repair..." [m
+  [1;31mClient:   2 : "😇 Repaired Locks [122381,122382] from failures case 2" [m
+  [1;31mClient:   3 : "Error State 3 detected on lock 18277 Begin Repair..." [m
+  [1;31mClient:   3 : "😇 Repaired Locks [18277] from failures case 3" [m
+  [1;31mClient:   2 : "Error State 0 detected on lock 40531 Begin Repair..." [m
+  [1;31mClient:   2 : "😇 Repaired Locks [40531] from failures case 0" [m
+  [1;31mClient:   0 : "Fault #2 injected on locks [110131,110136] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   2 : "Error State 0 detected on lock 40566 Begin Repair..." [m
+  [1;31mClient:   2 : "😇 Repaired Locks [40566] from failures case 0" [m
+  [1;31mClient:   0 : "Fault #3 injected on locks [19085,19086] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   2 : "Error State 1 detected on lock 90607 Begin Repair..." [m
+  [1;31mClient:   2 : "😇 Repaired Locks [90607,90614] from failures case 1" [m
+  [1;31mClient:   0 : "Fault #0 injected on locks [11041,11052] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   0 : "Fault #3 injected on locks [50701,50702] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   3 : "Error State 0 detected on lock 11041 Begin Repair..." [m
+  [1;31mClient:   3 : "😇 Repaired Locks [11041] from failures case 0" [m
+  [1;31mClient:   3 : "Error State 0 detected on lock 11052 Begin Repair..." [m
+  [1;31mClient:   3 : "😇 Repaired Locks [11052] from failures case 0" [m
+  [1;31mClient:   0 : "Fault #1 injected on locks [88811,88814] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   3 : "Error State 3 detected on lock 50701 Begin Repair..." [m
+  [1;31mClient:   3 : "😇 Repaired Locks [50701] from failures case 3" [m
+  [1;31mClient:   0 : "Fault #2 injected on locks [27073,27076] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   3 : "Error State 0 detected on lock 50702 Begin Repair..." [m
+  [1;31mClient:   3 : "😇 Repaired Locks [50702] from failures case 0" [m
+  [1;31mClient:   0 : "Fault #3 injected on locks [125921,125924] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   2 : "Error State 0 detected on lock 29540 Begin Repair..." [m
+  [1;31mClient:   2 : "😇 Repaired Locks [29540] from failures case 0" [m
+  [1;31mClient:   0 : "Fault #0 injected on locks [66193,66194] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   2 : "Error State 1 detected on lock 88811 Begin Repair..." [m
+  [1;31mClient:   2 : "😇 Repaired Locks [88811,88814] from failures case 1" [m
+  [1;31mClient:   1 : "Error State 2 detected on lock 110136 Begin Repair..." [m
+  [1;31mClient:   1 : "😇 Repaired Locks [110131,110136] from failures case 2" [m
+  [1;31mClient:   3 : "Error State 2 detected on lock 27073 Begin Repair..." [m
+  [1;31mClient:   3 : "😇 Repaired Locks [27073,27076] from failures case 2" [m
+  [1;31mClient:   0 : "Fault #1 injected on locks [75813,75818] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   1 : "Error State 0 detected on lock 105148 Begin Repair..." [m
+  [1;31mClient:   1 : "😇 Repaired Locks [105148] from failures case 0" [m
+  [1;31mClient:   0 : "Fault #2 injected on locks [57445,57446] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   1 : "Error State 3 detected on lock 125921 Begin Repair..." [m
+  [1;31mClient:   1 : "😇 Repaired Locks [125921] from failures case 3" [m
+  [1;31mClient:   1 : "Error State 0 detected on lock 125924 Begin Repair..." [m
+  [1;31mClient:   1 : "😇 Repaired Locks [125924] from failures case 0" [m
+  [1;31mClient:   0 : "Fault #1 injected on locks [134669,134690] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   3 : "Error State 2 detected on lock 57445 Begin Repair..." [m
+  [1;31mClient:   3 : "😇 Repaired Locks [57445,57446] from failures case 2" [m
+  [1;31mClient:   0 : "Fault #2 injected on locks [91239,91240] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   2 : "Error State 3 detected on lock 134690 Begin Repair..." [m
+  [1;31mClient:   2 : "😇 Repaired Locks [134690] from failures case 3" [m
+  [1;31mClient:   1 : "Error State 0 detected on lock 116237 Begin Repair..." [m
+  [1;31mClient:   1 : "😇 Repaired Locks [116237] from failures case 0" [m
+  [1;31mClient:   1 : "Error State 3 detected on lock 75818 Begin Repair..." [m
+  [1;31mClient:   1 : "😇 Repaired Locks [75818] from failures case 3" [m
+  [1;31mClient:   2 : "Error State 2 detected on lock 91240 Begin Repair..." [m
+  [1;31mClient:   2 : "😇 Repaired Locks [91239,91240] from failures case 2" [m
+  [1;31mClient:   0 : "Fault #3 injected on locks [121811,121878] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   1 : "Error State 2 detected on lock 75813 Begin Repair..." [m
+  [1;31mClient:   1 : "😇 Repaired Locks [75813,75818] from failures case 2" [m
+  [1;31mClient:   2 : "Error State 0 detected on lock 75813 Begin Repair..." [m
+  [1;31mClient:   2 : "😇 Repaired Locks [75813] from failures case 0" [m
+  [1;31mClient:   3 : "Error State 0 detected on lock 18280 Begin Repair..." [m
+  [1;31mClient:   3 : "😇 Repaired Locks [18280] from failures case 0" [m
+  [1;31mClient:   1 : "Error State 0 detected on lock 66194 Begin Repair..." [m
+  [1;31mClient:   1 : "😇 Repaired Locks [66194] from failures case 0" [m
+  [1;31mClient:   0 : "Fault #2 injected on locks [59501,59506] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   2 : "Error State 3 detected on lock 48487 Begin Repair..." [m
+  [1;31mClient:   2 : "😇 Repaired Locks [48487] from failures case 3" [m
+  [1;31mClient:   0 : "Fault #0 injected on locks [83287,83288] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   1 : "Error State 2 detected on lock 59506 Begin Repair..." [m
+  [1;31mClient:   1 : "😇 Repaired Locks [59501,59506] from failures case 2" [m
+  [1;31mClient:   1 : "Error State 0 detected on lock 19086 Begin Repair..." [m
+  [1;31mClient:   1 : "😇 Repaired Locks [19086] from failures case 0" [m
+  [1;31mClient:   2 : "Error State 2 detected on lock 17534 Begin Repair..." [m
+  [1;31mClient:   2 : "😇 Repaired Locks [17531,17534] from failures case 2" [m
+  [1;31mClient:   0 : "Fault #1 injected on locks [93123,93124] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   0 : "Fault #1 injected on locks [103485,103488] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   1 : "Error State 0 detected on lock 83287 Begin Repair..." [m
+  [1;31mClient:   1 : "😇 Repaired Locks [83287] from failures case 0" [m
+  [1;31mClient:   1 : "Error State 0 detected on lock 83288 Begin Repair..." [m
+  [1;31mClient:   1 : "😇 Repaired Locks [83288] from failures case 0" [m
+  [1;31mClient:   0 : "Fault #2 injected on locks [11805,11806] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   1 : "Error State 0 detected on lock 48490 Begin Repair..." [m
+  [1;31mClient:   1 : "😇 Repaired Locks [48490] from failures case 0" [m
+  [1;31mClient:   2 : "Error State 3 detected on lock 105145 Begin Repair..." [m
+  [1;31mClient:   2 : "😇 Repaired Locks [105145] from failures case 3" [m
+  [1;31mClient:   0 : "Fault #0 injected on locks [4469,4478] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   1 : "Error State 3 detected on lock 121811 Begin Repair..." [m
+  [1;31mClient:   1 : "😇 Repaired Locks [121811] from failures case 3" [m
+  [1;31mClient:   2 : "Error State 0 detected on lock 4478 Begin Repair..." [m
+  [1;31mClient:   2 : "😇 Repaired Locks [4478] from failures case 0" [m
+  [1;31mClient:   0 : "Fault #0 injected on locks [44901,44906] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   2 : "Error State 1 detected on lock 134669 Begin Repair..." [m
+  [1;31mClient:   2 : "😇 Repaired Locks [134669,134690] from failures case 1" [m
+  [1;31mClient:   0 : "Fault #0 injected on locks [78145,78150] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   3 : "Error State 0 detected on lock 121878 Begin Repair..." [m
+  [1;31mClient:   3 : "😇 Repaired Locks [121878] from failures case 0" [m
+  [1;31mClient:   1 : "Error State 0 detected on lock 44901 Begin Repair..." [m
+  [1;31mClient:   1 : "😇 Repaired Locks [44901] from failures case 0" [m
+  [1;31mClient:   2 : "Error State 0 detected on lock 134669 Begin Repair..." [m
+  [1;31mClient:   2 : "😇 Repaired Locks [134669] from failures case 0" [m
+  [1;31mClient:   1 : "Error State 0 detected on lock 44906 Begin Repair..." [m
+  [1;31mClient:   1 : "😇 Repaired Locks [44906] from failures case 0" [m
+  [1;31mClient:   0 : "Fault #1 injected on locks [56913,56916] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   0 : "Fault #1 injected on locks [83941,83946] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   1 : "Error State 1 detected on lock 56913 Begin Repair..." [m
+  [1;31mClient:   1 : "😇 Repaired Locks [56913,56916] from failures case 1" [m
+  [1;31mClient:   0 : "Fault #0 injected on locks [75833,75838] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   3 : "Error State 1 detected on lock 93123 Begin Repair..." [m
+  [1;31mClient:   3 : "😇 Repaired Locks [93123,93124] from failures case 1" [m
+  [1;31mClient:   0 : "Fault #2 injected on locks [138365,138376] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   3 : "Error State 3 detected on lock 83946 Begin Repair..." [m
+  [1;31mClient:   3 : "😇 Repaired Locks [83946] from failures case 3" [m
+  [1;31mClient:   0 : "Fault #3 injected on locks [33155,33162] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   2 : "Error State 0 detected on lock 144002 Begin Repair..." [m
+  [1;31mClient:   2 : "😇 Repaired Locks [144002] from failures case 0" [m
+  [1;31mClient:   1 : "Error State 2 detected on lock 11805 Begin Repair..." [m
+  [1;31mClient:   1 : "😇 Repaired Locks [11805,11806] from failures case 2" [m
+  [1;31mClient:   0 : "Fault #3 injected on locks [73929,73936] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   0 : "Fault #0 injected on locks [158973,158978] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   2 : "Error State 3 detected on lock 103488 Begin Repair..." [m
+  [1;31mClient:   2 : "😇 Repaired Locks [103488] from failures case 3" [m
+  [1;31mClient:   0 : "Fault #0 injected on locks [120031,120138] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   1 : "Error State 0 detected on lock 158978 Begin Repair..." [m
+  [1;31mClient:   1 : "😇 Repaired Locks [158978] from failures case 0" [m
+  [1;31mClient:   0 : "Fault #0 injected on locks [55383,55412] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   3 : "Error State 3 detected on lock 33155 Begin Repair..." [m
+  [1;31mClient:   3 : "😇 Repaired Locks [33155] from failures case 3" [m
+  [1;31mClient:   0 : "Fault #2 injected on locks [112111,112114] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   1 : "Error State 3 detected on lock 73929 Begin Repair..." [m
+  [1;31mClient:   1 : "😇 Repaired Locks [73929] from failures case 3" [m
+  [1;31mClient:   1 : "Error State 0 detected on lock 103485 Begin Repair..." [m
+  [1;31mClient:   1 : "😇 Repaired Locks [103485] from failures case 0" [m
+  [1;31mClient:   2 : "Error State 0 detected on lock 55412 Begin Repair..." [m
+  [1;31mClient:   2 : "😇 Repaired Locks [55412] from failures case 0" [m
+  [1;31mClient:   0 : "Fault #3 injected on locks [131927,131936] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   1 : "Error State 0 detected on lock 33162 Begin Repair..." [m
+  [1;31mClient:   1 : "😇 Repaired Locks [33162] from failures case 0" [m
+  [1;31mClient:   2 : "Error State 0 detected on lock 66193 Begin Repair..." [m
+  [1;31mClient:   2 : "😇 Repaired Locks [66193] from failures case 0" [m
+  [1;31mClient:   3 : "Error State 0 detected on lock 158973 Begin Repair..." [m
+  [1;31mClient:   3 : "😇 Repaired Locks [158973] from failures case 0" [m
+  [1;31mClient:   1 : "Error State 0 detected on lock 78145 Begin Repair..." [m
+  [1;31mClient:   1 : "😇 Repaired Locks [78145] from failures case 0" [m
+  [1;31mClient:   0 : "Fault #3 injected on locks [160115,160188] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   2 : "Error State 1 detected on lock 138376 Begin Repair..." [m
+  [1;31mClient:   2 : "😇 Repaired Locks [138365,138376] from failures case 1" [m
+  [1;31mClient:   3 : "Error State 2 detected on lock 73936 Begin Repair..." [m
+  [1;31mClient:   3 : "😇 Repaired Locks [73929,73936] from failures case 2" [m
+  [1;31mClient:   1 : "Error State 0 detected on lock 120031 Begin Repair..." [m
+  [1;31mClient:   1 : "😇 Repaired Locks [120031] from failures case 0" [m
+  [1;31mClient:   0 : "Fault #0 injected on locks [162411,162412] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   3 : "Error State 0 detected on lock 73936 Begin Repair..." [m
+  [1;31mClient:   3 : "😇 Repaired Locks [73936] from failures case 0" [m
+  [1;31mClient:   1 : "Error State 0 detected on lock 120138 Begin Repair..." [m
+  [1;31mClient:   1 : "😇 Repaired Locks [120138] from failures case 0" [m
+  [1;31mClient:   0 : "Fault #2 injected on locks [93499,93500] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   2 : "Error State 0 detected on lock 131936 Begin Repair..." [m
+  [1;31mClient:   2 : "😇 Repaired Locks [131936] from failures case 0" [m
+  [1;31mClient:   0 : "Fault #3 injected on locks [107683,107748] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   2 : "Error State 3 detected on lock 160115 Begin Repair..." [m
+  [1;31mClient:   2 : "😇 Repaired Locks [160115] from failures case 3" [m
+  [1;31mClient:   0 : "Fault #2 injected on locks [8625,8638] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   3 : "Error State 2 detected on lock 83941 Begin Repair..." [m
+  [1;31mClient:   3 : "😇 Repaired Locks [83941,83946] from failures case 2" [m
+  [1;31mClient:   2 : "Error State 3 detected on lock 19085 Begin Repair..." [m
+  [1;31mClient:   2 : "😇 Repaired Locks [19085] from failures case 3" [m
+  [1;31mClient:   3 : "Error State 0 detected on lock 83941 Begin Repair..." [m
+  [1;31mClient:   3 : "😇 Repaired Locks [83941] from failures case 0" [m
+  [1;31mClient:   0 : "Fault #0 injected on locks [153665,153718] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   3 : "Error State 2 detected on lock 8638 Begin Repair..." [m
+  [1;31mClient:   3 : "😇 Repaired Locks [8625,8638] from failures case 2" [m
+  [1;31mClient:   0 : "Fault #3 injected on locks [13143,13148] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   1 : "Error State 3 detected on lock 131927 Begin Repair..." [m
+  [1;31mClient:   1 : "😇 Repaired Locks [131927] from failures case 3" [m
+  [1;31mClient:   2 : "Error State 2 detected on lock 93499 Begin Repair..." [m
+  [1;31mClient:   2 : "😇 Repaired Locks [93499,93500] from failures case 2" [m
+  [1;31mClient:   1 : "Error State 0 detected on lock 55383 Begin Repair..." [m
+  [1;31mClient:   1 : "😇 Repaired Locks [55383] from failures case 0" [m
+  [1;31mClient:   0 : "Fault #0 injected on locks [125151,125154] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   3 : "Error State 0 detected on lock 4469 Begin Repair..." [m
+  [1;31mClient:   3 : "😇 Repaired Locks [4469] from failures case 0" [m
+  [1;31mClient:   1 : "Error State 3 detected on lock 13143 Begin Repair..." [m
+  [1;31mClient:   1 : "😇 Repaired Locks [13143] from failures case 3" [m
+  [1;31mClient:   0 : "Fault #1 injected on locks [126727,126736] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   3 : "Error State 0 detected on lock 75838 Begin Repair..." [m
+  [1;31mClient:   3 : "😇 Repaired Locks [75838] from failures case 0" [m
+  [1;31mClient:   2 : "Error State 0 detected on lock 125154 Begin Repair..." [m
+  [1;31mClient:   2 : "😇 Repaired Locks [125154] from failures case 0" [m
+  [1;31mClient:   0 : "Fault #0 injected on locks [52189,52200] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   2 : "Error State 2 detected on lock 112114 Begin Repair..." [m
+  [1;31mClient:   2 : "😇 Repaired Locks [112111,112114] from failures case 2" [m
+  [1;31mClient:   2 : "Error State 0 detected on lock 52200 Begin Repair..." [m
+  [1;31mClient:   2 : "😇 Repaired Locks [52200] from failures case 0" [m
+  [1;31mClient:   0 : "Fault #2 injected on locks [40307,40332] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   2 : "Error State 0 detected on lock 52189 Begin Repair..." [m
+  [1;31mClient:   2 : "😇 Repaired Locks [52189] from failures case 0" [m
+  [1;31mClient:   1 : "Error State 0 detected on lock 75833 Begin Repair..." [m
+  [1;31mClient:   1 : "😇 Repaired Locks [75833] from failures case 0" [m
+  [1;31mClient:   0 : "Fault #2 injected on locks [158933,158944] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   2 : "Error State 0 detected on lock 162411 Begin Repair..." [m
+  [1;31mClient:   2 : "😇 Repaired Locks [162411] from failures case 0" [m
+  [1;31mClient:   2 : "Error State 0 detected on lock 162412 Begin Repair..." [m
+  [1;31mClient:   2 : "😇 Repaired Locks [162412] from failures case 0" [m
+  [1;31mClient:   0 : "Fault #1 injected on locks [66275,66298] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   3 : "Error State 0 detected on lock 153718 Begin Repair..." [m
+  [1;31mClient:   3 : "😇 Repaired Locks [153718] from failures case 0" [m
+  [1;31mClient:   2 : "Error State 0 detected on lock 29535 Begin Repair..." [m
+  [1;31mClient:   2 : "😇 Repaired Locks [29535] from failures case 0" [m
+  [1;31mClient:   1 : "Error State 0 detected on lock 40307 Begin Repair..." [m
+  [1;31mClient:   1 : "😇 Repaired Locks [40307] from failures case 0" [m
+  [1;31mClient:   0 : "Fault #1 injected on locks [28621,28624] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   1 : "Error State 2 detected on lock 40332 Begin Repair..." [m
+  [1;31mClient:   1 : "😇 Repaired Locks [40307,40332] from failures case 2" [m
+  [1;31mClient:   0 : "Fault #1 injected on locks [51635,51638] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   1 : "Error State 0 detected on lock 66275 Begin Repair..." [m
+  [1;31mClient:   1 : "😇 Repaired Locks [66275] from failures case 0" [m
+  [1;31mClient:   0 : "Fault #1 injected on locks [151099,151114] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   1 : "Error State 2 detected on lock 158944 Begin Repair..." [m
+  [1;31mClient:   1 : "😇 Repaired Locks [158933,158944] from failures case 2" [m
+  [1;31mClient:   2 : "Error State 0 detected on lock 151099 Begin Repair..." [m
+  [1;31mClient:   2 : "😇 Repaired Locks [151099] from failures case 0" [m
+  [1;31mClient:   2 : "Error State 1 detected on lock 151114 Begin Repair..." [m
+  [1;31mClient:   2 : "😇 Repaired Locks [151109,151114] from failures case 1" [m
+  [1;31mClient:   0 : "Fault #2 injected on locks [8665,8666] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   2 : "Error State 2 detected on lock 151114 Begin Repair..." [m
+  [1;31mClient:   2 : "😇 Repaired Locks [151099,151114] from failures case 2" [m
+  [1;31mClient:   1 : "Error State 2 detected on lock 8666 Begin Repair..." [m
+  [1;31mClient:   1 : "😇 Repaired Locks [8665,8666] from failures case 2" [m
+  [1;31mClient:   0 : "Fault #1 injected on locks [133989,133994] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   3 : "Error State 3 detected on lock 126736 Begin Repair..." [m
+  [1;31mClient:   3 : "😇 Repaired Locks [126736] from failures case 3" [m
+  [1;31mClient:   3 : "Error State 2 detected on lock 126727 Begin Repair..." [m
+  [1;31mClient:   3 : "😇 Repaired Locks [126727,126736] from failures case 2" [m
+  [1;31mClient:   0 : "Fault #1 injected on locks [152091,152113,152118,152122] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   3 : "Error State 0 detected on lock 126727 Begin Repair..." [m
+  [1;31mClient:   3 : "😇 Repaired Locks [126727] from failures case 0" [m
+  [1;31mClient:   1 : "Error State 0 detected on lock 152113 Begin Repair..." [m
+  [1;31mClient:   1 : "😇 Repaired Locks [152113] from failures case 0" [m
+  [1;31mClient:   2 : "Error State 3 detected on lock 51638 Begin Repair..." [m
+  [1;31mClient:   2 : "😇 Repaired Locks [51638] from failures case 3" [m
+  [1;31mClient:   1 : "Error State 3 detected on lock 152122 Begin Repair..." [m
+  [1;31mClient:   1 : "😇 Repaired Locks [152122] from failures case 3" [m
+  [1;31mClient:   0 : "Fault #3 injected on locks [77135,77138] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   3 : "Error State 3 detected on lock 66298 Begin Repair..." [m
+  [1;31mClient:   3 : "😇 Repaired Locks [66298] from failures case 3" [m
+  [1;31mClient:   0 : "Fault #1 injected on locks [10139,10142] 😈. Sleeping for 100000 µs" [m
+  [1;31mClient:   1 : "Error State 0 detected on lock 107748 Begin Repair..." [m
+  [1;31mClient:   1 : "😇 Repaired Locks [107748] from failures case 0" [m
+  [1;31mClient:   2 : "Error State 3 detected on lock 28624 Begin Repair..." [m
+  [1;31mClient:   2 : "😇 Repaired Locks [28624] from failures case 3" [m
+  [1;

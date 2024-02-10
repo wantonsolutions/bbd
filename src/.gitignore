@@ -46,5 +46,6 @@ test/test_replicated_log
 nedtries
 output.txt
 output.text
+workloads
 
 

@@ -30,7 +30,7 @@ namespace replicated_log {
             Replicated_Log(unsigned int memory_size, unsigned int entry_size, unsigned int total_clients, unsigned int client_id, unsigned int bits_per_client_position);
             // ~Replicated_Log() {ALERT("REPLICATED_LOG", "deleting replicated log");}
             void Append_Log_Entry(void * data, size_t size);
-            bool Can_Append();
+            bool Can_Append(int entries);
             void Print_All_Entries();
             bool Will_Fit_In_Entry(size_t size);
 
@@ -73,6 +73,7 @@ namespace replicated_log {
             int get_client_positions_size_bytes() {return this->_client_positions_size_bytes;}
             void update_client_position(uint64_t tail_pointer);
 
+            uint64_t get_min_client_index();
             uint64_t get_min_client_position();
 
             unsigned int get_client_position_epoch(int id) {

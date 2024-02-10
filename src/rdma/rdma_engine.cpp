@@ -51,7 +51,7 @@ State_Machine *state_machine_holder[MAX_CLIENT_THREADS];
 int yeti_core_order[YETI_CORES]={1,3,5,7,9,11,13,15,17,19,21,23,25,27,29,31,33,35,37,39,41,43,45,47,49,51,53,55,57,59,61,63,65,67,69,71,73,75,77,79};
 int yeti_control_core = 0;
 int yak_core_order[YAK_CORES]={0,2,4,6,8,10,12,14,16,18,20,22,1,3,5,7,9,11,13,15,17,19,21,23};
-int yak_control_core = 0;
+int yak_control_core = 1;
 
 int control_core;
 int *core_order;

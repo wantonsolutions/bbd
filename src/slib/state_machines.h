@@ -69,6 +69,10 @@ namespace state_machines {
             void set_global_end_flag(volatile bool * flag);
             void set_global_prime_flag(volatile bool * flag);
 
+            bool experiment_started() {return *_global_start_flag;}
+            bool experiment_ended() {return *_global_end_flag;}
+            bool experiment_primed() {return *_global_prime_flag;}
+
 
         protected:
             unordered_map<string, string> _config;

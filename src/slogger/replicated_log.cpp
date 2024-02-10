@@ -58,9 +58,9 @@ namespace replicated_log {
         }
     }
 
-    uint64_t Replicated_Log::get_min_client_position() {
+    uint64_t Replicated_Log::get_min_client_index() {
         if (this->_total_clients == 1) {
-            return get_client_position(0);
+            return 0;
         }
         int min_client = 0;
         uint64_t min_position = get_client_position(0);
@@ -82,9 +82,14 @@ namespace replicated_log {
                 min_client = i;
             }
         }
-        VERBOSE("Min Client Position", "client %d, position %ld, epoch %ld", min_client, min_position, min_epoch);
-        return position_to_entry(min_position);
+        return min_client;
+    }
 
+    uint64_t Replicated_Log::get_min_client_position() {
+        uint64_t min_client_index = get_min_client_index();
+        uint64_t position =  get_client_position(min_client_index);
+        return position_to_entry(position);
+        VERBOSE("Min Client Position", "client %d, position %ld, epoch %ld", min_client, min_position, min_epoch);
     }
 
     void Replicated_Log::update_client_position(uint64_t tail_pointer) {
@@ -140,13 +145,18 @@ namespace replicated_log {
         return (void*) ((uint64_t) this->_log) + (get_entry(this->_locally_synced_tail_pointer) * this->_entry_size);
     }
 
-    bool Replicated_Log::Can_Append() {
+    bool Replicated_Log::Can_Append(int num_entries) {
         int min_entry = get_min_client_position();
         int current_entry = get_entry(this->_tail_pointer);
         VERBOSE("Can Append", "min entry %d, current entry %d", min_entry, current_entry);
-        if ((current_entry + 1)%get_number_of_entries() == min_entry) {
-            return false;
+
+        for (int i=0;i<num_entries;i++) {
+            if ((current_entry + i + 1) %get_number_of_entries() == min_entry) {
+                return false;
+            }
         }
+
+
         return true;
 
     }
@@ -167,12 +177,10 @@ namespace replicated_log {
         em.type = app;
         em.epoch = get_epoch(this->_tail_pointer) % 2;
 
-        if (!Can_Append()){
-            ALERT("Append Entry", "Cannot append entry, min client position is %d", get_min_client_position());
-            ALERT("Append Entry", "This is where we will have to poll for client positions");
-            ALERT("Append Entry", "Exiting...");
-            exit(0);
-        }
+        // if (!Can_Append()){
+        //     ALERT("Append Entry", "Cannot append entry, min client position is %d", get_min_client_position());
+        //     ALERT("Append Entry", "This is where we wil");
+        // }
 
         this->_tail_pointer++;
         //Dont update the client position here. We have only written, not consumed.

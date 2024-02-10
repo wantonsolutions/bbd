@@ -105,19 +105,16 @@ namespace slogger {
             }
 
             _operation_start_time = get_current_ns();
-            // INFO(log_id(), "SLogger FSM iteration %d\n", i);
-            // sleep(1);
-            i = (i+1);
-
-            bool res = test_insert_log_entry(i, adjusted_entry_size);
+            bool res = insert_n_sequential_ints(i, _batch_size);
+            _operation_end_time = get_current_ns();
             if (!res) {
                 break;
             }
-            _operation_end_time = get_current_ns();
+            i = (i+_batch_size);
 
             #ifdef MEASURE_ESSENTIAL
             uint64_t latency = (_operation_end_time - _operation_start_time).count();
-            _completed_insert_count++;
+            _completed_insert_count+=_batch_size;
             _current_insert_rtt = 0;
             _sum_insert_latency_ns += latency;
                 #ifdef MEASURE_MOST
@@ -129,6 +126,45 @@ namespace slogger {
 
 
         // ALERT(log_id(), "SLogger Ending FSM");
+    }
+
+    bool SLogger::insert_n_sequential_ints(int starting_int, int batch_size) {
+
+
+        //Step 1 we are going to allocate some memory for the remote log
+
+        //The assumption is that the local log tail pointer is at the end of the log.
+        //For the first step we are going to get the current value of the tail pointer
+        #define MAX_BATCH_SIZE 256
+
+        int ints[MAX_BATCH_SIZE];
+        unsigned int sizes[MAX_BATCH_SIZE];
+        void * data_pointers[MAX_BATCH_SIZE];
+
+        for (int i=0; i<batch_size; i++) {
+            ints[i] = starting_int + i;
+            sizes[i] = sizeof(int);
+            data_pointers[i] = (void*)&ints[i];
+        }
+
+
+        // bs.repeating_value = digits[i%36];
+
+        //Now we must find out the size of the new entry that we want to commit
+        // printf("This is where we are at currently\n");
+        // _replicated_log.Print_All_Entries();
+
+        // if (CAS_Allocate_Log_Entry(bs)) {
+        // if (FAA_Allocate_Log_Entry(bs)) {
+        if((this->*_allocate_log_entry)(batch_size)) {
+            INFO("SLOG", "Allocated log entry successfully %lu", _replicated_log.get_tail_pointer());
+            // Write_Log_Entry(&i, sizeof(int));
+            Write_Log_Entry_Batch((void**)data_pointers, (unsigned int *)&sizes, batch_size);
+            Sync_To_Last_Write();
+            return true;
+        }
+        return false;
+
     }
 
     uint64_t SLogger::local_to_remote_log_address(uint64_t local_address) {
@@ -501,7 +537,7 @@ namespace slogger {
         // printf("writing to local addr %ul remote log %ul\n", local_log_tail_address, remote_log_tail_address);
 
         //Make the local change
-        while(!_replicated_log.Can_Append()){
+        while(!_replicated_log.Can_Append(1)){
             Read_Client_Positions(true);
         }
         _replicated_log.Append_Log_Entry(data, size);
@@ -535,6 +571,73 @@ namespace slogger {
         _insert_rtt_count++;
         _total_writes++;
         #endif
+    }
+
+    void SLogger::Write_Log_Entry_Batch(void ** data, unsigned int * sizes, unsigned int batch_size) {
+
+        //we have to have allocated the remote entry at this point.
+        //TODO assert somehow that we have allocated
+        uint64_t local_log_tail_address = (uint64_t) _replicated_log.get_reference_to_tail_pointer_entry();
+        uint64_t remote_log_tail_address = local_to_remote_log_address(local_log_tail_address);
+
+
+        for (int i=0; i<batch_size; i++) {
+            unsigned int in_size = sizes[i];
+            assert(_replicated_log.Will_Fit_In_Entry(in_size));
+        }
+
+        // printf("writing to local addr %ul remote log %ul\n", local_log_tail_address, remote_log_tail_address);
+        //Make the local change
+        //TODO batch
+
+        int stalling_counter = 0;
+        while(!_replicated_log.Can_Append(batch_size) && !experiment_ended()){
+            if (stalling_counter % 1000 == 0){
+                ALERT(log_id(), "Stalling on slow client! [slow client = %d][stall count %d]",_replicated_log.get_min_client_index(), stalling_counter);
+            }
+            Read_Client_Positions(true);
+            Update_Client_Position(_replicated_log.get_tail_pointer()); // clients will stall if I don't do this
+            stalling_counter++;
+            usleep(100);
+        }
+
+        for (int i=0; i<batch_size; i++) {
+            unsigned int size = sizes[i];
+            void * d = data[i];
+            _replicated_log.Append_Log_Entry(d, size);
+        }
+
+
+        rdmaWriteExp(
+            _qp,
+            local_log_tail_address,
+            remote_log_tail_address,
+            this->_entry_size * batch_size,
+            _log_mr->lkey,
+            _slog_config->slog_key,
+            -1,
+            true,
+            _wr_id);
+
+        _wr_id++;
+        int outstanding_messages = 1;
+        int n = bulk_poll(_completion_queue, outstanding_messages, _wc);
+
+        if (n < 0) {
+            ALERT("SLOG", "Error polling completion queue");
+            exit(1);
+        }
+
+        #ifdef MEASURE_ESSENTIAL
+        uint64_t request_size = _entry_size*batch_size + RDMA_WRITE_REQUEST_BASE_SIZE + RDMA_WRITE_RESPONSE_SIZE;
+        _cas_bytes += request_size;
+        _total_bytes += request_size;
+        _insert_operation_bytes += request_size;
+        _current_insert_rtt++;
+        _insert_rtt_count++;
+        _total_writes++;
+        #endif
+
     }
 
     void SLogger::Sync_To_Last_Write() {
@@ -583,6 +686,16 @@ namespace slogger {
             exit(1);
         }
 
+
+        // #define MTU_SIZE 1500
+        #define MTU_SIZE 1024
+        #define RDMA_READ_OVERHEAD 64
+
+        #define MAX_READ_BATCH 128
+        struct ibv_sge sg [MAX_READ_BATCH];
+        struct ibv_exp_send_wr wr [MAX_READ_BATCH];
+
+
         while (_replicated_log.get_locally_synced_tail_pointer() < offset) {
             //Step Two we need to read the remote log and find out what the value of the tail pointer is
             uint64_t local_log_tail_address = (uint64_t) _replicated_log.get_reference_to_locally_synced_tail_pointer_entry();
@@ -596,19 +709,53 @@ namespace slogger {
             if (local_entry + entries > _replicated_log.get_number_of_entries()) {
                 entries = _replicated_log.get_number_of_entries() - local_entry;
             } 
-            uint64_t size = entries * _entry_size;
+            uint64_t total_entries = entries;
+            //Fit the reads to a max size entry
+            int max_size_read = (MTU_SIZE - RDMA_READ_OVERHEAD);
+            int max_entries_per_read = max_size_read / _entry_size;
+            if (entries > max_entries_per_read * MAX_READ_BATCH) {
+                // ALERT(log_id(), "Reading Maximum of %d entries in %d batchs from %lu to %lu", max_entries_per_read, MAX_READ_BATCH, _replicated_log.get_locally_synced_tail_pointer(), offset);
+                entries = max_entries_per_read * MAX_READ_BATCH;
+            }
+            int i=0;
+            while (entries > 0) {
+                //Calculate how many entries will be read in this batch
+                int entries_to_read = entries;
+                if (entries_to_read > max_entries_per_read) {
+                    entries_to_read = max_entries_per_read;
+                }
+                entries -= entries_to_read;
 
-            rdmaReadExp(
-                _qp,
-                local_log_tail_address,
-                remote_log_tail_address,
-                size,
-                _log_mr->lkey,
-                _slog_config->slog_key,
-                true,
-                _wr_id);
+                uint64_t entry_offset = (i * max_entries_per_read * _entry_size);
+                setRdmaReadExp(
+                    &sg[i],
+                    &wr[i],
+                    local_log_tail_address + entry_offset,
+                    remote_log_tail_address + entry_offset,
+                    entries_to_read * _entry_size,
+                    _log_mr->lkey,
+                    _slog_config->slog_key,
+                    false,
+                    _wr_id);
+                _wr_id++;
+                i++;
 
-            _wr_id++;
+                #ifdef MEASURE_ESSENTIAL
+                uint64_t request_size = entries_to_read*_entry_size + RDMA_READ_REQUSET_SIZE + RDMA_READ_RESPONSE_BASE_SIZE;
+                _read_bytes += request_size;
+                _total_bytes += request_size;
+                _read_operation_bytes += request_size;
+                _current_read_rtt++;
+                _read_rtt_count++;
+                _total_reads++;
+                #endif
+
+            }
+            wr[i-1].exp_send_flags = IBV_EXP_SEND_SIGNALED;
+            send_bulk(i,_qp, wr);
+            // if (*_global_end_flag) {
+            //     ALERT(log_id(), "Reading %lu entries in %d batchs from %lu to %lu", total_entries, i, _replicated_log.get_locally_synced_tail_pointer(), offset);
+            // }
             int outstanding_messages = 1;
             int n = bulk_poll(_completion_queue, outstanding_messages, _wc);
 
@@ -617,15 +764,6 @@ namespace slogger {
                 exit(1);
             }
 
-            #ifdef MEASURE_ESSENTIAL
-            uint64_t request_size = size + RDMA_READ_REQUSET_SIZE + RDMA_READ_RESPONSE_BASE_SIZE;
-            _read_bytes += request_size;
-            _total_bytes += request_size;
-            _read_operation_bytes += request_size;
-            _current_read_rtt++;
-            _read_rtt_count++;
-            _total_reads++;
-            #endif
 
             //Finally chase to the end of what we have read. If the entry is not vaild read again.
             // _replicated_log.Chase_Locally_Synced_Tail_Pointer(); // This will bring us to the last up to date entry
@@ -638,45 +776,6 @@ namespace slogger {
 
 
 
-    bool SLogger::test_insert_log_entry(int i, int size) {
-
-
-        //Step 1 we are going to allocate some memory for the remote log
-
-        //The assumption is that the local log tail pointer is at the end of the log.
-        //For the first step we are going to get the current value of the tail pointer
-        #define MAX_LOG_ENTRY_SIZE 4096
-        assert(size < MAX_LOG_ENTRY_SIZE);
-        char data[MAX_LOG_ENTRY_SIZE];
-        const char digits[] = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-
-        //TODO uncomment for debugging
-        for (int j = 0; j < size; j++) {
-            data[j] = digits[i%36];
-        }
-        unsigned int entries_per_insert = 1;
-
-        // bs.repeating_value = digits[i%36];
-
-        //Now we must find out the size of the new entry that we want to commit
-        // printf("This is where we are at currently\n");
-        // _replicated_log.Print_All_Entries();
-
-        // if (CAS_Allocate_Log_Entry(bs)) {
-        // if (FAA_Allocate_Log_Entry(bs)) {
-        if((this->*_allocate_log_entry)(entries_per_insert)) {
-            INFO("SLOG", "Allocated log entry successfully %lu", _replicated_log.get_tail_pointer());
-            // Write_Log_Entry(data, size);
-            Write_Log_Entry(&i, sizeof(int));
-            Sync_To_Last_Write();
-            // if (_id == 0){
-            //     _replicated_log.Print_All_Entries();
-            // }
-            return true;
-        }
-        return false;
-
-    }
 
 
     void SLogger::set_allocate_function(unordered_map<string, string> config){

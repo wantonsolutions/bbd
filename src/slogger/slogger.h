@@ -37,6 +37,7 @@ namespace slogger {
 
             void Read_Client_Positions(bool block);
             void Write_Log_Entry(void* data, unsigned int size);
+            void Write_Log_Entry_Batch(void ** data, unsigned int * sizes, unsigned int batch_size);
 
             void Sync_To_Remote_Log();
             void Sync_To_Last_Write();
@@ -65,7 +66,7 @@ namespace slogger {
 
 
         private:
-            bool test_insert_log_entry(int i, int size);
+            bool insert_n_sequential_ints(int starting_int, int batch_size);
 
             void set_epoch_and_tail_pointer_after_FAA(uint64_t add);
             void set_allocate_function(unordered_map<string, string> config);

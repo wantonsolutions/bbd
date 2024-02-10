@@ -93,6 +93,7 @@ namespace state_machines {
         _total_reads = 0;
         _total_writes = 0;
         _total_cas = 0;
+
         _total_cas_failures = 0;
         _total_masked_cas = 0;
         _total_masked_cas_failures=0;
