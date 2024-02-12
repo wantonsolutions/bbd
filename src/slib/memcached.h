@@ -32,8 +32,8 @@ void memcached_publish_memory_stats(memory_stats *ms);
 memory_stats *memcached_get_memory_stats(void);
 
 //Shared Control Results
-void send_inital_experiment_control_to_memcached_server();
-void start_distributed_experiment();
+void send_inital_experiment_control_to_memcached_server(int memory_servers);
+void start_distributed_experiment(int memory_server_index);
 void end_experiment_globally();
 void announce_priming_complete();
 

@@ -146,34 +146,6 @@ void usage()
     exit(1);
 }
 
-vector<string> get_ip_addr() {
-    char ip[100];
-    FILE *fp;
-    fp = popen("hostname -I", "r");
-    if (fp == NULL) {
-        printf("Failed to run command\n" );
-        exit(1);
-    }
-    fgets(ip, sizeof(ip), fp);
-    pclose(fp);
-    vector<string> ip_vector = split(ip, ' ');
-    return ip_vector;
-
-}
-
-
-int get_memory_server_index(vector<string> server_addresses){
-    vector<string> ip_vector = get_ip_addr();
-    for (int i = 0; i < server_addresses.size(); i++) {
-        for (int j = 0; j < ip_vector.size(); j++) {
-            if (server_addresses[i] == ip_vector[j]) {
-                return i;
-            }
-        }
-    }
-    ALERT("RDMA memory server", "ERROR: Could not find the IP address in the server_addresses\n");
-    exit(1);
-}
 
 
 int main(int argc, char **argv) 
@@ -210,7 +182,6 @@ int main(int argc, char **argv)
 
     ALERT("SUCCESS", "I am Memory server %d, with address %s and port %s\n", server_index, server_address_string.c_str(), base_port_string.c_str());
 
-
     //resolve the address from the config
     struct sockaddr_in server_sockaddr = server_address_to_socket_addr(server_address_string);
     printf("assigning base_port %s\n", base_port_string.c_str());
@@ -243,10 +214,10 @@ int main(int argc, char **argv)
 
     ALERT("RDMA memory server", "RDMA server setting up distributed resources\n");
     // send_inital_memory_stats_to_memcached_server();
-    send_inital_experiment_control_to_memcached_server();
+    send_inital_experiment_control_to_memcached_server(num_memory_servers);
     send_slog_config_to_memcached_server(rl, server_index);
     multi_threaded_connection_setup(server_sockaddr, base_port, num_qps);
-    start_distributed_experiment();
+    start_distributed_experiment(server_index);
 
 
     printf("All server setup complete, now serving memory requests\n");

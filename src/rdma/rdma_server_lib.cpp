@@ -1,6 +1,7 @@
 #include "rdma_common.h"
 #include "rdma_server_lib.h"
 #include "../slib/log.h"
+#include "../slib/config.h"
 #include <mutex>
 #include <assert.h>
 
@@ -593,4 +594,31 @@ void copy_device_memory_to_host_object(void * host_object, unsigned int size, on
     ibv_exp_memcpy_dm(device_memory.dm, &cpy_attr);
 }
 
+vector<string> get_ip_addr() {
+    char ip[100];
+    FILE *fp;
+    fp = popen("hostname -I", "r");
+    if (fp == NULL) {
+        printf("Failed to run command\n" );
+        exit(1);
+    }
+    fgets(ip, sizeof(ip), fp);
+    pclose(fp);
+    vector<string> ip_vector = split(ip, ' ');
+    return ip_vector;
 
+}
+
+
+int get_memory_server_index(vector<string> server_addresses){
+    vector<string> ip_vector = get_ip_addr();
+    for (int i = 0; i < server_addresses.size(); i++) {
+        for (int j = 0; j < ip_vector.size(); j++) {
+            if (server_addresses[i] == ip_vector[j]) {
+                return i;
+            }
+        }
+    }
+    ALERT("RDMA memory server", "ERROR: Could not find the IP address in the server_addresses\n");
+    exit(1);
+}

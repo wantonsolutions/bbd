@@ -2,6 +2,7 @@
 #define RDMA_SERVER_LIB
 
 #include "rdma_common.h"
+#include <vector>
 
 typedef struct rdma_connection_setup_args {
     struct sockaddr_in *server_sockaddr;
@@ -25,5 +26,7 @@ void multi_threaded_connection_setup(sockaddr_in server_sockaddr, int base_port,
 ibv_mr * register_server_object_at_mr_index(void * object_ptr, unsigned int object_size, int index);
 on_chip_memory_attr register_device_memory(unsigned int starting_address, unsigned int size);
 void copy_device_memory_to_host_object(void * host_object, unsigned int size, on_chip_memory_attr device_memory);
+vector<string> get_ip_addr();
+int get_memory_server_index(vector<string> server_addresses);
 
 #endif

@@ -418,7 +418,6 @@ namespace slogger {
         }
     }
 
-
     void SLogger::add_remote(rdma_info info, int memory_server_index){ 
         assert(memory_server_index == (_rslogs.size()));
         _rslogs.push_back(RSlog(info, &_replicated_log, memory_server_index));

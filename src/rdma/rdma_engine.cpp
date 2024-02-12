@@ -492,7 +492,7 @@ namespace rdma_engine {
 
         while(true){
             experiment_control *ec = get_experiment_control();
-            if(ec->experiment_start){
+            if(ec->is_experiment_running()){
                 ALERT("RDMA Engine", "Experiment Starting Globally\n");
                 global_start_flag = true;
                 break;
@@ -506,7 +506,7 @@ namespace rdma_engine {
         while(true){
             experiment_control *ec = get_experiment_control();
             // printf("ec lock %p\n", ec);
-            if(ec->experiment_stop){
+            if(ec->is_experiment_stopped()){
                 ALERT("RDMA Engine", "Experiment Stop Globally\n");
                 global_end_flag = true;
                 break;

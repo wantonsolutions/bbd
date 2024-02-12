@@ -91,7 +91,7 @@ slog_config * memcached_get_slog_config(int memory_server_index) {
   slog_config *config;
   int config_len = memcached_get_published(slog_memserver_key(memory_server_index).c_str(), (void **)&config);
   INFO("Memcached", "about to print the fetched slog config of size %d\n",config_len);
-  INFO("Memcached", "slog config: %s\n", config->to_string().c_str());
+  ALERT("Memcached", "slog config: %s\n", config->to_string().c_str());
   assert(config_len == sizeof(slog_config));
   return config;
 }
@@ -175,16 +175,19 @@ int memcached_get_published(const char *key, void **value) {
   assert(false);
 }
 
-void send_inital_experiment_control_to_memcached_server() {
+void send_inital_experiment_control_to_memcached_server(int memory_servers) {
     experiment_control ec;
-    ec.experiment_start = false;
+    for (int i = 0; i < MAX_MEMORY_SERVERS; i++) {
+        ec.experiment_start[i] = false;
+    }
+    ec.memory_servers = memory_servers;
     ec.experiment_stop = false;
     ec.priming_complete = false;
     memcached_publish_experiment_control(&ec);
 }
-void start_distributed_experiment(){
+void start_distributed_experiment(int memory_server_index){
     experiment_control *ec = (experiment_control *)memcached_get_experiment_control();
-    ec->experiment_start = true;
+    ec->experiment_start[memory_server_index] = true;
     memcached_publish_experiment_control(ec);
 }
 

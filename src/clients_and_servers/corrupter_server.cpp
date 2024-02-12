@@ -112,12 +112,20 @@ int main(int argc, char **argv)
     int chunk_size = stoi(config["chunk_size"]);
     Mem_Chunks mc = Mem_Chunks(memory_size_bytes, chunk_size);
 
+    vector<string> server_addresses = split(config["server_addresses"], ',');
+    vector<string> base_ports = split(config["base_ports"], ',');
+    int num_memory_servers = server_addresses.size();
+
+    int server_index = get_memory_server_index(server_addresses);
+    string server_address_string = server_addresses[server_index];
+    string base_port_string = base_ports[server_index];
+
+    ALERT("SUCCESS", "I am Memory server %d, with address %s and port %s\n", server_index, server_address_string.c_str(), base_port_string.c_str());
 
     //resolve the address from the config
-    struct sockaddr_in server_sockaddr = server_address_to_socket_addr(config["server_address"]);
-
-    printf("assigning base_port %s\n", config["base_port"].c_str());
-    int base_port = stoi(config["base_port"]);
+    struct sockaddr_in server_sockaddr = server_address_to_socket_addr(server_address_string);
+    printf("assigning base_port %s\n", base_port_string.c_str());
+    int base_port = stoi(base_port_string);
     int num_qps = stoi(config["num_clients"]);
 
     string workload = config["workload"];
@@ -142,10 +150,10 @@ int main(int argc, char **argv)
 
     ALERT("RDMA memory server", "RDMA server setting up distributed resources\n");
     // send_inital_memory_stats_to_memcached_server();
-    send_inital_experiment_control_to_memcached_server();
+    send_inital_experiment_control_to_memcached_server(num_memory_servers);
     send_mem_chunk_config_to_memcached_server(mc);
     multi_threaded_connection_setup(server_sockaddr, base_port, num_qps);
-    start_distributed_experiment();
+    start_distributed_experiment(server_index);
 
 
     printf("All server setup complete, now serving memory requests\n");

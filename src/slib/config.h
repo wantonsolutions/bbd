@@ -6,6 +6,8 @@ using namespace std;
 #include <string>
 #include <unordered_map>
 #include <vector>
+#include <assert.h>
+#define MAX_MEMORY_SERVERS 3
 
 const string SERVER_TABLE_CONFIG_KEY = "server_table_config";
 const string SERVER_SLOG_CONFIG_KEY = "server_slog_config";
@@ -85,11 +87,31 @@ typedef struct corrupter_config {
 
 typedef struct experiment_control {
     string to_string(){
-        return "experiment_start: " + std::to_string(experiment_start) + "\n" +
+        assert(memory_servers <= MAX_MEMORY_SERVERS);
+        string start = "start:";
+        for (int i = 0; i < memory_servers; i++) {
+            start += " " + std::to_string(experiment_start[i]);
+        }
+        return start + "\n" +
             "experiment_stop: " + std::to_string(experiment_stop) + "\n" +
             "priming_complete: " + std::to_string(priming_complete) + "\n";
     }
-    bool experiment_start;
+    bool is_experiment_running() {
+        for (int i = 0; i < memory_servers; i++) {
+            if (!experiment_start[i]) {
+                return false;
+            }
+        }
+        return true;
+    }
+    bool is_experiment_stopped() {
+        return experiment_stop;
+    }
+    bool is_priming_complete() {
+        return priming_complete;
+    }
+    int memory_servers;
+    bool experiment_start[MAX_MEMORY_SERVERS];
     bool experiment_stop;
     bool priming_complete;
 } experiment_control;
