@@ -67,7 +67,7 @@ namespace slogger {
 
             Replicated_Log _replicated_log;
             RSlog _rslog;
-            vector<RSlog> _rslogs;
+            RSlogs _rslogs;
 
 
             //silly variables

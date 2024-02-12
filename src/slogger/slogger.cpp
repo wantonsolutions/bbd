@@ -239,9 +239,15 @@ namespace slogger {
         INFO(log_id(), "new_val %16lx", new_val);
         INFO(log_id(), "mask    %16lx", mask);
 
+        _rslogs.RCAS_Position(old_val, new_val, mask, start_pos);
+        _rslogs.poll_one();
         //Get the address of the lock
-        _rslog.RCAS_Position(old_val, new_val, mask, start_pos);
-        _rslog.poll_one();
+        // for (int i=0;i<_rslogs.size();i++){
+        //     _rslogs[i].RCAS_Position(old_val, new_val, mask, start_pos);
+        // }
+        // for (int i=0;i<_rslogs.size();i++){
+        //     _rslogs[i].poll_one();
+        // }
 
 
         //Assert that we got the old value back. This prevents errors
@@ -419,9 +425,10 @@ namespace slogger {
     }
 
     void SLogger::add_remote(rdma_info info, int memory_server_index){ 
-        assert(memory_server_index == (_rslogs.size()));
-        _rslogs.push_back(RSlog(info, &_replicated_log, memory_server_index));
+        assert(memory_server_index == (_rslogs.remote_server_count()));
+        RSlog nslog = RSlog(info, &_replicated_log, memory_server_index);
+        _rslogs.Add_Slog(nslog);
         ALERT("ERROR", "WE SHOULD BE DEALING WITH MULTIPLE RSLOGS, NOT JUST USING THE FIRST");
-        _rslog = _rslogs[0];
+        _rslog = _rslogs.get_slog(0);
     }
 }

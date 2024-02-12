@@ -10,6 +10,8 @@
 using namespace rdma_helper;
 
 namespace slogger {
+
+
     RSlog::RSlog(rdma_info info, Replicated_Log * local_log, int memory_server_index) {
 
         INFO("RSLog", "SLogger Initializing RDMA Structures");
@@ -216,5 +218,55 @@ namespace slogger {
         return _slog_config->slog_address + address_offset;
     }
 
+    //** RSlogs **// **********************************************//** RSlogs **//
+    //** RSlogs **// **********************************************//** RSlogs **//
+    //** RSlogs **// **********************************************//** RSlogs **//
+    
+    
+    RSlogs::RSlogs(RSlog &rslog)
+    {
+        _rslogs.push_back(rslog);
+    }
+
+    RSlogs::RSlogs(vector<RSlog> rslogs){
+        _rslogs = rslogs;
+    }
+
+    void RSlogs::Add_Slog(RSlog rslog){
+        _rslogs.push_back(rslog);
+    }
+
+    void RSlogs::FAA_Alocate(unsigned int entries) {
+        _rslogs[0].FAA_Alocate(entries);
+    }
+    void RSlogs::CAS_Allocate(unsigned int entries){
+        _rslogs[0].CAS_Allocate(entries);
+    }
+    void RSlogs::RCAS_Position(uint64_t compare, uint64_t swap, uint64_t mask, uint64_t offset){
+        for (int i=0;i<_rslogs.size();i++){
+            _rslogs[i].RCAS_Position(compare, swap, mask, offset);
+        }
+    }
+    void RSlogs::Read_Tail_Pointer() {
+        _rslogs[0].Read_Tail_Pointer();
+    }
+    void RSlogs::Read_Client_Positions(bool block) {
+        //TODO spread out client position reads
+        _rslogs[0].Read_Client_Positions(block);
+    }
+    void RSlogs::Write_Log_Entries(uint64_t local_address, uint64_t size_bytes) {
+        for (int i=0;i<_rslogs.size();i++){
+            _rslogs[i].Write_Log_Entries(local_address, size_bytes);
+        }
+    }
+    int RSlogs::Batch_Read_Log(uint64_t local_address, uint64_t entries) {
+        //TODO spread out reads
+        _rslogs[0].Batch_Read_Log(local_address, entries);
+    }
+    void RSlogs::poll_one() {
+        for (int i=0;i<_rslogs.size();i++){
+            _rslogs[i].poll_one();
+        }
+    }
 
 }

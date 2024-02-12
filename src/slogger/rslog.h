@@ -11,7 +11,21 @@
 #define MAX_CONCURRENT_MESSAGES 32
 
 namespace slogger {
-    class RSlog {
+
+    class log_interface {
+        public:
+            virtual void FAA_Alocate(unsigned int entries) = 0;
+            virtual void CAS_Allocate(unsigned int entries) = 0;
+            virtual void RCAS_Position(uint64_t compare, uint64_t swap, uint64_t mask, uint64_t offset) = 0;
+            virtual void Read_Tail_Pointer() = 0;
+            virtual void Read_Client_Positions(bool block) = 0;
+            virtual void Write_Log_Entries(uint64_t local_address, uint64_t size_bytes) = 0;
+            virtual int Batch_Read_Log(uint64_t local_address, uint64_t entries) = 0;
+            virtual void poll_one() = 0;
+    };
+
+
+    class RSlog: public log_interface{
         public:
             RSlog(){};
             RSlog(rdma_info remote_info, Replicated_Log * local_log, int memory_server_index);
@@ -39,6 +53,27 @@ namespace slogger {
             uint64_t _wr_id;
             slog_config *_slog_config;
     };
+
+    class RSlogs: public log_interface {
+        public:
+            RSlogs(){};
+            RSlogs(RSlog &rslog);
+            RSlogs(vector<RSlog> rslogs);
+            void Add_Slog(RSlog rslog);
+            void FAA_Alocate(unsigned int entries);
+            void CAS_Allocate(unsigned int entries);
+            void RCAS_Position(uint64_t compare, uint64_t swap, uint64_t mask, uint64_t offset);
+            void Read_Tail_Pointer();
+            void Read_Client_Positions(bool block);
+            void Write_Log_Entries(uint64_t local_address, uint64_t size_bytes);
+            int Batch_Read_Log(uint64_t local_address, uint64_t entries);
+            void poll_one();
+            int remote_server_count(){return _rslogs.size();}
+            RSlog get_slog(int index){return _rslogs[index];}
+        
+        private:
+            vector<RSlog> _rslogs;
+    };        
 }
 
 #endif
