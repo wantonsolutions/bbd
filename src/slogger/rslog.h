@@ -14,7 +14,7 @@ namespace slogger {
     class RSlog {
         public:
             RSlog(){};
-            RSlog(rdma_info remote_info, Replicated_Log * local_log);
+            RSlog(rdma_info remote_info, Replicated_Log * local_log, int memory_server_index);
             void FAA_Alocate(unsigned int entries);
             void CAS_Allocate(unsigned int entries);
             void RCAS_Position(uint64_t compare, uint64_t swap, uint64_t mask, uint64_t offset);
@@ -24,8 +24,10 @@ namespace slogger {
             int Batch_Read_Log(uint64_t local_address, uint64_t entries);
             void poll_one();
             uint64_t local_to_remote_log_address(uint64_t local_address);
+            int get_memory_server_index(){return _memory_server_index;}
         
         private:
+            int _memory_server_index;
             Replicated_Log * _local_log;
             ibv_qp * _qp;
             ibv_pd *_protection_domain;

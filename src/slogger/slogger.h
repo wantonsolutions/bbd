@@ -42,7 +42,7 @@ namespace slogger {
             uint64_t local_to_remote_log_address(uint64_t local_address);
 
             void fill_allocated_log_with_noops(uint64_t size);
-            void add_remote(rdma_info info);
+            void add_remote(rdma_info info, int memory_server_index);
             void fsm();
             void clear_statistics();
             const char * log_id();
@@ -67,6 +67,7 @@ namespace slogger {
 
             Replicated_Log _replicated_log;
             RSlog _rslog;
+            vector<RSlog> _rslogs;
 
 
             //silly variables
@@ -79,6 +80,7 @@ namespace slogger {
             void read_tail_stats();
             void read_position_stats(int position_size);
             void write_log_entries_stats(uint64_t size);
+            void insert_stats(uint64_t latency, uint64_t batch_size);
 
     };
 }

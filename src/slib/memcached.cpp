@@ -66,7 +66,6 @@ void memcached_pubish_table_config(table_config *config) {
 
     memcached_publish(SERVER_TABLE_CONFIG_KEY.c_str(), (void *)config, sizeof(table_config));
 }
-
 table_config * memcached_get_table_config(void) {
     table_config *config;
     int config_len = memcached_get_published(SERVER_TABLE_CONFIG_KEY.c_str(), (void **)&config);
@@ -76,24 +75,26 @@ table_config * memcached_get_table_config(void) {
     return config;
 }
 
-void memcached_publish_slog_config(slog_config *config) {
+string slog_memserver_key(int memory_server_index) {
+  return SERVER_SLOG_CONFIG_KEY + "_"+ to_string(memory_server_index);
+}
+
+void memcached_publish_slog_config(slog_config *config, int memory_server_index) {
   assert(config != NULL);
   assert(config->slog_address > 0);
   assert(config->slog_key > 0);
   assert(config->slog_size_bytes > 0);
-  memcached_publish(SERVER_SLOG_CONFIG_KEY.c_str(), (void *)config, sizeof(slog_config));
+  memcached_publish(slog_memserver_key(memory_server_index).c_str(), (void *)config, sizeof(slog_config));
 }
 
-slog_config * memcached_get_slog_config(void) {
+slog_config * memcached_get_slog_config(int memory_server_index) {
   slog_config *config;
-  int config_len = memcached_get_published(SERVER_SLOG_CONFIG_KEY.c_str(), (void **)&config);
+  int config_len = memcached_get_published(slog_memserver_key(memory_server_index).c_str(), (void **)&config);
   INFO("Memcached", "about to print the fetched slog config of size %d\n",config_len);
   INFO("Memcached", "slog config: %s\n", config->to_string().c_str());
   assert(config_len == sizeof(slog_config));
   return config;
 }
-
-
 void memcached_publish_corrupter_config(corrupter_config *config) {
   assert(config != NULL);
   assert(config->chunk_address > 0);
@@ -103,7 +104,6 @@ void memcached_publish_corrupter_config(corrupter_config *config) {
   memcached_publish(SERVER_CORRUPTER_CONFIG_KEY.c_str(), (void *)config, sizeof(corrupter_config));
 
 }
-
 corrupter_config * memcached_get_corrupter_config(void) {
   corrupter_config *config;
   int config_len = memcached_get_published(SERVER_CORRUPTER_CONFIG_KEY.c_str(), (void **)&config);

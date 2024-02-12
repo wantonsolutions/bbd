@@ -267,7 +267,7 @@ RDMAConnectionManager::RDMAConnectionManager(RDMAConnectionManagerArguments args
      * QPs before moving forward. */
     for(int i = 0; i < _num_qps; i++) {
         /* Each QP will try to connect to port numbers starting from base port */
-        ret = client_prepare_connection(_server_sockaddr, i, _base_port + i);
+        ret = client_prepare_connection(&_server_sockaddr, i, _base_port + i);
         if (ret) { 
             ALERT("Connection Manager", "Failed to prepare client connection , ret = %d \n", ret);
             throw std::runtime_error("Failed to setup client connection");

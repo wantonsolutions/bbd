@@ -100,10 +100,14 @@ void * rcuckoo_thread_init(void * arg) {
     RCuckoo * rcuckoo = new RCuckoo(config);
 
     struct rdma_info info;
-    info.qp = rcuckoo_arg->cm->client_qp[rcuckoo_arg->id];
-    info.completion_queue = rcuckoo_arg->cm->client_cq_threads[rcuckoo_arg->id];
-    info.pd = rcuckoo_arg->cm->pd;
-    rcuckoo->init_rdma_structures(info);
+
+    ALERT("WARNING", "RCUCKOO WAS NEVER SET UP TO HAVE MULTIPLE MEMORY MACHIENS");
+    for (int i=0;i<rcuckoo_arg->cms.size();i++){
+        info.qp = rcuckoo_arg->cms[i]->client_qp[rcuckoo_arg->id];
+        info.completion_queue = rcuckoo_arg->cms[i]->client_cq_threads[rcuckoo_arg->id];
+        info.pd = rcuckoo_arg->cms[i]->pd;
+        rcuckoo->init_rdma_structures(info);
+    }
     state_machine_holder[rcuckoo_arg->id] = rcuckoo;
     pthread_exit(NULL);
 }
@@ -236,10 +240,12 @@ void * slogger_thread_init(void * arg) {
 
 
     struct rdma_info info;
-    info.qp = slogger_arg->cm->client_qp[slogger_arg->id];
-    info.completion_queue = slogger_arg->cm->client_cq_threads[slogger_arg->id];
-    info.pd = slogger_arg->cm->pd;
-    slogger->add_remote(info);
+    for (int i=0;i<slogger_arg->cms.size();i++){
+        info.qp = slogger_arg->cms[i]->client_qp[slogger_arg->id];
+        info.completion_queue = slogger_arg->cms[i]->client_cq_threads[slogger_arg->id];
+        info.pd = slogger_arg->cms[i]->pd;
+        slogger->add_remote(info,i);
+    }
     state_machine_holder[slogger_arg->id] = slogger;
     pthread_exit(NULL);
 }
@@ -294,11 +300,14 @@ void * corrupter_thread_init(void * arg) {
     // SLogger * slogger = new NT(config);
 
 
+    ALERT("WARNING", "CORRUPTER WAS NEVER SET UP TO HAVE MULTIPLE MEMORY MACHIENS");
     struct rdma_info info;
-    info.qp = corrupter_arg->cm->client_qp[corrupter_arg->id];
-    info.completion_queue = corrupter_arg->cm->client_cq_threads[corrupter_arg->id];
-    info.pd = corrupter_arg->cm->pd;
-    corrupter->init_rdma_structures(info);
+    for (int i=0;i<corrupter_arg->cms.size();i++){
+        info.qp = corrupter_arg->cms[i]->client_qp[corrupter_arg->id];
+        info.completion_queue = corrupter_arg->cms[i]->client_cq_threads[corrupter_arg->id];
+        info.pd = corrupter_arg->cms[i]->pd;
+        corrupter->init_rdma_structures(info);
+    }
     state_machine_holder[corrupter_arg->id] = corrupter;
     pthread_exit(NULL);
 }
@@ -354,7 +363,7 @@ namespace rdma_engine {
             for (i=0;i<_num_clients;i++) {
 
                 init_args[i].config = config;
-                init_args[i].cm = _connection_manager;
+                init_args[i].cms = _connection_managers;
                 init_args[i].id = i;
                 pthread_create(&thread_ids[i], NULL, thread_init,&init_args[i]);
 
@@ -403,16 +412,26 @@ namespace rdma_engine {
                 exit(1);
             }
 
-            //resolve the address from the config
-            struct sockaddr_in server_sockaddr = server_address_to_socket_addr(config["server_address"]);
-            args.server_sockaddr = &server_sockaddr;
+            if (!check_memory_server_config(config)) {
+                ALERT("RDMA Engine", "Error: memory server config is not set\n");
+                exit(1);
+            }
 
-            INFO("RDMA Engine","assigning base_port %s\n", config["base_port"].c_str());
-            args.base_port = stoi(config["base_port"]);
+            vector<string> server_addresses = split(config["server_addresses"], ',');
+            vector<string> base_ports = split(config["base_ports"], ',');
+            int num_memory_servers = server_addresses.size();
 
-            // _connection_manager = RDMAConnectionManager(args);
-            _connection_manager = new RDMAConnectionManager(args);
-            VERBOSE("RDMA Engine", "RDMAConnectionManager created\n");
+            for (int i=0;i<num_memory_servers;i++) {
+
+                INFO("RDMA Engine", "Memory Server %d: %s:%s\n", i, server_addresses[i].c_str(), base_ports[i].c_str());
+                args.server_sockaddr = server_address_to_socket_addr(server_addresses[i]);
+                INFO("RDMA Engine","assigning base_port %s\n", base_ports[i].c_str());
+                args.base_port = stoi(base_ports[i]);
+                _connection_managers.push_back(new RDMAConnectionManager(args));
+                VERBOSE("RDMA Engine", "RDMAConnectionManager created\n");
+            }
+
+
         } catch (exception& e) {
             ALERT("RDMA Engine", "RDMAConnectionManager failed to create\n");
             ALERT("RDMA Engine", "Error: %s\n", e.what());

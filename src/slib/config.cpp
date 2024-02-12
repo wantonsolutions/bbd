@@ -1,6 +1,7 @@
 #include "config.h"
 #include <jsoncpp/json/json.h>
 #include <iostream>
+#include <sstream>      // std::istringstream
 #include <fstream>
 #include "log.h"
 
@@ -25,6 +26,69 @@ bool get_config_bool(unordered_map<string, string> config, string field){
 inline bool file_exists (const std::string& name) {
     ifstream f(name.c_str());
     return f.good();
+}
+
+bool check_config_variable(unordered_map<string, string> config, string field) {
+    if (config.find(field) == config.end()) {
+        printf("ERROR: config missing %s\n", field.c_str());
+        return false;
+    }
+    return true;
+}
+
+vector<string> split(string s, char delimiter) {
+    vector<string> tokens;
+    string token;
+    istringstream tokenStream(s);
+    while (getline(tokenStream, token, delimiter)) {
+        tokens.push_back(token);
+    }
+    return tokens;
+}
+
+bool check_memory_server_config(unordered_map<string,string> config) {
+    //Check that all the required variables are in the configuration
+    bool has_required_variables = true;
+    has_required_variables &= check_config_variable(config, "server_addresses");
+    has_required_variables &= check_config_variable(config, "base_ports");
+    has_required_variables &= check_config_variable(config, "num_memory_servers");
+    if (!has_required_variables) {
+        return false;
+    }
+
+    //Each server address is listed in a comma seperated string.
+    //Check that both the base ports, and the server address are equal to num memory servers
+    int num_memory_servers = get_config_int(config, "num_memory_servers");
+
+    vector<string> server_addresses = split(config["server_addresses"], ',');
+    vector<string> base_ports = split(config["base_ports"], ',');
+    if (server_addresses.size() != num_memory_servers) {
+        printf("ERROR: num_memory_servers does not match the number of server addresses\n");
+        return false;
+    }
+    if (base_ports.size() != num_memory_servers) {
+        printf("ERROR: num_memory_servers does not match the number of base ports\n");
+        return false;
+    }
+    //Check that all of the base ports are integers
+    for (int i = 0; i < base_ports.size(); i++) {
+        try {
+            stoi(base_ports[i]);
+        } catch (exception &e) {
+            printf("ERROR: base port %s is not an integer\n", base_ports[i].c_str());
+            return false;
+        }
+    }
+    //ensure that each of the IP address are unique
+    for (int i = 0; i < server_addresses.size(); i++) {
+        for (int j = i+1; j < server_addresses.size(); j++) {
+            if (server_addresses[i] == server_addresses[j]) {
+                printf("ERROR: server address %s is repeated\n", server_addresses[i].c_str());
+                return false;
+            }
+        }
+    }
+    return true;
 }
 
 unordered_map<string, string> read_config_from_file(string config_filename){

@@ -19,7 +19,7 @@ typedef struct result_t {
 typedef struct RDMAConnectionManagerArguments {
     int num_qps;
     int base_port;
-    struct sockaddr_in * server_sockaddr;
+    struct sockaddr_in server_sockaddr;
 } RDMAConnectionManagerArguments;
 
 class RDMAConnectionManager {
@@ -72,7 +72,7 @@ class RDMAConnectionManager {
         bool _connections_initialized = false;
         int _num_qps;
         int _base_port;
-        struct sockaddr_in * _server_sockaddr;
+        struct sockaddr_in _server_sockaddr;
         int client_setup_shared_resources();
         int client_prepare_connection(struct sockaddr_in *s_addr, int qp_num, int port_num);
         int client_pre_post_recv_buffer(int qp_num);

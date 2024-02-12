@@ -65,5 +65,18 @@ namespace slogger {
         _total_writes++;
         #endif
     }
+
+    void SLogger::insert_stats(uint64_t latency, uint64_t batch_size){
+        #ifdef MEASURE_ESSENTIAL
+        _completed_insert_count+=_batch_size;
+        _current_insert_rtt = 0;
+        _sum_insert_latency_ns += latency;
+            #ifdef MEASURE_MOST
+            _insert_rtt.push_back(_current_insert_rtt);
+            _insert_latency_ns.push_back(latency);
+            #endif
+        #endif
+
+    }
 }
 

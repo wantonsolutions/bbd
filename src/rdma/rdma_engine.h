@@ -15,9 +15,9 @@ using namespace cuckoo_rcuckoo;
 namespace rdma_engine {
 
     typedef struct state_machine_init_arg{
-        unordered_map <string, string> config;
-        RDMAConnectionManager * cm;
         int id;
+        unordered_map <string, string> config;
+        vector<RDMAConnectionManager*> cms;
     } state_machine_init_arg;
 
     enum state_machine_type {
@@ -47,7 +47,7 @@ namespace rdma_engine {
             experiment_control *get_experiment_control();
             memory_stats * get_memory_stats();
             unordered_map<string, string> _config;
-            RDMAConnectionManager  *_connection_manager;
+            vector<RDMAConnectionManager*>  _connection_managers;
     };
 }
 

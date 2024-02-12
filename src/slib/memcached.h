@@ -15,8 +15,12 @@ void memcached_publish(const char *key, void *value, int len);
 void memcached_pubish_table_config(table_config *config);
 table_config *memcached_get_table_config(void);
 
-void memcached_publish_slog_config(slog_config *config);
-slog_config * memcached_get_slog_config(void);
+// void memcached_publish_slog_config(slog_config *config);
+// slog_config * memcached_get_slog_config(void);
+
+void memcached_publish_slog_config(slog_config *config, int memory_server_index);
+slog_config * memcached_get_slog_config(int memory_server_index);
+
 
 void memcached_publish_corrupter_config(corrupter_config *config);
 corrupter_config * memcached_get_corrupter_config(void);

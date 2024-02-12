@@ -85,7 +85,6 @@ namespace slogger {
     }
 
     void SLogger::fsm(){
-        // ALERT(log_id(), "SLogger Starting FSM");
         while(!*_global_start_flag){
             INFO(log_id(), "not globally started");
         };
@@ -109,16 +108,8 @@ namespace slogger {
             }
             i = (i+_batch_size);
 
-            #ifdef MEASURE_ESSENTIAL
             uint64_t latency = (_operation_end_time - _operation_start_time).count();
-            _completed_insert_count+=_batch_size;
-            _current_insert_rtt = 0;
-            _sum_insert_latency_ns += latency;
-                #ifdef MEASURE_MOST
-                _insert_rtt.push_back(_current_insert_rtt);
-                _insert_latency_ns.push_back(latency);
-                #endif
-            #endif
+            insert_stats(latency, _batch_size);
         }
     }
 
@@ -157,7 +148,6 @@ namespace slogger {
         _rslog.FAA_Alocate(entries);
         _rslog.poll_one();
         assert(current_tail_value <= _replicated_log.get_tail_pointer());
-
 
         //At this point we should have a local tail that is at least as large as the remote tail
         //Also the remote tail is allocated
@@ -207,27 +197,18 @@ namespace slogger {
     }
 
     bool SLogger::Update_Remote_Client_Position(uint64_t new_tail){
-        struct ibv_sge sg;
-        struct ibv_exp_send_wr wr;
-
-        // uint64_t old_position = _replicated_log.tail_pointer_to_client_position(old_tail);
         uint64_t old_position = _replicated_log.get_client_position(_id);
         uint64_t new_position = _replicated_log.tail_pointer_to_client_position(new_tail);
-
-        // uint64_t old_epoch = _replicated_log.get_epoch(old_tail) % 2;
         uint64_t old_epoch = _replicated_log.get_client_position_epoch(_id);
         uint64_t new_epoch = _replicated_log.get_epoch(new_tail) % 2;
-
         uint64_t byte_pos = _replicated_log.client_position_byte(_id);
-
-        //Round old_byte to the nearest 8 byte boundary
         uint64_t start_pos = byte_pos - (byte_pos % 8);
 
         INFO(log_id(), "Setting client tail update from %lu to %lu", old_tail, new_tail);
         INFO(log_id(), "old_position %lu", old_position);
         INFO(log_id(), "new_position %lu", new_position);
-        // ALERT(log_id(), "byte_pos %lu", byte_pos);
-        // ALERT(log_id(), "start_pos %lu", start_pos);
+        INFO(log_id(), "byte_pos %lu", byte_pos);
+        INFO(log_id(), "start_pos %lu", start_pos);
         INFO(log_id(), "old_epoch %lu", old_epoch);
         INFO(log_id(), "new_epoch %lu", new_epoch);
 
@@ -264,18 +245,10 @@ namespace slogger {
 
 
         //Assert that we got the old value back. This prevents errors
-        uint64_t read_position = _replicated_log.get_client_position(_id);
+        uint64_t returned_position = _replicated_log.get_client_position(_id);
+        assert(returned_position == old_position);
 
-        if (read_position != old_position) {
-            ALERT(log_id(), "Read position %lu does not match old position %lu", read_position, old_position);
-            ALERT(log_id(), "HEX TABLE");
-            _replicated_log.print_client_position_raw_hex();
-            ALERT(log_id(), "FORMAT TABLE");
-            _replicated_log.print_client_positions();
-            assert(read_position == old_position);
-        }
-
-        //The write will have overwritten the local copy
+        //The write will have overwritten the local copy so we need to update it
         _replicated_log.set_client_position(_id, new_tail);
 
         return true;
@@ -285,13 +258,11 @@ namespace slogger {
             _rslog.Read_Tail_Pointer();
             _rslog.poll_one();
             read_tail_stats();
-
     }
 
     //Block will wait for the request to terminate before returning.
     //We could batch this with other requests but for now we are going to keep it simple
     void SLogger::Read_Client_Positions(bool block) {
-
         _rslog.Read_Client_Positions(block);
         if (block) {
             _rslog.poll_one();
@@ -448,8 +419,10 @@ namespace slogger {
     }
 
 
-    void SLogger::add_remote(rdma_info info){ 
-        
-        _rslog = RSlog(info, &_replicated_log); 
+    void SLogger::add_remote(rdma_info info, int memory_server_index){ 
+        assert(memory_server_index == (_rslogs.size()));
+        _rslogs.push_back(RSlog(info, &_replicated_log, memory_server_index));
+        ALERT("ERROR", "WE SHOULD BE DEALING WITH MULTIPLE RSLOGS, NOT JUST USING THE FIRST");
+        _rslog = _rslogs[0];
     }
 }

@@ -10,7 +10,7 @@
 using namespace rdma_helper;
 
 namespace slogger {
-    RSlog::RSlog(rdma_info info, Replicated_Log * local_log) {
+    RSlog::RSlog(rdma_info info, Replicated_Log * local_log, int memory_server_index) {
 
         INFO("RSLog", "SLogger Initializing RDMA Structures");
         assert(info.qp != NULL);
@@ -20,8 +20,9 @@ namespace slogger {
         _qp = info.qp;
         _completion_queue = info.completion_queue;
         _protection_domain = info.pd;
+        _memory_server_index = memory_server_index;
 
-        _slog_config = memcached_get_slog_config();
+        _slog_config = memcached_get_slog_config(memory_server_index);
         assert(_slog_config != NULL);
         assert(_slog_config->slog_size_bytes == local_log->get_log_size_bytes());
         INFO("RSlog","got a slog config from the memcached server and it seems to line up\n");

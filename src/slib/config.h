@@ -110,4 +110,9 @@ void write_statistics(
 
 unsigned int get_config_int(unordered_map<string, string> config, string field);
 bool get_config_bool(unordered_map<string, string> config, string field);
+
+bool check_config_variable(unordered_map<string, string> config, string field);
+vector<string> split(string s, char delimiter);
+bool check_memory_server_config(unordered_map<string,string> config);
+
 #endif
