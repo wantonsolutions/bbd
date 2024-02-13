@@ -186,7 +186,7 @@ int main(int argc, char **argv)
     struct sockaddr_in server_sockaddr = server_address_to_socket_addr(server_address_string);
     printf("assigning base_port %s\n", base_port_string.c_str());
     int base_port = stoi(base_port_string);
-    int num_qps = stoi(config["num_clients"]);
+    int num_qps = stoi(config["global_clients"]);
 
     int memory_size_bytes = stoi(config["memory_size"]);
     int entry_size_bytes = stoi(config["entry_size"]);
@@ -214,7 +214,11 @@ int main(int argc, char **argv)
 
     ALERT("RDMA memory server", "RDMA server setting up distributed resources\n");
     // send_inital_memory_stats_to_memcached_server();
-    send_inital_experiment_control_to_memcached_server(num_memory_servers);
+    if (server_index == 0) {
+        send_inital_experiment_control_to_memcached_server(num_memory_servers);
+        ALERT("RDMA memory server", "Zeroing Client Count\n");
+        memcached_zero_slogger_client_count();
+    }
     send_slog_config_to_memcached_server(rl, server_index);
     multi_threaded_connection_setup(server_sockaddr, base_port, num_qps);
     start_distributed_experiment(server_index);

@@ -389,6 +389,7 @@ namespace rdma_engine {
         _config = config;
         try {
             _num_clients = stoi(config["num_clients"]);
+            _num_client_machines = stoi(config["num_client_machines"]);
             _prime = (config["prime"] == "true");
 
         } catch (exception &e) {
@@ -402,6 +403,9 @@ namespace rdma_engine {
 
             set_core_order();
             args.num_qps = _num_clients;
+            // int current_clients = memcached_get_current_slogger_client_count();
+            // ALERT("RDMA_ENGINE", "There are currently %d clients",current_clients);
+            _machine_id = (int) memcached_get_next_slogger_client_id();
             if (args.num_qps < 1) {
                 ALERT("RDMA Engine", "Error: num_qps must be at least 1\n");
                 exit(1);
@@ -417,6 +421,8 @@ namespace rdma_engine {
                 exit(1);
             }
 
+            ALERT("RDMA Engine", "Starting Client Machine #%d\n", _machine_id);
+
             vector<string> server_addresses = split(config["server_addresses"], ',');
             vector<string> base_ports = split(config["base_ports"], ',');
             int num_memory_servers = server_addresses.size();
@@ -426,7 +432,7 @@ namespace rdma_engine {
                 INFO("RDMA Engine", "Memory Server %d: %s:%s\n", i, server_addresses[i].c_str(), base_ports[i].c_str());
                 args.server_sockaddr = server_address_to_socket_addr(server_addresses[i]);
                 INFO("RDMA Engine","assigning base_port %s\n", base_ports[i].c_str());
-                args.base_port = stoi(base_ports[i]);
+                args.base_port = stoi(base_ports[i]) + (_machine_id * _num_clients);
                 _connection_managers.push_back(new RDMAConnectionManager(args));
                 VERBOSE("RDMA Engine", "RDMAConnectionManager created\n");
             }

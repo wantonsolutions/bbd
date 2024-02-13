@@ -71,6 +71,10 @@ typedef struct slog_config {
     int client_position_table_size_bytes;
 } slog_config;
 
+typedef struct client_counter {
+    uint64_t count;
+} client_counter;
+
 typedef struct corrupter_config {
     string to_string() {
         return "chunk_address: " + std::to_string(chunk_address) + "\n" +

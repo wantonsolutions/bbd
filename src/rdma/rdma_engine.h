@@ -41,6 +41,8 @@ namespace rdma_engine {
         private:
             bool _prime;
             int _num_clients;
+            int _num_client_machines;
+            int _machine_id;
             void set_control_flag(State_Machine *machine);
             void start_distributed_experiment();
             void stop_distributed_experiment();

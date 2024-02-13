@@ -9,6 +9,7 @@
 #define MEMCACHED_MAX_NAME_LEN 256
 
 extern char MEMCACHED_IP[64];
+// string SLOGGER_CLIENT_COUNT_KEY = "slogger_client_count";
 
 int memcached_get_published(const char *key, void **value);
 void memcached_publish(const char *key, void *value, int len);
@@ -30,6 +31,15 @@ experiment_control *memcached_get_experiment_control(void);
 
 void memcached_publish_memory_stats(memory_stats *ms);
 memory_stats *memcached_get_memory_stats(void);
+
+void memcached_increment(const char *key, uint32_t inc_by, uint64_t *value);
+void zero_client_count(string key);
+uint64_t get_next_client_id(string key);
+
+void memcached_zero_slogger_client_count();
+uint64_t memcached_get_next_slogger_client_id();
+uint64_t memcached_get_current_slogger_client_count();
+
 
 //Shared Control Results
 void send_inital_experiment_control_to_memcached_server(int memory_servers);

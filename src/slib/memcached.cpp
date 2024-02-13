@@ -16,6 +16,7 @@ memcached_st *memcached_create_memc(void) {
   memcached_return rc;
 
   memc = memcached_create(NULL);
+  memcached_behavior_set(memc, MEMCACHED_BEHAVIOR_BINARY_PROTOCOL, 1);
   const char *registry_ip = MEMCACHED_IP;
 
   /* We run the memcached server on the default memcached port */
@@ -36,10 +37,6 @@ void memcached_publish(const char *key, void *value, int len) {
     memc = memcached_create_memc();
   }
 
-  // fprintf(stderr,"\tPutting Key %s\n",key);
-  // fprintf(stderr,"\tPutting Value %s\n",(const char*)value);
-  // fprintf(stderr,"\tPutting Value-len %d\n",len);
-
   rc = memcached_set(memc, key, strlen(key), (const char *)value, len,
                      (time_t)0, (uint32_t)0);
   if (rc != MEMCACHED_SUCCESS) {
@@ -50,6 +47,64 @@ void memcached_publish(const char *key, void *value, int len) {
             key, memcached_strerror(memc, rc), registry_ip);
     exit(-1);
   }
+}
+
+void memcached_delete(const char *key) {
+  assert(key != NULL);
+  memcached_return rc;
+
+  if (memc == NULL) {
+    fprintf(stdout, "creating memcached instance\n");
+    memc = memcached_create_memc();
+  }
+
+  rc = memcached_delete(memc, key, strlen(key), (time_t)0);
+  if (rc != MEMCACHED_SUCCESS) {
+    const char *registry_ip = MEMCACHED_IP;
+    fprintf(stderr,
+            "\tHRD: Failed to delete key %s. Error %s. "
+            "Reg IP = %s\n",
+            key, memcached_strerror(memc, rc), registry_ip);
+  }
+}
+
+
+void memcached_inc(const char *key, uint32_t inc_by, uint64_t *value) {
+  assert(key != NULL);
+  memcached_return rc;
+
+  if (memc == NULL) {
+    fprintf(stdout, "creating memcached instance\n");
+    memc = memcached_create_memc();
+  }
+
+  rc = memcached_increment_with_initial(memc, key, strlen(key), inc_by, 0, (time_t)0, value);
+  // rc = memcached_increment_with_initial(memc, "counter", strlen("counter"), 0, 1, 0, value);
+  if (rc != MEMCACHED_SUCCESS) {
+    const char *registry_ip = MEMCACHED_IP;
+    fprintf(stderr,
+            "\tHRD: Failed to increment key %s. Error %s. "
+            "Reg IP = %s\n",
+            key, memcached_strerror(memc, rc), registry_ip);
+    exit(-1);
+  }
+}
+
+void delete_client_count(string key) {
+    memcached_delete(key.c_str());
+}
+
+uint64_t get_next_client_id(string key) {
+    uint64_t value;
+    memcached_inc(key.c_str(), 1, &value);
+    return value;
+}
+
+uint64_t get_current_client_count(string key) {
+    uint64_t *value;
+    int value_len = memcached_get_published(key.c_str(), (void **)&value);
+    assert(value_len == sizeof(uint64_t));
+    return *value;
 }
 
 void memcached_pubish_table_config(table_config *config) {
@@ -202,3 +257,8 @@ void announce_priming_complete() {
     ec->priming_complete = true;
     memcached_publish_experiment_control(ec);
 }
+
+
+void memcached_zero_slogger_client_count()             { delete_client_count("client_count");}
+uint64_t memcached_get_next_slogger_client_id(){ return get_next_client_id("client_count");}
+uint64_t memcached_get_current_slogger_client_count(){ return get_current_client_count("client_count");}
