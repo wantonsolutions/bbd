@@ -238,15 +238,17 @@ void * slogger_thread_init(void * arg) {
     SLogger * slogger = new SLogger(config);
     // SLogger * slogger = new NT(config);
 
+    int num_clients = stoi(config["num_clients"]);
+    int thread_id = slogger_arg->id % num_clients;
 
     struct rdma_info info;
     for (int i=0;i<slogger_arg->cms.size();i++){
-        info.qp = slogger_arg->cms[i]->client_qp[slogger_arg->id];
-        info.completion_queue = slogger_arg->cms[i]->client_cq_threads[slogger_arg->id];
+        info.qp = slogger_arg->cms[i]->client_qp[thread_id];
+        info.completion_queue = slogger_arg->cms[i]->client_cq_threads[thread_id];
         info.pd = slogger_arg->cms[i]->pd;
         slogger->add_remote(info,i);
     }
-    state_machine_holder[slogger_arg->id] = slogger;
+    state_machine_holder[thread_id] = slogger;
     pthread_exit(NULL);
 }
 
@@ -302,7 +304,9 @@ void * corrupter_thread_init(void * arg) {
 
     ALERT("WARNING", "CORRUPTER WAS NEVER SET UP TO HAVE MULTIPLE MEMORY MACHIENS");
     struct rdma_info info;
+
     for (int i=0;i<corrupter_arg->cms.size();i++){
+        
         info.qp = corrupter_arg->cms[i]->client_qp[corrupter_arg->id];
         info.completion_queue = corrupter_arg->cms[i]->client_cq_threads[corrupter_arg->id];
         info.pd = corrupter_arg->cms[i]->pd;
@@ -364,7 +368,7 @@ namespace rdma_engine {
 
                 init_args[i].config = config;
                 init_args[i].cms = _connection_managers;
-                init_args[i].id = i;
+                init_args[i].id = i + (_machine_id * _num_clients);
                 pthread_create(&thread_ids[i], NULL, thread_init,&init_args[i]);
 
             }
@@ -406,6 +410,7 @@ namespace rdma_engine {
             // int current_clients = memcached_get_current_slogger_client_count();
             // ALERT("RDMA_ENGINE", "There are currently %d clients",current_clients);
             _machine_id = (int) memcached_get_next_slogger_client_id();
+            config["machine_id"] = to_string(_machine_id);
             if (args.num_qps < 1) {
                 ALERT("RDMA Engine", "Error: num_qps must be at least 1\n");
                 exit(1);
