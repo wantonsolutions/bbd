@@ -50,7 +50,7 @@ namespace slogger {
             sprintf(_log_identifier, "Client: %3d", stoi(config["id"]));
 
             ALERT("SLOG", "TODO ensure that we don't have duplicate client ID's");
-            _total_clients = stoi(config["global_clients"]);
+            _total_clients = stoi(config["num_client_machines"]) * stoi(config["num_clients"]);
 
             //This is merely a safty concern I don't want to be allocating over the end of the log
             assert(_total_clients * _batch_size < 2 * (memory_size / _entry_size));

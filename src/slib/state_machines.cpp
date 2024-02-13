@@ -321,7 +321,7 @@ namespace state_machines {
     Client_Workload_Driver::Client_Workload_Driver(){
         _total_requests = 0;
         _client_id = 0;
-        _num_clients = 0;
+        _total_clients = 0;
         _deterministic = false;
         _random_factor = 0;
         _completed_requests = 0;
@@ -371,8 +371,7 @@ namespace state_machines {
             _total_requests = stoi(config["total_requests"]);
             _starting_id = stoi(config["starting_id"]);
             _client_id = stoi(config["id"]) + _starting_id;
-            _global_clients = stoi(config["global_clients"]);
-            _num_clients = stoi(config["num_clients"]);
+            _total_clients = stoi(config["num_clients"]) * stoi(config["num_client_machines"]);
             _deterministic = config["deterministic"] == "True";
             set_workload(config["workload"]);
         } catch (exception& e) {
@@ -402,9 +401,8 @@ namespace state_machines {
         stats["workload"] = to_string(_workload);
         stats["total_requests"] = to_string(_total_requests);
         stats["client_id"] = to_string(_client_id);
-        stats["global_clients"] = to_string(_global_clients);
         stats["starting_id"] = to_string(_starting_id);
-        stats["num_clients"] = to_string(_num_clients);
+        stats["total_clients"] = to_string(_total_clients);
         return stats;
     }
 
@@ -476,8 +474,8 @@ namespace state_machines {
 
 
     Request Client_Workload_Driver::next_put() {
-        Key key = unique_insert(_completed_puts, _client_id, _global_clients, _random_factor);
-        assert(_client_id < _global_clients);
+        Key key = unique_insert(_completed_puts, _client_id, _total_clients, _random_factor);
+        assert(_client_id < _total_clients);
         Value val = Value();
         Request req = Request{PUT, key, val};
         _last_request = req;

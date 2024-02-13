@@ -193,8 +193,7 @@ namespace state_machines {
             int _total_requests;
             int _client_id;
             int _starting_id;
-            int _global_clients;
-            int _num_clients;
+            int _total_clients;
             bool _deterministic;
             int _random_factor;
             int _completed_requests;
@@ -256,7 +255,6 @@ namespace state_machines {
             client_state _state;
             uint32_t _max_fill;
             int _starting_id;
-            int _global_clients; 
 
             //Read State Machine
             Key _current_read_key;

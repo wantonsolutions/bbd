@@ -186,7 +186,7 @@ int main(int argc, char **argv)
     struct sockaddr_in server_sockaddr = server_address_to_socket_addr(server_address_string);
     printf("assigning base_port %s\n", base_port_string.c_str());
     int base_port = stoi(base_port_string);
-    int num_qps = stoi(config["global_clients"]);
+    int num_qps = stoi(config["num_client_machines"]) * stoi(config["num_clients"]);
 
     int memory_size_bytes = stoi(config["memory_size"]);
     int entry_size_bytes = stoi(config["entry_size"]);

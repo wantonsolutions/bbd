@@ -127,10 +127,7 @@ namespace cuckoo_rcuckoo {
             _read_threshold_bytes = get_config_int(config,"read_threshold_bytes");
             _buckets_per_lock = get_config_int(config,"buckets_per_lock");
             _locks_per_message = get_config_int(config,"locks_per_message");
-            // assert(_locks_per_message == 64);
-            _starting_id = get_config_int(config,"starting_id");
-            _global_clients = get_config_int(config,"global_clients");
-            _id = get_config_int(config,"id") + _starting_id;
+            _id = get_config_int(config,"id");
             _use_mask = get_config_bool(config,"use_mask");
             use_virtual_lock_table = get_config_bool(config,"use_virtual_lock_table");
             virtual_lock_scale_factor = get_config_int(config,"virtual_lock_scale_factor");
