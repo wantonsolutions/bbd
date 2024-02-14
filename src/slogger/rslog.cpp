@@ -259,9 +259,18 @@ namespace slogger {
             _rslogs[i].Write_Log_Entries(local_address, size_bytes);
         }
     }
+
+    int RSlogs::get_read_machine() {
+        int id = _rslogs[0].get_id();
+        int read_machine = id % _rslogs.size();
+        return read_machine;
+    }
+
     int RSlogs::Batch_Read_Log(uint64_t local_address, uint64_t entries) {
-        //TODO spread out reads
-        _rslogs[0].Batch_Read_Log(local_address, entries);
+        _rslogs[get_read_machine()].Batch_Read_Log(local_address, entries);
+    }
+    int RSlogs::poll_batch_read() {
+        _rslogs[get_read_machine()].poll_one();
     }
     void RSlogs::poll_one() {
         for (int i=0;i<_rslogs.size();i++){

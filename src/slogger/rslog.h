@@ -39,6 +39,7 @@ namespace slogger {
             void poll_one();
             uint64_t local_to_remote_log_address(uint64_t local_address);
             int get_memory_server_index(){return _memory_server_index;}
+            int get_id(){return _local_log->get_id();}
         
         private:
             int _memory_server_index;
@@ -68,11 +69,13 @@ namespace slogger {
             void Write_Log_Entries(uint64_t local_address, uint64_t size_bytes);
             int Batch_Read_Log(uint64_t local_address, uint64_t entries);
             void poll_one();
+            int poll_batch_read();
             int remote_server_count(){return _rslogs.size();}
             RSlog get_slog(int index){return _rslogs[index];}
         
         private:
             vector<RSlog> _rslogs;
+            int RSlogs::get_read_machine();
     };        
 }
 

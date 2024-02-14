@@ -381,9 +381,9 @@ namespace slogger {
                 entries = _replicated_log.get_number_of_entries() - local_entry;
             } 
             uint64_t total_entries = entries;
-
-            _rslog.Batch_Read_Log(local_log_tail_address, entries);
-            _rslog.poll_one();
+            
+            _rslogs.Batch_Read_Log(local_log_tail_address, entries);
+            _rslogs.poll_batch_read();
 
             //Finally chase to the end of what we have read. If the entry is not vaild read again.
             // _replicated_log.Chase_Locally_Synced_Tail_Pointer(); // This will bring us to the last up to date entry
