@@ -231,7 +231,6 @@ void * slogger_thread_init(void * arg) {
     state_machine_init_arg * slogger_arg = (state_machine_init_arg *) arg;
     unordered_map <string, string> config;
     std::copy(slogger_arg->config.begin(), slogger_arg->config.end(), std::inserter(config, config.end()));
-    
 
     ALERT("RDMA Engine", "Slogger instace %i\n", slogger_arg->id);
     config["id"]=to_string(slogger_arg->id);
@@ -273,7 +272,6 @@ void corrupter_stat_collection(State_Machine ** state_machines, unordered_map<st
         }
     }
     SUCCESS("RDMA Engine", "Grabbed Statistics Off of All Client %d Threads\n", num_clients);
-
 
     unordered_map<string,string> system_statistics;
     system_statistics["runtime_ms"] = to_string(ms_int.count());

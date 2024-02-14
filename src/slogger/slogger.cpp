@@ -88,6 +88,7 @@ namespace slogger {
         while(!*_global_start_flag){
             INFO(log_id(), "not globally started");
         };
+        ALERT(log_id(), "Globally Started");
 
         int adjusted_entry_size = _entry_size - sizeof(Entry_Metadata);
         int i=0;
@@ -204,7 +205,6 @@ namespace slogger {
         uint64_t byte_pos = _replicated_log.client_position_byte(_id);
         uint64_t start_pos = byte_pos - (byte_pos % 8);
 
-        INFO(log_id(), "Setting client tail update from %lu to %lu", old_tail, new_tail);
         INFO(log_id(), "old_position %lu", old_position);
         INFO(log_id(), "new_position %lu", new_position);
         INFO(log_id(), "byte_pos %lu", byte_pos);
@@ -409,7 +409,7 @@ namespace slogger {
     }
 
     void SLogger::set_workload(string workload) {
-        INFO(__func__: "%s", workload.c_str());
+        INFO(__func__, "%s", workload.c_str());
         if (workload == "ycsb-a"){
             _workload = A;
         } else if (workload == "ycsb-b"){

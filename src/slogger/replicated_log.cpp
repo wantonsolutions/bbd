@@ -89,7 +89,7 @@ namespace slogger {
         uint64_t min_client_index = get_min_client_index();
         uint64_t position =  get_client_position(min_client_index);
         return position_to_entry(position);
-        VERBOSE("Min Client Position", "client %d, position %ld, epoch %ld", min_client, min_position, min_epoch);
+        VERBOSE("Min Client Position", "client %d, position %ld", min_client_index, position);
     }
 
     void Replicated_Log::update_client_position(uint64_t tail_pointer) {
@@ -232,10 +232,10 @@ namespace slogger {
     void Replicated_Log::Chase(uint64_t * tail_pointer) {
         Entry_Metadata * em = (Entry_Metadata*) ((uint64_t) this->_log + (get_entry(*tail_pointer) * this->_entry_size));
         //Print the epoch of the entry metadata and the epoch of the tail pointer
-        INFO("Chase", "[%d] epoch %d em-epoch[%d]", get_entry(*tail_pointer), get_epoch(*tail_pointer), em->epoch);
+        // INFO("Chase", "[%d] epoch %d em-epoch[%d]", get_entry(*tail_pointer), get_epoch(*tail_pointer), em->epoch);
         //Print the entry we are chasing
         while(em->is_vaild_entry(get_epoch(*tail_pointer))) {
-            INFO("Chase", "[%d] epoch %d", get_entry(*tail_pointer), get_epoch(*tail_pointer));
+            // INFO("Chase", "[%d] epoch %d", get_entry(*tail_pointer), get_epoch(*tail_pointer));
             (*tail_pointer)++;
             em = (Entry_Metadata*) ((uint64_t) this->_log + (get_entry(*tail_pointer) * this->_entry_size));
         }
