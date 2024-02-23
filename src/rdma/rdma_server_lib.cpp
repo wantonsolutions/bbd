@@ -543,7 +543,7 @@ void multi_threaded_connection_setup(sockaddr_in server_sockaddr, int base_port,
     }
     ALERT("RDMA memory server", "Done forking\n");
     for (int i=0;i<num_qps;i++){
-        ALERT("ALERT Memory Server", "Joining Client Connection Thread %d\n", i);
+        INFO("ALERT Memory Server", "Joining Client Connection Thread %d\n", i);
         pthread_join(thread_ids[i],NULL);
     }
     ALERT("RDMA memory server", "Starting Experiment\n");

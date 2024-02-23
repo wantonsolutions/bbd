@@ -47,6 +47,17 @@ static void send_final_memory_stats_to_memcached_server(Replicated_Log rl){
     memcached_publish_memory_stats(&ms);
 }
 
+void wait_for_all_servers_to_connect() {
+    while(true){
+        experiment_control *ec = memcached_get_experiment_control();
+        if(ec->is_experiment_running()){
+            ALERT("RDMA Engine", "Experiment Starting Globally\n");
+            break;
+        }
+    }
+}
+
+
 static void send_slog_config_to_memcached_server(Replicated_Log& rl, int memory_server_index)
 {
 
@@ -134,8 +145,10 @@ void moniter_run(int print_frequency, bool prime, int runtime, bool use_runtime,
             break;
         }
     }
-    ALERT("RDMA memory server", "Experiment has been ended globally\n");
-    ALERT("RDMA memory server", "Write the stats to the memcached server\n");
+    int sleep_time = 1;
+    ALERT("Slogger Server", "Experiment has been ended globally sleeping for %d seconds to let clients wrap up\n", sleep_time);
+    sleep(sleep_time);
+    ALERT("Slogger Server", "Experiment over writing results to memcached");
 
 }
 
@@ -222,6 +235,7 @@ int main(int argc, char **argv)
     send_slog_config_to_memcached_server(rl, server_index);
     multi_threaded_connection_setup(server_sockaddr, base_port, num_qps);
     start_distributed_experiment(server_index);
+    wait_for_all_servers_to_connect();
 
 
     printf("All server setup complete, now serving memory requests\n");

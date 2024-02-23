@@ -72,6 +72,9 @@ namespace slogger {
         unordered_map<string, string> stats = State_Machine::get_stats();
         unordered_map<string, string> workload_stats = _workload_driver.get_stats();
         stats.insert(workload_stats.begin(), workload_stats.end());
+        stats["sync_calls"]=to_string(_sync_calls);
+        stats["sync_calls_retry"]=to_string(_sync_calls_retry);
+        stats["stall_count"]=to_string(_stall_count);
         return stats;
     }
 
@@ -81,6 +84,9 @@ namespace slogger {
 
     void SLogger::clear_statistics() {
         State_Machine::clear_statistics();
+        _sync_calls = 0;
+        _sync_calls_retry = 0;
+        _stall_count = 0;
         SUCCESS(log_id(), "Clearing statistics");
     }
 
@@ -88,12 +94,10 @@ namespace slogger {
         while(!*_global_start_flag){
             INFO(log_id(), "not globally started");
         };
-        ALERT(log_id(), "Globally Started");
 
         int adjusted_entry_size = _entry_size - sizeof(Entry_Metadata);
         int i=0;
         while(!*_global_end_flag){
-
             //Pause goes here rather than anywhere else because I don't want
             //To have locks, or any outstanding requests
             if (*_global_prime_flag && !_local_prime_flag){
@@ -130,8 +134,10 @@ namespace slogger {
             data_pointers[i] = (void*)&ints[i];
         }
 
+
         //Allocate, write and then sync
         if((this->*_allocate_log_entry)(batch_size)) {
+
             INFO("SLOG", "Allocated log entry successfully %lu", _replicated_log.get_tail_pointer());
             // Write_Log_Entry(&i, sizeof(int));
             Write_Log_Entries((void**)data_pointers, (unsigned int *)&sizes, batch_size);
@@ -255,6 +261,7 @@ namespace slogger {
         assert(returned_position == old_position);
 
         //The write will have overwritten the local copy so we need to update it
+        // ALERT(log_id(), "Updating local client position to %lu on id %d", new_position,_id);
         _replicated_log.set_client_position(_id, new_tail);
 
         return true;
@@ -291,6 +298,10 @@ namespace slogger {
         //TODO assert somehow that we have allocated
         uint64_t local_log_tail_address = (uint64_t) _replicated_log.get_reference_to_tail_pointer_entry();
 
+        if (_id == 1) {
+            INFO(log_id(), "Writing log entry to %lu on 1", local_log_tail_address);
+        }
+
         for (int i=0; i<num_entries; i++) {
             unsigned int in_size = sizes[i];
             assert(_replicated_log.Will_Fit_In_Entry(in_size));
@@ -298,14 +309,13 @@ namespace slogger {
 
         //Make the local change
         //TODO batch
-        int stalling_counter = 0;
         while(!_replicated_log.Can_Append(num_entries) && !experiment_ended()){
-            if (stalling_counter % 1000 == 0){
-                ALERT(log_id(), "Stalling on slow client! [slow client = %d][stall count %d]",_replicated_log.get_min_client_index(), stalling_counter);
+            if (_stall_count % 1000 == 0){
+                ALERT(log_id(), "Stalling on slow client! [slow client = %d][stall count %d]",_replicated_log.get_min_client_index(), _stall_count);
             }
             Read_Client_Positions(true);
             Update_Client_Position(_replicated_log.get_tail_pointer()); // clients will stall if I don't do this
-            stalling_counter++;
+            _stall_count++;
             usleep(100);
         }
 
@@ -315,8 +325,8 @@ namespace slogger {
             _replicated_log.Append_Log_Entry(d, size);
         }
 
-        _rslog.Write_Log_Entries(local_log_tail_address, num_entries);
-        _rslog.poll_one();
+        _rslogs.Write_Log_Entries(local_log_tail_address, num_entries);
+        _rslogs.poll_one();
         write_log_entries_stats(_entry_size*num_entries);
 
 
@@ -349,6 +359,9 @@ namespace slogger {
 
     void SLogger::Syncronize_Log(uint64_t offset){
 
+        //Stats
+        _sync_calls++;
+
         INFO(log_id(), "Syncronizing log from %lu to %lu", _replicated_log.get_locally_synced_tail_pointer(), offset);
         //Step One reset our local tail pointer and chase to the end of vaild entries
         // _replicated_log.Chase_Locally_Synced_Tail_Pointer(); // This will bring us to the last up to date entry
@@ -369,6 +382,11 @@ namespace slogger {
         }
 
         while (_replicated_log.get_locally_synced_tail_pointer() < offset) {
+            //Stats
+            _sync_calls_retry++;
+
+            //Return if experiment is over
+            if (experiment_ended()) {return;}
             //Step Two we need to read the remote log and find out what the value of the tail pointer is
             uint64_t local_log_tail_address = (uint64_t) _replicated_log.get_reference_to_locally_synced_tail_pointer_entry();
             uint64_t entries = offset - _replicated_log.get_locally_synced_tail_pointer();
@@ -428,7 +446,6 @@ namespace slogger {
         assert(memory_server_index == (_rslogs.remote_server_count()));
         RSlog nslog = RSlog(info, &_replicated_log, memory_server_index);
         _rslogs.Add_Slog(nslog);
-        ALERT("ERROR", "WE SHOULD BE DEALING WITH MULTIPLE RSLOGS, NOT JUST USING THE FIRST");
         _rslog = _rslogs.get_slog(0);
     }
 }

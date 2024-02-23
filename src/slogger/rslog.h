@@ -75,7 +75,7 @@ namespace slogger {
         
         private:
             vector<RSlog> _rslogs;
-            int RSlogs::get_read_machine();
+            int get_read_machine();
     };        
 }
 

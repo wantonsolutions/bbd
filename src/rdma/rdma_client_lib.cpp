@@ -317,6 +317,11 @@ RDMAConnectionManager::RDMAConnectionManager(RDMAConnectionManagerArguments args
 /* This function prepares client side shared resources for all connections */
 int RDMAConnectionManager::client_setup_shared_resources()
 {
+
+    //Make sure we can open up lots of files
+    //This command allows up to open 8192 files
+    system("ulimit -n 8192");
+
     int ret = -1;
     /* Get RDMA devices */
     devices = rdma_get_devices(&ret);
@@ -352,8 +357,8 @@ int RDMAConnectionManager::client_setup_shared_resources()
         */
         io_completion_channel_threads[i] = ibv_create_comp_channel(devices[0]);
         if (!io_completion_channel_threads[i]) {
-            ALERT("Connection Manager","Failed to create IO completion event channel %d, errno: %d\n",
-                    i,-errno);
+            ALERT("Connection Manager","Failed to create IO completion event channel %d, errno: %d errstr %s\n",
+                    i,-errno, strerror(errno));
             return -errno;
         }
         INFO("Connection Manager", "io completion channel @ %p\n",(void*)io_completion_channel_threads[i]);

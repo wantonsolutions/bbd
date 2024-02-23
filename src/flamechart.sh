@@ -3,7 +3,7 @@ measuretime=8
 
 # program=cuckoo_client
 # program=test/test_virtual_rdma
-program=test/test_search
+program=slogger_client
 sudo killall "$program"
 
 # page_script="LD_PRELOAD=libhugetlbfs.so HUGETLB_MORECORE=yes"
@@ -20,5 +20,5 @@ sudo perf record -F 99 -a -g -- sleep $measuretime
 sudo perf script | ./flamechart/FlameGraph/stackcollapse-perf.pl > out.perf-folded
 sudo killall "$program"
 ./flamechart/FlameGraph/flamegraph.pl out.perf-folded > flamechart.svg
-firefox flamechart.svg
+#firefox flamechart.svg
 

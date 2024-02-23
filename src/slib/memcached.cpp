@@ -146,7 +146,7 @@ slog_config * memcached_get_slog_config(int memory_server_index) {
   slog_config *config;
   int config_len = memcached_get_published(slog_memserver_key(memory_server_index).c_str(), (void **)&config);
   INFO("Memcached", "about to print the fetched slog config of size %d\n",config_len);
-  ALERT("Memcached", "slog config: %s\n", config->to_string().c_str());
+  // ALERT("Memcached", "slog config: %s\n", config->to_string().c_str());
   assert(config_len == sizeof(slog_config));
   return config;
 }

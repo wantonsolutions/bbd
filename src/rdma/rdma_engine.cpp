@@ -240,6 +240,7 @@ void * slogger_thread_init(void * arg) {
     int num_clients = stoi(config["num_clients"]);
     int thread_id = slogger_arg->id % num_clients;
 
+
     struct rdma_info info;
     for (int i=0;i<slogger_arg->cms.size();i++){
         info.qp = slogger_arg->cms[i]->client_qp[thread_id];
@@ -382,10 +383,45 @@ namespace rdma_engine {
             pthread_join(thread_ids[i], NULL);
         }
         ALERT("RDMA Engine", "Joined %d Threads\n",_num_clients);
+    }
 
+    void * memserver_init(void * arg) {
+        ALERT("RDMA Engine", "Creating RDMAConnectionManager\n");
+        RDMAConnectionManagerArguments * args = (RDMAConnectionManagerArguments *) arg;
+        RDMAConnectionManager * cm = new RDMAConnectionManager(*args);
+        return cm;
     }
 
             
+
+    void RDMA_Engine::Init_Memory_Server_Connections(vector<string> server_addresses, vector<string> base_ports) {
+        int i;
+        vector<pthread_t> thread_ids;
+        _connection_managers.clear();
+        _connection_managers.resize(server_addresses.size());
+        thread_ids.resize(server_addresses.size());
+        try{
+            for (i=0;i<server_addresses.size();i++) {
+                RDMAConnectionManagerArguments args;
+                args.server_sockaddr = server_address_to_socket_addr(server_addresses[i]);
+                args.base_port = stoi(base_ports[i]) + (_machine_id * _num_clients);
+                args.num_qps = _num_clients;
+                pthread_create(&thread_ids[i], NULL, &memserver_init, &args);
+                usleep(100);
+            }
+        } catch (exception& e) {
+            ALERT("RDMA Engine", "RDMAConnectionManager failed to create\n");
+            ALERT("RDMA Engine", "Error: %s\n", e.what());
+            exit(1);
+            return;
+        }
+        for (i=0;i<server_addresses.size();i++) {
+            pthread_join(thread_ids[i], (void **)&(_connection_managers[i]));
+        }
+    }
+
+
+
     RDMA_Engine::RDMA_Engine(unordered_map<string, string> config, state_machine_type sm) {
 
         _config = config;
@@ -429,16 +465,17 @@ namespace rdma_engine {
             vector<string> server_addresses = split(config["server_addresses"], ',');
             vector<string> base_ports = split(config["base_ports"], ',');
             int num_memory_servers = server_addresses.size();
+            Init_Memory_Server_Connections(server_addresses, base_ports);
 
-            for (int i=0;i<num_memory_servers;i++) {
+            // for (int i=0;i<num_memory_servers;i++) {
 
-                INFO("RDMA Engine", "Memory Server %d: %s:%s\n", i, server_addresses[i].c_str(), base_ports[i].c_str());
-                args.server_sockaddr = server_address_to_socket_addr(server_addresses[i]);
-                INFO("RDMA Engine","assigning base_port %s\n", base_ports[i].c_str());
-                args.base_port = stoi(base_ports[i]) + (_machine_id * _num_clients);
-                _connection_managers.push_back(new RDMAConnectionManager(args));
-                VERBOSE("RDMA Engine", "RDMAConnectionManager created\n");
-            }
+            //     INFO("RDMA Engine", "Memory Server %d: %s:%s\n", i, server_addresses[i].c_str(), base_ports[i].c_str());
+            //     args.server_sockaddr = server_address_to_socket_addr(server_addresses[i]);
+            //     INFO("RDMA Engine","assigning base_port %s\n", base_ports[i].c_str());
+            //     args.base_port = stoi(base_ports[i]) + (_machine_id * _num_clients);
+            //     _connection_managers.push_back(new RDMAConnectionManager(args));
+            //     VERBOSE("RDMA Engine", "RDMAConnectionManager created\n");
+            // }
 
 
         } catch (exception& e) {
@@ -539,7 +576,7 @@ namespace rdma_engine {
 
         //Get all of the threads to join
         for (int i=0;i<_num_clients;i++){
-            INFO("RDMA Engine", "Joining Client Thread %d\n", i);
+            ALERT("RDMA Engine", "Joining Client Thread %d\n", i);
             pthread_join(thread_ids[i],NULL);
         }
 

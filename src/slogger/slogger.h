@@ -82,6 +82,11 @@ namespace slogger {
             void write_log_entries_stats(uint64_t size);
             void insert_stats(uint64_t latency, uint64_t batch_size);
 
+            /// Statistic Variables
+            uint64_t _sync_calls;
+            uint64_t _sync_calls_retry;
+            uint64_t _stall_count;
+
     };
 }
 

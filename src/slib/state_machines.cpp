@@ -369,8 +369,7 @@ namespace state_machines {
         // }
         try{
             _total_requests = stoi(config["total_requests"]);
-            _starting_id = stoi(config["starting_id"]);
-            _client_id = stoi(config["id"]) + _starting_id;
+            _client_id = stoi(config["id"]);
             _total_clients = stoi(config["num_clients"]) * stoi(config["num_client_machines"]);
             _deterministic = config["deterministic"] == "True";
             set_workload(config["workload"]);
@@ -381,7 +380,7 @@ namespace state_machines {
 
         // string workload_filename = config["workload_filename"];
         // string workload_filename = "zipf_50.txt";
-        string workload_filename = "zipf_99.txt";
+        string workload_filename = "stub.txt";
         // string workload_filename = "uniform.txt";
         read_in_distribution_from_file(workload_filename);
         
@@ -401,7 +400,6 @@ namespace state_machines {
         stats["workload"] = to_string(_workload);
         stats["total_requests"] = to_string(_total_requests);
         stats["client_id"] = to_string(_client_id);
-        stats["starting_id"] = to_string(_starting_id);
         stats["total_clients"] = to_string(_total_clients);
         return stats;
     }

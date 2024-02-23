@@ -34,6 +34,8 @@ namespace rdma_engine {
             }
             RDMA_Engine(unordered_map<string, string> config, state_machine_type sm);
             void Init_State_Machines(unordered_map<string,string> config);
+
+            void Init_Memory_Server_Connections(vector<string> server_addresses, vector<string> base_ports);
             void Set_State_Machine(state_machine_type sm);
             void debug_masked_cas();
             bool start();

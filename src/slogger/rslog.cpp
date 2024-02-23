@@ -154,9 +154,10 @@ namespace slogger {
     }
 
     int RSlog::Batch_Read_Log(uint64_t local_address, uint64_t entries) {
+        // #define MTU_SIZE 1024
         #define MTU_SIZE 1024
         #define RDMA_READ_OVERHEAD 64 //#eth 12+4, #ip 20 # udp 8# beth 12 #aeth 4 #icrc 4 = 64
-        #define MAX_READ_BATCH 128
+        #define MAX_READ_BATCH 256
         struct ibv_sge sg [MAX_READ_BATCH];
         struct ibv_exp_send_wr wr [MAX_READ_BATCH];
 
@@ -264,6 +265,7 @@ namespace slogger {
         int id = _rslogs[0].get_id();
         int read_machine = id % _rslogs.size();
         return read_machine;
+        // return _rslogs.size() - 1;
     }
 
     int RSlogs::Batch_Read_Log(uint64_t local_address, uint64_t entries) {
