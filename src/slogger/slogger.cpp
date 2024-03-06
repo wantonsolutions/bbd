@@ -153,6 +153,7 @@ namespace slogger {
 
         uint64_t current_tail_value = _replicated_log.get_tail_pointer();
         _rslog.FAA_Alocate(entries);
+        
         _rslog.poll_one();
         assert(current_tail_value <= _replicated_log.get_tail_pointer());
 
@@ -318,7 +319,7 @@ namespace slogger {
             _stall_count++;
             usleep(100);
         }
-
+        // _replicated_log.Append_Log_Entries
         for (int i=0; i<num_entries; i++) {
             unsigned int size = sizes[i];
             void * d = data[i];
@@ -356,6 +357,17 @@ namespace slogger {
         }
     }
 
+    void SLogger::Batch_Read_Next_N_Entries(int entries){
+            //TODO we could batch this and the next read
+            uint64_t local_log_tail_address = (uint64_t) _replicated_log.get_reference_to_locally_synced_tail_pointer_entry();
+            uint64_t local_entry = _replicated_log.get_locally_synced_tail_pointer() % _replicated_log.get_number_of_entries();
+            if (local_entry + entries > _replicated_log.get_number_of_entries()) {
+                entries = _replicated_log.get_number_of_entries() - local_entry;
+            } 
+            uint64_t total_entries = entries;
+            _rslogs.Batch_Read_Log(local_log_tail_address, entries);
+    }
+
 
     void SLogger::Syncronize_Log(uint64_t offset){
 
@@ -388,19 +400,11 @@ namespace slogger {
             //Return if experiment is over
             if (experiment_ended()) {return;}
             //Step Two we need to read the remote log and find out what the value of the tail pointer is
-            uint64_t local_log_tail_address = (uint64_t) _replicated_log.get_reference_to_locally_synced_tail_pointer_entry();
             uint64_t entries = offset - _replicated_log.get_locally_synced_tail_pointer();
 
             //Make sure that we only read up to the end of the log
             //Rond off to the end of the log if we are there
-            //TODO we could batch this and the next read
-            uint64_t local_entry = _replicated_log.get_locally_synced_tail_pointer() % _replicated_log.get_number_of_entries();
-            if (local_entry + entries > _replicated_log.get_number_of_entries()) {
-                entries = _replicated_log.get_number_of_entries() - local_entry;
-            } 
-            uint64_t total_entries = entries;
-            
-            _rslogs.Batch_Read_Log(local_log_tail_address, entries);
+            Batch_Read_Next_N_Entries(entries);
             _rslogs.poll_batch_read();
 
             //Finally chase to the end of what we have read. If the entry is not vaild read again.

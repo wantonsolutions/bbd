@@ -86,6 +86,7 @@ static void send_slog_config_to_memcached_server(Replicated_Log& rl, int memory_
     config.client_position_table_address = (uint64_t) client_position_table_mr->addr;
     config.client_position_table_key = (uint32_t) client_position_table_mr->lkey;
     config.client_position_table_size_bytes = rl.get_client_positions_size_bytes();
+    printf("config: %s\n", config.to_string().c_str());
     memcached_publish_slog_config(&config, memory_server_index);
 }
 

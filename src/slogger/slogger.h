@@ -33,6 +33,7 @@ namespace slogger {
             void Write_Log_Entry(void* data, unsigned int size);
             void Write_Log_Entries(void ** data, unsigned int * sizes, unsigned int num_entries);
 
+            void Batch_Read_Next_N_Entries(int entries);
             void Sync_To_Remote_Log();
             void Sync_To_Last_Write();
             void Syncronize_Log(uint64_t offset);

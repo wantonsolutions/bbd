@@ -192,6 +192,10 @@ namespace slogger {
         memcpy((void*) old_tail_pointer, (void*) &em, sizeof(Entry_Metadata));
         memcpy((void*) (old_tail_pointer + sizeof(Entry_Metadata)), data, size);
 
+        //These two lines can replace the 3 above for a bit more speed but it's not really required.
+        // *((Entry_Metadata*) old_tail_pointer) = *((Entry_Metadata*) &em);
+        // memcpy((void*) (old_tail_pointer + sizeof(Entry_Metadata)), data, size);
+
     }
 
     void Replicated_Log::Print_All_Entries() {
@@ -237,6 +241,7 @@ namespace slogger {
         while(em->is_vaild_entry(get_epoch(*tail_pointer))) {
             // INFO("Chase", "[%d] epoch %d", get_entry(*tail_pointer), get_epoch(*tail_pointer));
             (*tail_pointer)++;
+            // em = (Entry_Metadata *) ((uint64_t) em) + this->_entry_size;
             em = (Entry_Metadata*) ((uint64_t) this->_log + (get_entry(*tail_pointer) * this->_entry_size));
         }
     }

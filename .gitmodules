@@ -1,3 +1,9 @@
 [submodule "src/btrees"]
 	path = src/btrees
 	url = https://github.com/wichtounet/btrees.git
+[submodule "dep/jemalloc"]
+	path = dep/jemalloc
+	url = https://github.com/jemalloc/jemalloc.git
+[submodule "include/nedtries"]
+	path = include/nedtries
+	url = https://github.com/ned14/nedtries.git

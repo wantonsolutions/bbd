@@ -22,7 +22,7 @@ using namespace rdma_helper;
 #define HAVE_SSE2 1
 #endif
 #define MEXP 19937
-#include "../nedtries/SFMT.c"
+#include "../../include/nedtries/SFMT.c"
 
 size_t fookeyfunct(const foo_t *r)
 {

@@ -1,0 +1,605 @@
+  [1;31mStarting slogger server : "Starting server\n" [m
+Client Input Config: configs/remote_config.json
+allocate_function              : FAA
+base_ports                     : 20800,20800,20800
+batch_size                     : 64
+bits_per_client_position       : 15
+bucket_size                    : 8
+buckets_per_lock               : 16
+commit                         : 6a2f5a37e4cdafe6c3b4198c3211fdd887699a4b
+date                           : 2024-02-23
+description                    : This is a test run and a manditory field
+deterministic                  : True
+entry_size                     : 8
+hash_factor                    : 2.3
+id                             : 0
+indexes                        : 104857600
+location_function              : dependent
+locks_per_message              : 64
+max_epochs                     : 128
+max_fill                       : 0
+memory_size                    : 1073741824
+name                           : test_run
+num_client_machines            : 3
+num_clients                    : 16
+num_memory_servers             : 3
+prime                          : true
+prime_epochs                   : 0
+read_threshold_bytes           : 256
+runtime                        : 10
+search_function                : bfs
+server_addresses               : 192.168.1.12,192.168.1.13,192.168.1.15
+state_machine                  : remote log now with more servers
+total_inserts                  : 1
+total_requests                 : 1
+trials                         : 5
+use_mask                       : true
+workload                       : ycsb-c
+  [1;31mSUCCESS : "I am Memory server 1, with address 192.168.1.13 and port 20800\n" [m
+get_addr succeeded
+connecting to 192.168.1.13
+assigning base_port 20800
+  [1;31mREPLICATED_LOG : " TOOD mesetting memory, figure out how to avoid this by validating logs" [m
+1 devices found, using the first one: mlx5_0
+  [1;31mRDMA memory server : "RDMA server setting up distributed resources\n" [m
+asking for a tail pointer of size 8
+allocated on chip memory addr: 0
+length: 8
+mr: addr 0
+mr: handel 4
+mr: length 8
+mr: lkey 13349
+mr: rkey 13349
+dm: context 140407697023760
+dm: handle 3
+dm: length 0
+creating memcached instance
+  [1;31mRDMA memory server : "Done forking\n" [m
+A new connection is accepted from 192.168.1.19 for QP 33 
+A new connection is accepted from 192.168.1.19 for QP 32 
+A new connection is accepted from 192.168.1.16 for QP 0 
+A new connection is accepted from 192.168.1.16 for QP 1 
+A new connection is accepted from 192.168.1.19 for QP 35 
+A new connection is accepted from 192.168.1.19 for QP 34 
+A new connection is accepted from 192.168.1.18 for QP 16 
+A new connection is accepted from 192.168.1.16 for QP 2 
+A new connection is accepted from 192.168.1.18 for QP 17 
+A new connection is accepted from 192.168.1.18 for QP 18 
+A new connection is accepted from 192.168.1.18 for QP 19 
+A new connection is accepted from 192.168.1.19 for QP 37 
+A new connection is accepted from 192.168.1.19 for QP 38 
+A new connection is accepted from 192.168.1.19 for QP 36 
+A new connection is accepted from 192.168.1.16 for QP 4 
+A new connection is accepted from 192.168.1.18 for QP 20 
+A new connection is accepted from 192.168.1.16 for QP 3 
+A new connection is accepted from 192.168.1.18 for QP 21 
+A new connection is accepted from 192.168.1.18 for QP 22 
+A new connection is accepted from 192.168.1.16 for QP 5 
+A new connection is accepted from 192.168.1.16 for QP 6 
+A new connection is accepted from 192.168.1.19 for QP 39 
+A new connection is accepted from 192.168.1.18 for QP 23 
+A new connection is accepted from 192.168.1.18 for QP 24 
+A new connection is accepted from 192.168.1.19 for QP 40 
+A new connection is accepted from 192.168.1.16 for QP 7 
+A new connection is accepted from 192.168.1.19 for QP 41 
+A new connection is accepted from 192.168.1.18 for QP 25 
+A new connection is accepted from 192.168.1.16 for QP 8 
+A new connection is accepted from 192.168.1.19 for QP 42 
+A new connection is accepted from 192.168.1.16 for QP 9 
+A new connection is accepted from 192.168.1.18 for QP 26 
+A new connection is accepted from 192.168.1.16 for QP 10 
+A new connection is accepted from 192.168.1.16 for QP 11 
+A new connection is accepted from 192.168.1.18 for QP 27 
+A new connection is accepted from 192.168.1.19 for QP 43 
+A new connection is accepted from 192.168.1.16 for QP 12 
+A new connection is accepted from 192.168.1.16 for QP 13 
+A new connection is accepted from 192.168.1.18 for QP 28 
+A new connection is accepted from 192.168.1.19 for QP 44 
+A new connection is accepted from 192.168.1.16 for QP 14 
+A new connection is accepted from 192.168.1.18 for QP 29 
+A new connection is accepted from 192.168.1.19 for QP 45 
+A new connection is accepted from 192.168.1.18 for QP 30 
+A new connection is accepted from 192.168.1.16 for QP 15 
+A new connection is accepted from 192.168.1.19 for QP 46 
+A new connection is accepted from 192.168.1.18 for QP 31 
+A new connection is accepted from 192.168.1.19 for QP 47 
+  [1;31mRDMA memory server : "Starting Experiment\n" [m
+  [1;31mRDMA Engine : "Experiment Starting Globally\n" [m
+All server setup complete, now serving memory requests
+  [1;31mRUN MONITER : "Starting run moniter Runtime: 10, Prime Epochs: 0, Max Epochs: 128" [m
+Table has reached it's priming epoch 0 (current epoch 0)
+[Runtime 0] 0 MB written [epoch 0] 
+  [1;31mClient Positions : "client 0, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 1, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 2, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 3, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 4, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 5, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 6, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 7, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 8, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 9, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 10, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 11, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 12, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 13, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 14, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 15, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 16, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 17, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 18, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 19, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 20, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 21, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 22, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 23, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 24, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 25, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 26, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 27, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 28, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 29, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 30, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 31, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 32, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 33, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 34, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 35, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 36, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 37, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 38, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 39, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 40, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 41, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 42, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 43, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 44, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 45, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 46, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 47, position 0, entry 0 epoch 1" [m
+[Runtime 1] 0 MB written [epoch 0] 
+  [1;31mClient Positions : "client 0, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 1, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 2, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 3, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 4, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 5, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 6, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 7, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 8, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 9, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 10, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 11, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 12, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 13, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 14, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 15, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 16, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 17, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 18, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 19, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 20, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 21, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 22, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 23, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 24, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 25, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 26, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 27, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 28, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 29, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 30, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 31, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 32, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 33, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 34, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 35, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 36, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 37, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 38, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 39, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 40, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 41, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 42, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 43, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 44, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 45, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 46, position 0, entry 0 epoch 1" [m
+  [1;31mClient Positions : "client 47, position 0, entry 0 epoch 1" [m
+[Runtime 2] 0 MB written [epoch 0] 
+  [1;31mClient Positions : "client 0, position 1561, entry 6393856 epoch 1" [m
+  [1;31mClient Positions : "client 1, position 1561, entry 6393856 epoch 1" [m
+  [1;31mClient Positions : "client 2, position 1561, entry 6393856 epoch 1" [m
+  [1;31mClient Positions : "client 3, position 1561, entry 6393856 epoch 1" [m
+  [1;31mClient Positions : "client 4, position 1561, entry 6393856 epoch 1" [m
+  [1;31mClient Positions : "client 5, position 1561, entry 6393856 epoch 1" [m
+  [1;31mClient Positions : "client 6, position 1561, entry 6393856 epoch 1" [m
+  [1;31mClient Positions : "client 7, position 1561, entry 6393856 epoch 1" [m
+  [1;31mClient Positions : "client 8, position 1561, entry 6393856 epoch 1" [m
+  [1;31mClient Positions : "client 9, position 1561, entry 6393856 epoch 1" [m
+  [1;31mClient Positions : "client 10, position 1561, entry 6393856 epoch 1" [m
+  [1;31mClient Positions : "client 11, position 1561, entry 6393856 epoch 1" [m
+  [1;31mClient Positions : "client 12, position 1561, entry 6393856 epoch 1" [m
+  [1;31mClient Positions : "client 13, position 1561, entry 6393856 epoch 1" [m
+  [1;31mClient Positions : "client 14, position 1561, entry 6393856 epoch 1" [m
+  [1;31mClient Positions : "client 15, position 1561, entry 6393856 epoch 1" [m
+  [1;31mClient Positions : "client 16, position 1561, entry 6393856 epoch 1" [m
+  [1;31mClient Positions : "client 17, position 1561, entry 6393856 epoch 1" [m
+  [1;31mClient Positions : "client 18, position 1561, entry 6393856 epoch 1" [m
+  [1;31mClient Positions : "client 19, position 1561, entry 6393856 epoch 1" [m
+  [1;31mClient Positions : "client 20, position 1562, entry 6397952 epoch 1" [m
+  [1;31mClient Positions : "client 21, position 1561, entry 6393856 epoch 1" [m
+  [1;31mClient Positions : "client 22, position 1561, entry 6393856 epoch 1" [m
+  [1;31mClient Positions : "client 23, position 1561, entry 6393856 epoch 1" [m
+  [1;31mClient Positions : "client 24, position 1561, entry 6393856 epoch 1" [m
+  [1;31mClient Positions : "client 25, position 1561, entry 6393856 epoch 1" [m
+  [1;31mClient Positions : "client 26, position 1562, entry 6397952 epoch 1" [m
+  [1;31mClient Positions : "client 27, position 1561, entry 6393856 epoch 1" [m
+  [1;31mClient Positions : "client 28, position 1562, entry 6397952 epoch 1" [m
+  [1;31mClient Positions : "client 29, position 1562, entry 6397952 epoch 1" [m
+  [1;31mClient Positions : "client 30, position 1562, entry 6397952 epoch 1" [m
+  [1;31mClient Positions : "client 31, position 1562, entry 6397952 epoch 1" [m
+  [1;31mClient Positions : "client 32, position 1562, entry 6397952 epoch 1" [m
+  [1;31mClient Positions : "client 33, position 1561, entry 6393856 epoch 1" [m
+  [1;31mClient Positions : "client 34, position 1562, entry 6397952 epoch 1" [m
+  [1;31mClient Positions : "client 35, position 1562, entry 6397952 epoch 1" [m
+  [1;31mClient Positions : "client 36, position 1561, entry 6393856 epoch 1" [m
+  [1;31mClient Positions : "client 37, position 1562, entry 6397952 epoch 1" [m
+  [1;31mClient Positions : "client 38, position 1562, entry 6397952 epoch 1" [m
+  [1;31mClient Positions : "client 39, position 1561, entry 6393856 epoch 1" [m
+  [1;31mClient Positions : "client 40, position 1562, entry 6397952 epoch 1" [m
+  [1;31mClient Positions : "client 41, position 1562, entry 6397952 epoch 1" [m
+  [1;31mClient Positions : "client 42, position 1562, entry 6397952 epoch 1" [m
+  [1;31mClient Positions : "client 43, position 1562, entry 6397952 epoch 1" [m
+  [1;31mClient Positions : "client 44, position 1562, entry 6397952 epoch 1" [m
+  [1;31mClient Positions : "client 45, position 1562, entry 6397952 epoch 1" [m
+  [1;31mClient Positions : "client 46, position 1562, entry 6397952 epoch 1" [m
+  [1;31mClient Positions : "client 47, position 1562, entry 6397952 epoch 1" [m
+[Runtime 3] 0 MB written [epoch 0] 
+  [1;31mClient Positions : "client 0, position 8690, entry 35594240 epoch 1" [m
+  [1;31mClient Positions : "client 1, position 8689, entry 35590144 epoch 1" [m
+  [1;31mClient Positions : "client 2, position 8689, entry 35590144 epoch 1" [m
+  [1;31mClient Positions : "client 3, position 8689, entry 35590144 epoch 1" [m
+  [1;31mClient Positions : "client 4, position 8690, entry 35594240 epoch 1" [m
+  [1;31mClient Positions : "client 5, position 8690, entry 35594240 epoch 1" [m
+  [1;31mClient Positions : "client 6, position 8690, entry 35594240 epoch 1" [m
+  [1;31mClient Positions : "client 7, position 8690, entry 35594240 epoch 1" [m
+  [1;31mClient Positions : "client 8, position 8690, entry 35594240 epoch 1" [m
+  [1;31mClient Positions : "client 9, position 8690, entry 35594240 epoch 1" [m
+  [1;31mClient Positions : "client 10, position 8690, entry 35594240 epoch 1" [m
+  [1;31mClient Positions : "client 11, position 8689, entry 35590144 epoch 1" [m
+  [1;31mClient Positions : "client 12, position 8689, entry 35590144 epoch 1" [m
+  [1;31mClient Positions : "client 13, position 8690, entry 35594240 epoch 1" [m
+  [1;31mClient Positions : "client 14, position 8690, entry 35594240 epoch 1" [m
+  [1;31mClient Positions : "client 15, position 8690, entry 35594240 epoch 1" [m
+  [1;31mClient Positions : "client 16, position 8689, entry 35590144 epoch 1" [m
+  [1;31mClient Positions : "client 17, position 8690, entry 35594240 epoch 1" [m
+  [1;31mClient Positions : "client 18, position 8690, entry 35594240 epoch 1" [m
+  [1;31mClient Positions : "client 19, position 8690, entry 35594240 epoch 1" [m
+  [1;31mClient Positions : "client 20, position 8690, entry 35594240 epoch 1" [m
+  [1;31mClient Positions : "client 21, position 8690, entry 35594240 epoch 1" [m
+  [1;31mClient Positions : "client 22, position 8690, entry 35594240 epoch 1" [m
+  [1;31mClient Positions : "client 23, position 8690, entry 35594240 epoch 1" [m
+  [1;31mClient Positions : "client 24, position 8690, entry 35594240 epoch 1" [m
+  [1;31mClient Positions : "client 25, position 8690, entry 35594240 epoch 1" [m
+  [1;31mClient Positions : "client 26, position 8690, entry 35594240 epoch 1" [m
+  [1;31mClient Positions : "client 27, position 8690, entry 35594240 epoch 1" [m
+  [1;31mClient Positions : "client 28, position 8690, entry 35594240 epoch 1" [m
+  [1;31mClient Positions : "client 29, position 8690, entry 35594240 epoch 1" [m
+  [1;31mClient Positions : "client 30, position 8690, entry 35594240 epoch 1" [m
+  [1;31mClient Positions : "client 31, position 8690, entry 35594240 epoch 1" [m
+  [1;31mClient Positions : "client 32, position 8690, entry 35594240 epoch 1" [m
+  [1;31mClient Positions : "client 33, position 8690, entry 35594240 epoch 1" [m
+  [1;31mClient Positions : "client 34, position 8691, entry 35598336 epoch 1" [m
+  [1;31mClient Positions : "client 35, position 8690, entry 35594240 epoch 1" [m
+  [1;31mClient Positions : "client 36, position 8691, entry 35598336 epoch 1" [m
+  [1;31mClient Positions : "client 37, position 8691, entry 35598336 epoch 1" [m
+  [1;31mClient Positions : "client 38, position 8691, entry 35598336 epoch 1" [m
+  [1;31mClient Positions : "client 39, position 8691, entry 35598336 epoch 1" [m
+  [1;31mClient Positions : "client 40, position 8690, entry 35594240 epoch 1" [m
+  [1;31mClient Positions : "client 41, position 8690, entry 35594240 epoch 1" [m
+  [1;31mClient Positions : "client 42, position 8690, entry 35594240 epoch 1" [m
+  [1;31mClient Positions : "client 43, position 8691, entry 35598336 epoch 1" [m
+  [1;31mClient Positions : "client 44, position 8691, entry 35598336 epoch 1" [m
+  [1;31mClient Positions : "client 45, position 8691, entry 35598336 epoch 1" [m
+  [1;31mClient Positions : "client 46, position 8691, entry 35598336 epoch 1" [m
+  [1;31mClient Positions : "client 47, position 8691, entry 35598336 epoch 1" [m
+[Runtime 4] 0 MB written [epoch 0] 
+  [1;31mClient Positions : "client 0, position 15819, entry 64794624 epoch 1" [m
+  [1;31mClient Positions : "client 1, position 15819, entry 64794624 epoch 1" [m
+  [1;31mClient Positions : "client 2, position 15819, entry 64794624 epoch 1" [m
+  [1;31mClient Positions : "client 3, position 15819, entry 64794624 epoch 1" [m
+  [1;31mClient Positions : "client 4, position 15819, entry 64794624 epoch 1" [m
+  [1;31mClient Positions : "client 5, position 15819, entry 64794624 epoch 1" [m
+  [1;31mClient Positions : "client 6, position 15820, entry 64798720 epoch 1" [m
+  [1;31mClient Positions : "client 7, position 15819, entry 64794624 epoch 1" [m
+  [1;31mClient Positions : "client 8, position 15820, entry 64798720 epoch 1" [m
+  [1;31mClient Positions : "client 9, position 15819, entry 64794624 epoch 1" [m
+  [1;31mClient Positions : "client 10, position 15820, entry 64798720 epoch 1" [m
+  [1;31mClient Positions : "client 11, position 15820, entry 64798720 epoch 1" [m
+  [1;31mClient Positions : "client 12, position 15819, entry 64794624 epoch 1" [m
+  [1;31mClient Positions : "client 13, position 15819, entry 64794624 epoch 1" [m
+  [1;31mClient Positions : "client 14, position 15819, entry 64794624 epoch 1" [m
+  [1;31mClient Positions : "client 15, position 15819, entry 64794624 epoch 1" [m
+  [1;31mClient Positions : "client 16, position 15819, entry 64794624 epoch 1" [m
+  [1;31mClient Positions : "client 17, position 15819, entry 64794624 epoch 1" [m
+  [1;31mClient Positions : "client 18, position 15819, entry 64794624 epoch 1" [m
+  [1;31mClient Positions : "client 19, position 15819, entry 64794624 epoch 1" [m
+  [1;31mClient Positions : "client 20, position 15820, entry 64798720 epoch 1" [m
+  [1;31mClient Positions : "client 21, position 15820, entry 64798720 epoch 1" [m
+  [1;31mClient Positions : "client 22, position 15820, entry 64798720 epoch 1" [m
+  [1;31mClient Positions : "client 23, position 15820, entry 64798720 epoch 1" [m
+  [1;31mClient Positions : "client 24, position 15820, entry 64798720 epoch 1" [m
+  [1;31mClient Positions : "client 25, position 15820, entry 64798720 epoch 1" [m
+  [1;31mClient Positions : "client 26, position 15819, entry 64794624 epoch 1" [m
+  [1;31mClient Positions : "client 27, position 15820, entry 64798720 epoch 1" [m
+  [1;31mClient Positions : "client 28, position 15820, entry 64798720 epoch 1" [m
+  [1;31mClient Positions : "client 29, position 15819, entry 64794624 epoch 1" [m
+  [1;31mClient Positions : "client 30, position 15819, entry 64794624 epoch 1" [m
+  [1;31mClient Positions : "client 31, position 15820, entry 64798720 epoch 1" [m
+  [1;31mClient Positions : "client 32, position 15820, entry 64798720 epoch 1" [m
+  [1;31mClient Positions : "client 33, position 15820, entry 64798720 epoch 1" [m
+  [1;31mClient Positions : "client 34, position 15820, entry 64798720 epoch 1" [m
+  [1;31mClient Positions : "client 35, position 15820, entry 64798720 epoch 1" [m
+  [1;31mClient Positions : "client 36, position 15820, entry 64798720 epoch 1" [m
+  [1;31mClient Positions : "client 37, position 15820, entry 64798720 epoch 1" [m
+  [1;31mClient Positions : "client 38, position 15820, entry 64798720 epoch 1" [m
+  [1;31mClient Positions : "client 39, position 15820, entry 64798720 epoch 1" [m
+  [1;31mClient Positions : "client 40, position 15820, entry 64798720 epoch 1" [m
+  [1;31mClient Positions : "client 41, position 15820, entry 64798720 epoch 1" [m
+  [1;31mClient Positions : "client 42, position 15820, entry 64798720 epoch 1" [m
+  [1;31mClient Positions : "client 43, position 15820, entry 64798720 epoch 1" [m
+  [1;31mClient Positions : "client 44, position 15820, entry 64798720 epoch 1" [m
+  [1;31mClient Positions : "client 45, position 15820, entry 64798720 epoch 1" [m
+  [1;31mClient Positions : "client 46, position 15821, entry 64802816 epoch 1" [m
+  [1;31mClient Positions : "client 47, position 15820, entry 64798720 epoch 1" [m
+[Runtime 5] 0 MB written [epoch 0] 
+  [1;31mClient Positions : "client 0, position 22929, entry 93917184 epoch 1" [m
+  [1;31mClient Positions : "client 1, position 22930, entry 93921280 epoch 1" [m
+  [1;31mClient Positions : "client 2, position 22931, entry 93925376 epoch 1" [m
+  [1;31mClient Positions : "client 3, position 22930, entry 93921280 epoch 1" [m
+  [1;31mClient Positions : "client 4, position 22930, entry 93921280 epoch 1" [m
+  [1;31mClient Positions : "client 5, position 22931, entry 93925376 epoch 1" [m
+  [1;31mClient Positions : "client 6, position 22931, entry 93925376 epoch 1" [m
+  [1;31mClient Positions : "client 7, position 22930, entry 93921280 epoch 1" [m
+  [1;31mClient Positions : "client 8, position 22931, entry 93925376 epoch 1" [m
+  [1;31mClient Positions : "client 9, position 22931, entry 93925376 epoch 1" [m
+  [1;31mClient Positions : "client 10, position 22931, entry 93925376 epoch 1" [m
+  [1;31mClient Positions : "client 11, position 22930, entry 93921280 epoch 1" [m
+  [1;31mClient Positions : "client 12, position 22930, entry 93921280 epoch 1" [m
+  [1;31mClient Positions : "client 13, position 22931, entry 93925376 epoch 1" [m
+  [1;31mClient Positions : "client 14, position 22931, entry 93925376 epoch 1" [m
+  [1;31mClient Positions : "client 15, position 22930, entry 93921280 epoch 1" [m
+  [1;31mClient Positions : "client 16, position 22930, entry 93921280 epoch 1" [m
+  [1;31mClient Positions : "client 17, position 22930, entry 93921280 epoch 1" [m
+  [1;31mClient Positions : "client 18, position 22931, entry 93925376 epoch 1" [m
+  [1;31mClient Positions : "client 19, position 22930, entry 93921280 epoch 1" [m
+  [1;31mClient Positions : "client 20, position 22930, entry 93921280 epoch 1" [m
+  [1;31mClient Positions : "client 21, position 22931, entry 93925376 epoch 1" [m
+  [1;31mClient Positions : "client 22, position 22931, entry 93925376 epoch 1" [m
+  [1;31mClient Positions : "client 23, position 22931, entry 93925376 epoch 1" [m
+  [1;31mClient Positions : "client 24, position 22931, entry 93925376 epoch 1" [m
+  [1;31mClient Positions : "client 25, position 22931, entry 93925376 epoch 1" [m
+  [1;31mClient Positions : "client 26, position 22930, entry 93921280 epoch 1" [m
+  [1;31mClient Positions : "client 27, position 22931, entry 93925376 epoch 1" [m
+  [1;31mClient Positions : "client 28, position 22931, entry 93925376 epoch 1" [m
+  [1;31mClient Positions : "client 29, position 22931, entry 93925376 epoch 1" [m
+  [1;31mClient Positions : "client 30, position 22931, entry 93925376 epoch 1" [m
+  [1;31mClient Positions : "client 31, position 22931, entry 93925376 epoch 1" [m
+  [1;31mClient Positions : "client 32, position 22931, entry 93925376 epoch 1" [m
+  [1;31mClient Positions : "client 33, position 22931, entry 93925376 epoch 1" [m
+  [1;31mClient Positions : "client 34, position 22931, entry 93925376 epoch 1" [m
+  [1;31mClient Positions : "client 35, position 22931, entry 93925376 epoch 1" [m
+  [1;31mClient Positions : "client 36, position 22931, entry 93925376 epoch 1" [m
+  [1;31mClient Positions : "client 37, position 22931, entry 93925376 epoch 1" [m
+  [1;31mClient Positions : "client 38, position 22931, entry 93925376 epoch 1" [m
+  [1;31mClient Positions : "client 39, position 22931, entry 93925376 epoch 1" [m
+  [1;31mClient Positions : "client 40, position 22931, entry 93925376 epoch 1" [m
+  [1;31mClient Positions : "client 41, position 22931, entry 93925376 epoch 1" [m
+  [1;31mClient Positions : "client 42, position 22931, entry 93925376 epoch 1" [m
+  [1;31mClient Positions : "client 43, position 22931, entry 93925376 epoch 1" [m
+  [1;31mClient Positions : "client 44, position 22931, entry 93925376 epoch 1" [m
+  [1;31mClient Positions : "client 45, position 22931, entry 93925376 epoch 1" [m
+  [1;31mClient Positions : "client 46, position 22931, entry 93925376 epoch 1" [m
+  [1;31mClient Positions : "client 47, position 22931, entry 93925376 epoch 1" [m
+[Runtime 6] 0 MB written [epoch 0] 
+  [1;31mClient Positions : "client 0, position 30037, entry 123031552 epoch 1" [m
+  [1;31mClient Positions : "client 1, position 30037, entry 123031552 epoch 1" [m
+  [1;31mClient Positions : "client 2, position 30038, entry 123035648 epoch 1" [m
+  [1;31mClient Positions : "client 3, position 30038, entry 123035648 epoch 1" [m
+  [1;31mClient Positions : "client 4, position 30037, entry 123031552 epoch 1" [m
+  [1;31mClient Positions : "client 5, position 30038, entry 123035648 epoch 1" [m
+  [1;31mClient Positions : "client 6, position 30037, entry 123031552 epoch 1" [m
+  [1;31mClient Positions : "client 7, position 30038, entry 123035648 epoch 1" [m
+  [1;31mClient Positions : "client 8, position 30037, entry 123031552 epoch 1" [m
+  [1;31mClient Positions : "client 9, position 30038, entry 123035648 epoch 1" [m
+  [1;31mClient Positions : "client 10, position 30038, entry 123035648 epoch 1" [m
+  [1;31mClient Positions : "client 11, position 30038, entry 123035648 epoch 1" [m
+  [1;31mClient Positions : "client 12, position 30038, entry 123035648 epoch 1" [m
+  [1;31mClient Positions : "client 13, position 30038, entry 123035648 epoch 1" [m
+  [1;31mClient Positions : "client 14, position 30038, entry 123035648 epoch 1" [m
+  [1;31mClient Positions : "client 15, position 30038, entry 123035648 epoch 1" [m
+  [1;31mClient Positions : "client 16, position 30037, entry 123031552 epoch 1" [m
+  [1;31mClient Positions : "client 17, position 30038, entry 123035648 epoch 1" [m
+  [1;31mClient Positions : "client 18, position 30038, entry 123035648 epoch 1" [m
+  [1;31mClient Positions : "client 19, position 30038, entry 123035648 epoch 1" [m
+  [1;31mClient Positions : "client 20, position 30038, entry 123035648 epoch 1" [m
+  [1;31mClient Positions : "client 21, position 30038, entry 123035648 epoch 1" [m
+  [1;31mClient Positions : "client 22, position 30038, entry 123035648 epoch 1" [m
+  [1;31mClient Positions : "client 23, position 30038, entry 123035648 epoch 1" [m
+  [1;31mClient Positions : "client 24, position 30038, entry 123035648 epoch 1" [m
+  [1;31mClient Positions : "client 25, position 30038, entry 123035648 epoch 1" [m
+  [1;31mClient Positions : "client 26, position 30038, entry 123035648 epoch 1" [m
+  [1;31mClient Positions : "client 27, position 30038, entry 123035648 epoch 1" [m
+  [1;31mClient Positions : "client 28, position 30038, entry 123035648 epoch 1" [m
+  [1;31mClient Positions : "client 29, position 30038, entry 123035648 epoch 1" [m
+  [1;31mClient Positions : "client 30, position 30038, entry 123035648 epoch 1" [m
+  [1;31mClient Positions : "client 31, position 30039, entry 123039744 epoch 1" [m
+  [1;31mClient Positions : "client 32, position 30039, entry 123039744 epoch 1" [m
+  [1;31mClient Positions : "client 33, position 30038, entry 123035648 epoch 1" [m
+  [1;31mClient Positions : "client 34, position 30038, entry 123035648 epoch 1" [m
+  [1;31mClient Positions : "client 35, position 30039, entry 123039744 epoch 1" [m
+  [1;31mClient Positions : "client 36, position 30038, entry 123035648 epoch 1" [m
+  [1;31mClient Positions : "client 37, position 30038, entry 123035648 epoch 1" [m
+  [1;31mClient Positions : "client 38, position 30038, entry 123035648 epoch 1" [m
+  [1;31mClient Positions : "client 39, position 30039, entry 123039744 epoch 1" [m
+  [1;31mClient Positions : "client 40, position 30039, entry 123039744 epoch 1" [m
+  [1;31mClient Positions : "client 41, position 30038, entry 123035648 epoch 1" [m
+  [1;31mClient Positions : "client 42, position 30038, entry 123035648 epoch 1" [m
+  [1;31mClient Positions : "client 43, position 30038, entry 123035648 epoch 1" [m
+  [1;31mClient Positions : "client 44, position 30039, entry 123039744 epoch 1" [m
+  [1;31mClient Positions : "client 45, position 30038, entry 123035648 epoch 1" [m
+  [1;31mClient Positions : "client 46, position 30039, entry 123039744 epoch 1" [m
+  [1;31mClient Positions : "client 47, position 30038, entry 123035648 epoch 1" [m
+[Runtime 7] 0 MB written [epoch 0] 
+  [1;31mClient Positions : "client 0, position 4322, entry 17702912 epoch 0" [m
+  [1;31mClient Positions : "client 1, position 4323, entry 17707008 epoch 0" [m
+  [1;31mClient Positions : "client 2, position 4324, entry 17711104 epoch 0" [m
+  [1;31mClient Positions : "client 3, position 4324, entry 17711104 epoch 0" [m
+  [1;31mClient Positions : "client 4, position 4324, entry 17711104 epoch 0" [m
+  [1;31mClient Positions : "client 5, position 4324, entry 17711104 epoch 0" [m
+  [1;31mClient Positions : "client 6, position 4324, entry 17711104 epoch 0" [m
+  [1;31mClient Positions : "client 7, position 4324, entry 17711104 epoch 0" [m
+  [1;31mClient Positions : "client 8, position 4324, entry 17711104 epoch 0" [m
+  [1;31mClient Positions : "client 9, position 4324, entry 17711104 epoch 0" [m
+  [1;31mClient Positions : "client 10, position 4324, entry 17711104 epoch 0" [m
+  [1;31mClient Positions : "client 11, position 4324, entry 17711104 epoch 0" [m
+  [1;31mClient Positions : "client 12, position 4324, entry 17711104 epoch 0" [m
+  [1;31mClient Positions : "client 13, position 4324, entry 17711104 epoch 0" [m
+  [1;31mClient Positions : "client 14, position 4324, entry 17711104 epoch 0" [m
+  [1;31mClient Positions : "client 15, position 4324, entry 17711104 epoch 0" [m
+  [1;31mClient Positions : "client 16, position 4325, entry 17715200 epoch 0" [m
+  [1;31mClient Positions : "client 17, position 4324, entry 17711104 epoch 0" [m
+  [1;31mClient Positions : "client 18, position 4324, entry 17711104 epoch 0" [m
+  [1;31mClient Positions : "client 19, position 4325, entry 17715200 epoch 0" [m
+  [1;31mClient Positions : "client 20, position 4324, entry 17711104 epoch 0" [m
+  [1;31mClient Positions : "client 21, position 4325, entry 17715200 epoch 0" [m
+  [1;31mClient Positions : "client 22, position 4324, entry 17711104 epoch 0" [m
+  [1;31mClient Positions : "client 23, position 4325, entry 17715200 epoch 0" [m
+  [1;31mClient Positions : "client 24, position 4324, entry 17711104 epoch 0" [m
+  [1;31mClient Positions : "client 25, position 4324, entry 17711104 epoch 0" [m
+  [1;31mClient Positions : "client 26, position 4325, entry 17715200 epoch 0" [m
+  [1;31mClient Positions : "client 27, position 4324, entry 17711104 epoch 0" [m
+  [1;31mClient Positions : "client 28, position 4324, entry 17711104 epoch 0" [m
+  [1;31mClient Positions : "client 29, position 4325, entry 17715200 epoch 0" [m
+  [1;31mClient Positions : "client 30, position 4324, entry 17711104 epoch 0" [m
+  [1;31mClient Positions : "client 31, position 4325, entry 17715200 epoch 0" [m
+  [1;31mClient Positions : "client 32, position 4325, entry 17715200 epoch 0" [m
+  [1;31mClient Positions : "client 33, position 4324, entry 17711104 epoch 0" [m
+  [1;31mClient Positions : "client 34, position 4325, entry 17715200 epoch 0" [m
+  [1;31mClient Positions : "client 35, position 4325, entry 17715200 epoch 0" [m
+  [1;31mClient Positions : "client 36, position 4325, entry 17715200 epoch 0" [m
+  [1;31mClient Positions : "client 37, position 4325, entry 17715200 epoch 0" [m
+  [1;31mClient Positions : "client 38, position 4325, entry 17715200 epoch 0" [m
+  [1;31mClient Positions : "client 39, position 4325, entry 17715200 epoch 0" [m
+  [1;31mClient Positions : "client 40, position 4325, entry 17715200 epoch 0" [m
+  [1;31mClient Positions : "client 41, position 4325, entry 17715200 epoch 0" [m
+  [1;31mClient Positions : "client 42, position 4324, entry 17711104 epoch 0" [m
+  [1;31mClient Positions : "client 43, position 4325, entry 17715200 epoch 0" [m
+  [1;31mClient Positions : "client 44, position 4325, entry 17715200 epoch 0" [m
+  [1;31mClient Positions : "client 45, position 4325, entry 17715200 epoch 0" [m
+  [1;31mClient Positions : "client 46, position 4325, entry 17715200 epoch 0" [m
+  [1;31mClient Positions : "client 47, position 4325, entry 17715200 epoch 0" [m
+[Runtime 8] 0 MB written [epoch 0] 
+  [1;31mClient Positions : "client 0, position 11377, entry 46600192 epoch 0" [m
+  [1;31mClient Positions : "client 1, position 11378, entry 46604288 epoch 0" [m
+  [1;31mClient Positions : "client 2, position 11378, entry 46604288 epoch 0" [m
+  [1;31mClient Positions : "client 3, position 11378, entry 46604288 epoch 0" [m
+  [1;31mClient Positions : "client 4, position 11378, entry 46604288 epoch 0" [m
+  [1;31mClient Positions : "client 5, position 11378, entry 46604288 epoch 0" [m
+  [1;31mClient Positions : "client 6, position 11377, entry 46600192 epoch 0" [m
+  [1;31mClient Positions : "client 7, position 11378, entry 46604288 epoch 0" [m
+  [1;31mClient Positions : "client 8, position 11378, entry 46604288 epoch 0" [m
+  [1;31mClient Positions : "client 9, position 11378, entry 46604288 epoch 0" [m
+  [1;31mClient Positions : "client 10, position 11378, entry 46604288 epoch 0" [m
+  [1;31mClient Positions : "client 11, position 11378, entry 46604288 epoch 0" [m
+  [1;31mClient Positions : "client 12, position 11378, entry 46604288 epoch 0" [m
+  [1;31mClient Positions : "client 13, position 11378, entry 46604288 epoch 0" [m
+  [1;31mClient Positions : "client 14, position 11378, entry 46604288 epoch 0" [m
+  [1;31mClient Positions : "client 15, position 11378, entry 46604288 epoch 0" [m
+  [1;31mClient Positions : "client 16, position 11378, entry 46604288 epoch 0" [m
+  [1;31mClient Positions : "client 17, position 11378, entry 46604288 epoch 0" [m
+  [1;31mClient Positions : "client 18, position 11378, entry 46604288 epoch 0" [m
+  [1;31mClient Positions : "client 19, position 11378, entry 46604288 epoch 0" [m
+  [1;31mClient Positions : "client 20, position 11378, entry 46604288 epoch 0" [m
+  [1;31mClient Positions : "client 21, position 11378, entry 46604288 epoch 0" [m
+  [1;31mClient Positions : "client 22, position 11378, entry 46604288 epoch 0" [m
+  [1;31mClient Positions : "client 23, position 11378, entry 46604288 epoch 0" [m
+  [1;31mClient Positions : "client 24, position 11378, entry 46604288 epoch 0" [m
+  [1;31mClient Positions : "client 25, position 11378, entry 46604288 epoch 0" [m
+  [1;31mClient Positions : "client 26, position 11378, entry 46604288 epoch 0" [m
+  [1;31mClient Positions : "client 27, position 11378, entry 46604288 epoch 0" [m
+  [1;31mClient Positions : "client 28, position 11378, entry 46604288 epoch 0" [m
+  [1;31mClient Positions : "client 29, position 11378, entry 46604288 epoch 0" [m
+  [1;31mClient Positions : "client 30, position 11378, entry 46604288 epoch 0" [m
+  [1;31mClient Positions : "client 31, position 11378, entry 46604288 epoch 0" [m
+  [1;31mClient Positions : "client 32, position 11378, entry 46604288 epoch 0" [m
+  [1;31mClient Positions : "client 33, position 11379, entry 46608384 epoch 0" [m
+  [1;31mClient Positions : "client 34, position 11378, entry 46604288 epoch 0" [m
+  [1;31mClient Positions : "client 35, position 11379, entry 46608384 epoch 0" [m
+  [1;31mClient Positions : "client 36, position 11378, entry 46604288 epoch 0" [m
+  [1;31mClient Positions : "client 37, position 11378, entry 46604288 epoch 0" [m
+  [1;31mClient Positions : "client 38, position 11379, entry 46608384 epoch 0" [m
+  [1;31mClient Positions : "client 39, position 11378, entry 46604288 epoch 0" [m
+  [1;31mClient Positions : "client 40, position 11379, entry 46608384 epoch 0" [m
+  [1;31mClient Positions : "client 41, position 11378, entry 46604288 epoch 0" [m
+  [1;31mClient Positions : "client 42, position 11379, entry 46608384 epoch 0" [m
+  [1;31mClient Positions : "client 43, position 11379, entry 46608384 epoch 0" [m
+  [1;31mClient Positions : "client 44, position 11379, entry 46608384 epoch 0" [m
+  [1;31mClient Positions : "client 45, position 11378, entry 46604288 epoch 0" [m
+  [1;31mClient Positions : "client 46, position 11378, entry 46604288 epoch 0" [m
+  [1;31mClient Positions : "client 47, position 11378, entry 46604288 epoch 0" [m
+[Runtime 9] 0 MB written [epoch 0] 
+  [1;31mClient Positions : "client 0, position 18432, entry 75497472 epoch 0" [m
+  [1;31mClient Positions : "client 1, position 18432, entry 75497472 epoch 0" [m
+  [1;31mClient Positions : "client 2, position 18432, entry 75497472 epoch 0" [m
+  [1;31mClient Positions : "client 3, position 18432, entry 75497472 epoch 0" [m
+  [1;31mClient Positions : "client 4, position 18432, entry 75497472 epoch 0" [m
+  [1;31mClient Positions : "client 5, position 18432, entry 75497472 epoch 0" [m
+  [1;31mClient Positions : "client 6, position 18432, entry 75497472 epoch 0" [m
+  [1;31mClient Positions : "client 7, position 18432, entry 75497472 epoch 0" [m
+  [1;31mClient Positions : "client 8, position 18432, entry 75497472 epoch 0" [m
+  [1;31mClient Positions : "client 9, position 18432, entry 75497472 epoch 0" [m
+  [1;31mClient Positions : "client 10, position 18433, entry 75501568 epoch 0" [m
+  [1;31mClient Positions : "client 11, position 18432, entry 75497472 epoch 0" [m
+  [1;31mClient Positions : "client 12, position 18432, entry 75497472 epoch 0" [m
+  [1;31mClient Positions : "client 13, position 18432, entry 75497472 epoch 0" [m
+  [1;31mClient Positions : "client 14, position 18432, entry 75497472 epoch 0" [m
+  [1;31mClient Positions : "client 15, position 18432, entry 75497472 epoch 0" [m
+  [1;31mClient Positions : "client 16, position 18433, entry 75501568 epoch 0" [m
+  [1;31mClient Positions : "client 17, position 18432, entry 75497472 epoch 0" [m
+  [1;31mClient Positions : "client 18, position 18433, entry 75501568 epoch 0" [m
+  [1;31mClient Positions : "client 19, position 18432, entry 75497472 epoch 0" [m
+  [1;31mClient Positions : "client 20, position 18433, entry 75501568 epoch 0" [m
+  [1;31mClient Positions : "client 21, position 18432, entry 75497472 epoch 0" [m
+  [1;31mClient Positions : "client 22, position 18433, entry 75501568 epoch 0" [m
+  [1;31mClient Positions : "client 23, position 18432, entry 75497472 epoch 0" [m
+  [1;31mClient Positions : "client 24, position 18433, entry 75501568 epoch 0" [m
+  [1;31mClient Positions : "client 25, position 18433, entry 75501568 epoch 0" [m
+  [1;31mClient Positions : "client 26, position 18433, entry 75501568 epoch 0" [m
+  [1;31mClient Positions : "client 27, position 18433, entry 75501568 epoch 0" [m
+  [1;31mClient Positions : "client 28, position 18433, entry 75501568 epoch 0" [m
+  [1;31mClient Positions : "client 29, position 18433, entry 75501568 epoch 0" [m
+  [1;31mClient Positions : "client 30, position 18433, entry 75501568 epoch 0" [m
+  [1;31mClient Positions : "client 31, position 18432, entry 75497472 epoch 0" [m
+  [1;31mClient Positions : "client 32, position 18433, entry 75501568 epoch 0" [m
+  [1;31mClient Positions : "client 33, position 18433, entry 75501568 epoch 0" [m
+  [1;31mClient Positions : "client 34, position 18433, entry 75501568 epoch 0" [m
+  [1;31mClient Positions : "client 35, position 18433, entry 75501568 epoch 0" [m
+  [1;31mClient Positions : "client 36, position 18433, entry 75501568 epoch 0" [m
+  [1;31mClient Positions : "client 37, position 18433, entry 75501568 epoch 0" [m
+  [1;31mClient Positions : "client 38, position 18433, entry 75501568 epoch 0" [m
+  [1;31mClient Positions : "client 39, position 18433, entry 75501568 epoch 0" [m
+  [1;31mClient Positions : "client 40, position 18433, entry 75501568 epoch 0" [m
+  [1;31mClient Positions : "client 41, position 18433, entry 75501568 epoch 0" [m
+  [1;31mClient Positions : "client 42, position 18433, entry 75501568 epoch 0" [m
+  [1;31mClient Positions : "client 43, position 18433, entry 75501568 epoch 0" [m
+  [1;31mClient Positions : "client 44, position 18433, entry 75501568 epoch 0" [m
+  [1;31mClient Positions : "client 45, position 18433, entry 75501568 epoch 0" [m
+  [1;31mClient Positions : "client 46, position 18433, entry 75501568 epoch 0" [m
+  [1;31mClient Positions : "client 47, position 18433, entry 75501568 epoch 0" [m
+Experiment has reached it's runtime capactiy. Exiting globally
+  [1;31mSlogger Server : "Experiment has been ended globally sleeping for 1 seconds to let clients wrap up\n" [m
+  [1;31mSlogger Server : "Experiment over writing results to memcached" [m
+  [1;31mSLogger server : "TODO send the results to the memcached server" [m
+rdma/rdma_server_lib.cpp : 438 : ERROR : "Failed to get disconnect event, ret = -1 \n"clients_and_servers/slogger_server.cpp : 253 : ERROR : "Failed to clean up resources properly, ret = -1 \n"

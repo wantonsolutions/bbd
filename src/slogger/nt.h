@@ -10,7 +10,7 @@
 #include "../rdma/rdma_common.h"
 #include "../rdma/rdma_helper.h"
 
-#include "../nedtries/nedtrie.h"
+#include "../../include/nedtries/nedtrie.h"
 
 using namespace slogger;
 using namespace rdma_helper;
