@@ -19,10 +19,7 @@ test/test_cuckoo
 
 data
 
-rdma_client
-rdma_server
-rdma_memory_server
-cuckoo_client
+bin/*
 
 
 flamechart
@@ -36,10 +33,6 @@ slogger_client
 test/test_replicated_log
 test/test_virtual_rdma
 
-corrupter_client
-corrupter_server
-slogger_client
-slogger_server
 test/test_replicated_log
 
 
