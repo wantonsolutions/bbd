@@ -1,8 +1,8 @@
 [submodule "src/btrees"]
 	path = src/btrees
 	url = https://github.com/wichtounet/btrees.git
-[submodule "dep/jemalloc"]
-	path = dep/jemalloc
+[submodule "include/jemalloc"]
+	path = include/jemalloc
 	url = https://github.com/jemalloc/jemalloc.git
 [submodule "include/nedtries"]
 	path = include/nedtries
