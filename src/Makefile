@@ -13,7 +13,7 @@ endif
 CFLAGS := -std=c++2a -g -Wall -Wall -Wextra -pedantic -fPIC -msse4.2 $(DEFINE_MACROS)
 
 RDMA_LIBS := -lrdmacm -libverbs -lpthread
-LIBRARIES := -L$(XXHASH_INC) -lxxhash $(RDMA_LIBS) -lmemcached -lssl -lcrypto -ljsoncpp
+LIBRARIES := -L$(XXHASH_INC) -lxxhash $(RDMA_LIBS) -lmemcached -lssl -lcrypto -ljsoncpp -ljemalloc
 
 
 # SHARED_CPP := config.cpp hash.cpp rdma_client_lib.cpp rdma_helper.cpp state_machines.cpp virtual_rdma.cpp memcached.cpp rdma_common.cpp  tables.cpp cuckoo.cpp rdma_engine.cpp search.cpp util.cpp
