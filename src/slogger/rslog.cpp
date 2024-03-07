@@ -12,7 +12,7 @@ using namespace rdma_helper;
 namespace slogger {
 
 
-    RSlog::RSlog(rdma_info info, Replicated_Log * local_log, int memory_server_index) {
+    RSlog::RSlog(rdma_info info, Replicated_Log * local_log, string name, int memory_server_index) {
 
         INFO("RSLog", "SLogger Initializing RDMA Structures");
         assert(info.qp != NULL);
@@ -23,11 +23,13 @@ namespace slogger {
         _completion_queue = info.completion_queue;
         _protection_domain = info.pd;
         _memory_server_index = memory_server_index;
+        _name = name;
 
-        _slog_config = memcached_get_slog_config(memory_server_index);
+        _slog_config = memcached_get_slog_config(name, memory_server_index);
         assert(_slog_config != NULL);
         assert(_slog_config->slog_size_bytes == local_log->get_log_size_bytes());
-        INFO("RSlog","got a slog config from the memcached server and it seems to line up\n");
+
+        INFO("RSlog","got slog config [%s] from the memcached server and it seems to line up\n", _name);
 
         SUCCESS("RSlog", "Set RDMA Structs from memcached server");
         // INFO(log_id(), "Registering table with RDMA device size %d, location %p\n", get_table_size_bytes(), get_table_pointer()[0]);

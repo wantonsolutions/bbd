@@ -467,9 +467,9 @@ namespace slogger {
         }
     }
 
-    void SLogger::add_remote(rdma_info info, int memory_server_index){ 
+    void SLogger::add_remote(rdma_info info, string name, int memory_server_index){ 
         assert(memory_server_index == (_rslogs.remote_server_count()));
-        RSlog nslog = RSlog(info, &_replicated_log, memory_server_index);
+        RSlog nslog = RSlog(info, &_replicated_log, name, memory_server_index);
         _rslogs.Add_Slog(nslog);
         _rslog = _rslogs.get_slog(0);
     }

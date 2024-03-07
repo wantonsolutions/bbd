@@ -19,20 +19,33 @@
 using namespace std;
 using namespace slogger;
 
-#define LOG_MR_INDEX 0
-#define CLIENT_POSITION_TALBE 1
-// #define LOCK_TABLE_MR_INDEX 1
-#define TAIL_POINTER_STARTING_ADDRESS 0
+enum slog_mr_index {
+    LOG_MR_INDEX,
+    CLIENT_POSITION_TABLE_MR_INDEX,
+    SCRATCH_MEMORY_MR_INDEX,
+    MR_PER_SLOG_COUNT, //make sure this is the last one we want to know how many we have
 
+};
+#define DEVICE_MEMORY_STARTING_ADDRESS 0
+#define DEVICE_MEMORY_TO_ALLOCATE 1024 * 8 //1MB
+#define TAIL_POINTER_STARTING_ADDRESS DEVICE_MEMORY_STARTING_ADDRESS
 
 static on_chip_memory_attr device_memory;
+
+int get_abosolute_mr_index(int index, int slog_id){
+    return slog_id * MR_PER_SLOG_COUNT + index;
+}
+int get_absolute_tail_pointer_starting_address(int slog_id){
+    return TAIL_POINTER_STARTING_ADDRESS + slog_id * sizeof(uint64_t); // This is the min allowable
+    // return TAIL_POINTER_STARTING_ADDRESS + slog_id * GAP_BETWEEN_TAIL_POINTERS;
+}
 
 void copy_tail_pointer_from_device_memory(Replicated_Log &rl) {
     copy_device_memory_to_host_object((void *)rl.get_tail_pointer_address(), rl.get_tail_pointer_size_bytes(), device_memory);
 }
 
 
-uint64_t get_epoch(Replicated_Log &rl) {
+uint64_t get_epoch(Replicated_Log &rl ) {
     copy_tail_pointer_from_device_memory(rl);
     uint64_t tail_pointer = *((uint64_t*)rl.get_tail_pointer_address());
     uint64_t epoch = tail_pointer / rl.get_number_of_entries();
@@ -58,20 +71,22 @@ void wait_for_all_servers_to_connect() {
 }
 
 
-static void send_slog_config_to_memcached_server(Replicated_Log& rl, int memory_server_index)
+static void send_slog_config_to_memcached_server(Replicated_Log& rl, string name, int scratch_memory_size_bytes, int memory_server_index)
 {
 
     //Regiserting the memory for the table
     //Send the info for the table
-    void * log_ptr = rl.get_log_pointer();
+    ibv_mr * log_mr = register_server_object_at_mr_index(rl.get_log_pointer(), rl.get_log_size_bytes(), get_abosolute_mr_index(LOG_MR_INDEX, rl.get_id()));
 
-    ibv_mr * log_mr = register_server_object_at_mr_index(log_ptr, rl.get_log_size_bytes(), LOG_MR_INDEX);
+    if (rl.get_id() == 0) {
+        printf("registering %d bytes of device memory at addres %d", DEVICE_MEMORY_TO_ALLOCATE, DEVICE_MEMORY_STARTING_ADDRESS);
+        device_memory = register_device_memory(DEVICE_MEMORY_STARTING_ADDRESS, DEVICE_MEMORY_TO_ALLOCATE);
+    }
 
-    int tail_pointer_size = rl.get_tail_pointer_size_bytes();
-    printf("asking for a tail pointer of size %d\n", tail_pointer_size);
-    device_memory = register_device_memory(TAIL_POINTER_STARTING_ADDRESS, tail_pointer_size);
+    ibv_mr * client_position_table_mr = register_server_object_at_mr_index(rl.get_client_positions_pointer(), rl.get_client_positions_size_bytes(), get_abosolute_mr_index(CLIENT_POSITION_TABLE_MR_INDEX, rl.get_id()));
 
-    ibv_mr * client_position_table_mr = register_server_object_at_mr_index(rl.get_client_positions_pointer(), rl.get_client_positions_size_bytes(), CLIENT_POSITION_TALBE);
+    void * scratch_ptr = malloc(scratch_memory_size_bytes);
+    ibv_mr * scratch_mr = register_server_object_at_mr_index(scratch_ptr, scratch_memory_size_bytes, get_abosolute_mr_index(SCRATCH_MEMORY_MR_INDEX, rl.get_id()));
 
     slog_config config;
     // Table * table = msm.get_table();
@@ -79,15 +94,24 @@ static void send_slog_config_to_memcached_server(Replicated_Log& rl, int memory_
     config.slog_key = (uint32_t) log_mr->lkey;
     config.slog_size_bytes = rl.get_log_size_bytes();
 
-    config.tail_pointer_address = (uint64_t) TAIL_POINTER_STARTING_ADDRESS;
+    //This check makes sure that we are not reaching outside of device memory
+    assert(get_absolute_tail_pointer_starting_address(rl.get_id()) + sizeof(uint64_t) < DEVICE_MEMORY_STARTING_ADDRESS + DEVICE_MEMORY_TO_ALLOCATE);
+
+    config.tail_pointer_address = (uint64_t) get_absolute_tail_pointer_starting_address(rl.get_id());
     config.tail_pointer_key = (uint32_t) device_memory.mr->lkey;
-    config.tail_pointer_size_bytes = tail_pointer_size;
+    config.tail_pointer_size_bytes = rl.get_tail_pointer_size_bytes();
 
     config.client_position_table_address = (uint64_t) client_position_table_mr->addr;
     config.client_position_table_key = (uint32_t) client_position_table_mr->lkey;
     config.client_position_table_size_bytes = rl.get_client_positions_size_bytes();
-    printf("config: %s\n", config.to_string().c_str());
-    memcached_publish_slog_config(&config, memory_server_index);
+
+    config.scratch_memory_address = (uint64_t) scratch_mr->addr;
+    config.scratch_memory_key = (uint32_t) scratch_mr->lkey;
+    config.scratch_memory_size_bytes = scratch_memory_size_bytes;
+
+
+    printf("config: [%s] %s\n", name.c_str(), config.to_string().c_str());
+    memcached_publish_slog_config(&config, name, memory_server_index);
 }
 
 
@@ -203,9 +227,12 @@ int main(int argc, char **argv)
     int num_qps = stoi(config["num_client_machines"]) * stoi(config["num_clients"]);
 
     int memory_size_bytes = stoi(config["memory_size"]);
+    int scratch_memory_size_bytes = stoi(config["scratch_memory_size"]);
     int entry_size_bytes = stoi(config["entry_size"]);
     int bits_per_client_position = stoi(config["bits_per_client_position"]);
-    Replicated_Log rl = Replicated_Log(memory_size_bytes, entry_size_bytes, num_qps, 0, bits_per_client_position);
+    int rl_id = 0;
+    string slog_name = config["name"];
+    Replicated_Log rl = Replicated_Log(memory_size_bytes, entry_size_bytes, num_qps, rl_id, bits_per_client_position);
 
     string workload = config["workload"];
     int runtime = stoi(config["runtime"]);
@@ -233,7 +260,11 @@ int main(int argc, char **argv)
         ALERT("RDMA memory server", "Zeroing Client Count\n");
         memcached_zero_slogger_client_count();
     }
-    send_slog_config_to_memcached_server(rl, server_index);
+
+    send_slog_config_to_memcached_server(rl, slog_name, scratch_memory_size_bytes, server_index);
+    rl.set_client_id(1);
+    send_slog_config_to_memcached_server(rl, slog_name, scratch_memory_size_bytes, server_index);
+
     multi_threaded_connection_setup(server_sockaddr, base_port, num_qps);
     start_distributed_experiment(server_index);
     wait_for_all_servers_to_connect();

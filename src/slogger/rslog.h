@@ -28,7 +28,7 @@ namespace slogger {
     class RSlog: public log_interface{
         public:
             RSlog(){};
-            RSlog(rdma_info remote_info, Replicated_Log * local_log, int memory_server_index);
+            RSlog(rdma_info remote_info, Replicated_Log * local_log, string name, int memory_server_index);
             void FAA_Alocate(unsigned int entries);
             void CAS_Allocate(unsigned int entries);
             void RCAS_Position(uint64_t compare, uint64_t swap, uint64_t mask, uint64_t offset);
@@ -52,6 +52,7 @@ namespace slogger {
             ibv_mr *_client_position_table_mr;
             struct ibv_wc *_wc;
             uint64_t _wr_id;
+            string _name;
             slog_config *_slog_config;
     };
 
@@ -76,6 +77,7 @@ namespace slogger {
         private:
             vector<RSlog> _rslogs;
             int get_read_machine();
+            string _name;
     };        
 }
 

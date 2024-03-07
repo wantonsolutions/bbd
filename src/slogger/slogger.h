@@ -33,7 +33,7 @@ namespace slogger {
 
 
             uint64_t local_to_remote_log_address(uint64_t local_address);
-            void add_remote(rdma_info info, int memory_server_index);
+            void add_remote(rdma_info info, string name, int memory_server_index);
             void fsm();
             void Clear_Statistics();
             unordered_map<string, string> get_stats();

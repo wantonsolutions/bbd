@@ -19,8 +19,8 @@ table_config *memcached_get_table_config(void);
 // void memcached_publish_slog_config(slog_config *config);
 // slog_config * memcached_get_slog_config(void);
 
-void memcached_publish_slog_config(slog_config *config, int memory_server_index);
-slog_config * memcached_get_slog_config(int memory_server_index);
+void memcached_publish_slog_config(slog_config *config, string name, int memory_server_index);
+slog_config * memcached_get_slog_config(string name, int memory_server_index);
 
 
 void memcached_publish_corrupter_config(corrupter_config *config);

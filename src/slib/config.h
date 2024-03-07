@@ -56,7 +56,11 @@ typedef struct slog_config {
             "tail_pointer_size_bytes: " + std::to_string(tail_pointer_size_bytes) + "\n" +
             "client_position_table_address: " + std::to_string(client_position_table_address) + "\n" +
             "client_position_table_key: " + std::to_string(client_position_table_key) + "\n" +
-            "client_position_table_size_byte: " + std::to_string(client_position_table_size_bytes) + "\n";
+            "client_position_table_size_byte: " + std::to_string(client_position_table_size_bytes) + "\n" +
+            "scratch_memory_address: " + std::to_string(scratch_memory_address) + "\n" +
+            "scratch_memory_key: " + std::to_string(scratch_memory_key) + "\n" +
+            "scratch_memory_size_bytes: " + std::to_string(scratch_memory_size_bytes) + "\n";
+
     }
     uint64_t slog_address;
     int slog_key;
@@ -69,6 +73,11 @@ typedef struct slog_config {
     uint64_t client_position_table_address;
     int client_position_table_key;
     int client_position_table_size_bytes;
+
+    uint64_t scratch_memory_address;
+    int scratch_memory_key;
+    int scratch_memory_size_bytes;
+
 } slog_config;
 
 typedef struct client_counter {

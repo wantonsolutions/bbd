@@ -236,6 +236,7 @@ void * slogger_thread_init(void * arg) {
     config["id"]=to_string(slogger_arg->id);
     SLogger * slogger = new SLogger(config);
     // SLogger * slogger = new NT(config);
+    string name = config["name"];
 
     int num_clients = stoi(config["num_clients"]);
     int thread_id = slogger_arg->id % num_clients;
@@ -246,7 +247,7 @@ void * slogger_thread_init(void * arg) {
         info.qp = slogger_arg->cms[i]->client_qp[thread_id];
         info.completion_queue = slogger_arg->cms[i]->client_cq_threads[thread_id];
         info.pd = slogger_arg->cms[i]->pd;
-        slogger->add_remote(info,i);
+        slogger->add_remote(info,name,i);
     }
     state_machine_holder[thread_id] = slogger;
     pthread_exit(NULL);
