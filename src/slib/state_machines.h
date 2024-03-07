@@ -52,7 +52,7 @@ namespace state_machines {
             State_Machine();
             State_Machine(unordered_map<string, string> config);
             virtual ~State_Machine() = default;
-            void clear_statistics();
+            void Clear_Statistics();
 
             string get_state_machine_name();
             bool is_complete();
@@ -241,7 +241,7 @@ namespace state_machines {
             Client_State_Machine(unordered_map<string, string> config);
             void set_max_fill(int max_fill);
             ~Client_State_Machine() {}
-            void clear_statistics();
+            void Clear_Statistics();
             void set_workload(ycsb_workload workload);
             bool read_complete();
             bool read_successful(Key key);

@@ -47,12 +47,12 @@ namespace state_machines {
 
     State_Machine::State_Machine() {
         _config = unordered_map<string,string>();
-        clear_statistics();
+        Clear_Statistics();
     }
 
     State_Machine::State_Machine(unordered_map<string,string>config) {
         _config = config;
-        clear_statistics();
+        Clear_Statistics();
     }
 
 
@@ -77,7 +77,7 @@ namespace state_machines {
         assert(_global_prime_flag != NULL);
     }
 
-    void State_Machine::clear_statistics() {
+    void State_Machine::Clear_Statistics() {
         //clear control state
         _complete = false;
         _inserting = false;
@@ -600,15 +600,15 @@ namespace state_machines {
         return;
     }
 
-    void Client_State_Machine::clear_statistics() {
+    void Client_State_Machine::Clear_Statistics() {
         _state=IDLE;
         _current_read_key = Key();
         _outstanding_read_requests = 0;
         _read_values_found = 0;
         _read_values = vector<Key>();
         _duplicates_found = 0;
-        // _workload_driver.clear_statistics();
-        State_Machine::clear_statistics();
+        // _workload_driver.Clear_Statistics();
+        State_Machine::Clear_Statistics();
         return;
     }
 

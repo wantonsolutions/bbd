@@ -187,38 +187,38 @@ int test_0_make_n_allocations_then_frees_from_arena(int n, int thread){
     }
 }
 
-int main(int argc, char *argv[])
-{
-	size_t ret, sz;
-	unsigned arena_ind = -1;
-	extent_hooks_t *new_hooks;
-	size_t hooks_len, memsize = 4096 * 4096 * 64;
-	pre_alloc = mmap(NULL, memsize, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-	if (!pre_alloc) {
-		perror("Could not pre-allocate memory");
-		exit(1);
-	}
-	pre_alloc_end = pre_alloc + memsize;
-	new_hooks = &hooks;
+// int main(int argc, char *argv[])
+// {
+// 	size_t ret, sz;
+// 	unsigned arena_ind = -1;
+// 	extent_hooks_t *new_hooks;
+// 	size_t hooks_len, memsize = 4096 * 4096 * 64;
+// 	pre_alloc = mmap(NULL, memsize, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+// 	if (!pre_alloc) {
+// 		perror("Could not pre-allocate memory");
+// 		exit(1);
+// 	}
+// 	pre_alloc_end = pre_alloc + memsize;
+// 	new_hooks = &hooks;
 
-    zero_extent_metadata();
-    int threads=1;
-    create_n_arenas(threads, new_hooks);
+//     zero_extent_metadata();
+//     int threads=1;
+//     create_n_arenas(threads, new_hooks);
 
-    unsigned n_arenas{0};
-    sz = sizeof(n_arenas);
-    int err = je_mallctl("opt.narenas", (void *)&n_arenas, &sz, nullptr, 0);
-    printf("narenas: %u\n", n_arenas);
-    if (err) {
-        printf("mallctl error getting narenas\n");
-        exit(1);
-    }
+//     unsigned n_arenas{0};
+//     sz = sizeof(n_arenas);
+//     int err = je_mallctl("opt.narenas", (void *)&n_arenas, &sz, nullptr, 0);
+//     printf("narenas: %u\n", n_arenas);
+//     if (err) {
+//         printf("mallctl error getting narenas\n");
+//         exit(1);
+//     }
 
 
-	printf("----------------------------------------------\n");
-    int allocs = MAX_ALLOCATIONS;
-    test_0_make_n_allocations_then_frees_from_arena(allocs, 0);
-    for (int i=0;i<5;i++)printf("----------------------------------------------\n");
-    test_0_make_n_allocations_then_frees_from_arena(allocs, 0);
-    return 0;
-}
+// 	printf("----------------------------------------------\n");
+//     int allocs = MAX_ALLOCATIONS;
+//     test_0_make_n_allocations_then_frees_from_arena(allocs, 0);
+//     for (int i=0;i<5;i++)printf("----------------------------------------------\n");
+//     test_0_make_n_allocations_then_frees_from_arena(allocs, 0);
+//     return 0;
+// }

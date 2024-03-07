@@ -122,7 +122,7 @@ namespace nt {
             if (*_global_prime_flag && !_local_prime_flag){
                 _local_prime_flag = true;
                 _workload_driver.set_workload(_workload);
-                clear_statistics();
+                Clear_Statistics();
             }
 
             next_request = _workload_driver.next();

@@ -82,8 +82,8 @@ namespace slogger {
         return _log_identifier;
     }
 
-    void SLogger::clear_statistics() {
-        State_Machine::clear_statistics();
+    void SLogger::Clear_Statistics() {
+        State_Machine::Clear_Statistics();
         _sync_calls = 0;
         _sync_calls_retry = 0;
         _stall_count = 0;
@@ -102,7 +102,7 @@ namespace slogger {
             //To have locks, or any outstanding requests
             if (*_global_prime_flag && !_local_prime_flag){
                 _local_prime_flag = true;
-                clear_statistics();
+                Clear_Statistics();
             }
 
             _operation_start_time = get_current_ns();
@@ -149,7 +149,7 @@ namespace slogger {
     }
 
     //Send out a request for client positions along with the fetch and add
-    bool SLogger::FAA_Allocate_Log_Entry(unsigned int entries) {
+    bool SLogger::faa_allocate_log_entry(unsigned int entries) {
 
         uint64_t current_tail_value = _replicated_log.get_tail_pointer();
         _rslog.FAA_Alocate(entries);
@@ -164,7 +164,7 @@ namespace slogger {
         return true;
     }
 
-    bool SLogger::CAS_Allocate_Log_Entry(unsigned int entries) {
+    bool SLogger::cas_allocate_log_entry(unsigned int entries) {
         bool allocated = false;
         while(!allocated) {
             uint64_t current_tail_value  = _replicated_log.get_tail_pointer();
@@ -194,14 +194,35 @@ namespace slogger {
         return (void *) em + sizeof(Entry_Metadata);
     }
 
-    void SLogger::Write_Operation(void* op, int size) {
+    bool SLogger::Write_Operation(void* op, int size) {
+        const int single_entry = 1;
 
-        assert(_replicated_log.Will_Fit_In_Entry(size));
-        unsigned int entries_per_insert = 1;
-
-        if((this->*_allocate_log_entry)(1)) {
-            Write_Log_Entry(op, size);
+        bool success = (this->*_allocate_log_entry)(single_entry);
+        if (!success) {
+            ALERT("SLOG", "Failed to allocate log entry");
+            // In the future we can deal with this failure, for now just die
+            assert(false);
+            return false;
         }
+        Write_Log_Entry(op, size);
+        return true;
+    }
+
+    bool SLogger::Write_Operations(void ** ops, unsigned int * sizes, unsigned int num_ops) {
+        assert(num_ops <= _batch_size);
+        assert(num_ops > 0);
+        assert(num_ops <= MAX_BATCH_SIZE);
+
+        bool success = (this->*_allocate_log_entry)(num_ops);
+        if (!success) {
+            ALERT("SLOG", "Failed to allocate %d log entries", num_ops);
+            // In the future we can deal with this failure, for now just die
+            assert(false);
+            return false;
+        }
+
+        Write_Log_Entries(ops, sizes, num_ops);
+        return true;
     }
 
     bool SLogger::Update_Remote_Client_Position(uint64_t new_tail){
@@ -421,9 +442,9 @@ namespace slogger {
     void SLogger::set_allocate_function(unordered_map<string, string> config){
         string allocate_function = config["allocate_function"];
         if(allocate_function == "CAS") {
-            _allocate_log_entry = &SLogger::CAS_Allocate_Log_Entry;
+            _allocate_log_entry = &SLogger::cas_allocate_log_entry;
         } else if (allocate_function == "FAA") {
-            _allocate_log_entry = &SLogger::FAA_Allocate_Log_Entry;
+            _allocate_log_entry = &SLogger::faa_allocate_log_entry;
         } else {
             ALERT("SLOG", "Unknown allocate function %s", allocate_function.c_str());
             exit(1);

@@ -22,34 +22,29 @@ namespace slogger {
             SLogger(){};
             SLogger(unordered_map<string, string> config);
 
-            bool FAA_Allocate_Log_Entry(unsigned int entries);
-            bool CAS_Allocate_Log_Entry(unsigned int entries);
-            bool Update_Remote_Client_Position(uint64_t new_tail);
-            void Update_Client_Position(uint64_t new_tail);
+            //Write operation puts the operation into the log
+            bool Write_Operation(void* op, int size);
+            bool Write_Operations(void ** ops, unsigned int * sizes, unsigned int num_ops);
+            void * Next_Operation();
 
-            bool (SLogger::*_allocate_log_entry)(unsigned int entries);
-            void Read_Remote_Tail_Pointer();
-            void Read_Client_Positions(bool block);
-            void Write_Log_Entry(void* data, unsigned int size);
-            void Write_Log_Entries(void ** data, unsigned int * sizes, unsigned int num_entries);
-
-            void Batch_Read_Next_N_Entries(int entries);
             void Sync_To_Remote_Log();
             void Sync_To_Last_Write();
-            void Syncronize_Log(uint64_t offset);
 
-            void Write_Operation(void* op, int size);
-            void * Next_Operation();
+
+
             uint64_t local_to_remote_log_address(uint64_t local_address);
-
-            void fill_allocated_log_with_noops(uint64_t size);
             void add_remote(rdma_info info, int memory_server_index);
             void fsm();
-            void clear_statistics();
-            const char * log_id();
+            void Clear_Statistics();
             unordered_map<string, string> get_stats();
 
         protected:
+            void Read_Remote_Tail_Pointer();
+            void Read_Client_Positions(bool block);
+            bool Update_Remote_Client_Position(uint64_t new_tail);
+            void Update_Client_Position(uint64_t new_tail);
+            const char * log_id();
+
             Client_Workload_Driver _workload_driver;
             ycsb_workload _workload;
             void set_workload(string workload);
@@ -60,6 +55,16 @@ namespace slogger {
 
 
         private:
+
+            void Write_Log_Entry(void* data, unsigned int size);
+            void Write_Log_Entries(void ** data, unsigned int * sizes, unsigned int num_entries);
+            void Syncronize_Log(uint64_t offset);
+            void Batch_Read_Next_N_Entries(int entries);
+
+            bool (SLogger::*_allocate_log_entry)(unsigned int entries);
+            bool faa_allocate_log_entry(unsigned int entries);
+            bool cas_allocate_log_entry(unsigned int entries);
+
             bool insert_n_sequential_ints(int starting_int, int batch_size);
 
             void set_epoch_and_tail_pointer_after_FAA(uint64_t add);

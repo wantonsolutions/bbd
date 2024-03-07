@@ -54,8 +54,8 @@ namespace corrupter {
         return _log_identifier;
     }
 
-    void Corrupter::clear_statistics() {
-        State_Machine::clear_statistics();
+    void Corrupter::Clear_Statistics() {
+        State_Machine::Clear_Statistics();
         SUCCESS(log_id(), "Clearing statistics");
     }
 
@@ -72,7 +72,7 @@ namespace corrupter {
             //To have locks, or any outstanding requests
             if (*_global_prime_flag && !_local_prime_flag){
                 _local_prime_flag = true;
-                clear_statistics();
+                Clear_Statistics();
             }
 
             _operation_start_time = get_current_ns();

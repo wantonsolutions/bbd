@@ -43,7 +43,7 @@ namespace cuckoo_rcuckoo {
             void set_location_function(unordered_map<string, string> config);
 
 
-            void clear_statistics();
+            void Clear_Statistics();
             string get_state_machine_name();
 
             void receive_successful_unlocking_message(unsigned int message_index);

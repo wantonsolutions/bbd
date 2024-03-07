@@ -119,7 +119,7 @@ namespace cuckoo_rcuckoo {
             throw logic_error("ERROR: Memory_State_Machine config missing required field");
         }
 
-        clear_statistics();
+        Clear_Statistics();
         //try to parse state machine config
         bool use_virtual_lock_table;
         unsigned virtual_lock_scale_factor;
@@ -185,8 +185,8 @@ namespace cuckoo_rcuckoo {
         return "RCuckoo";
     }
 
-    void RCuckoo::clear_statistics(){
-        Client_State_Machine::clear_statistics();
+    void RCuckoo::Clear_Statistics(){
+        Client_State_Machine::Clear_Statistics();
         SUCCESS("RCuckoo", "clearing statistics\n");
         // _search_path = vector<path_element>();
         // _current_insert_key = Key();
@@ -1831,7 +1831,7 @@ namespace cuckoo_rcuckoo {
                     //To have locks, or any outstanding requests
                     if (*_global_prime_flag && !_local_prime_flag){
                         _local_prime_flag = true;
-                        clear_statistics();
+                        Clear_Statistics();
                         //Set the workload to what we actually want to be working with
                         _workload_driver.set_workload(_workload);
                     }

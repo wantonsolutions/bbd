@@ -23,7 +23,7 @@ namespace corrupter {
             // uint64_t local_to_remote_log_address(uint64_t local_address);
             void init_rdma_structures(rdma_info info);
             void fsm();
-            void clear_statistics();
+            void Clear_Statistics();
             const char * log_id();
             unordered_map<string, string> get_stats();
 
