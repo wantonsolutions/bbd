@@ -19,6 +19,7 @@ namespace slogger {
         assert(info.completion_queue != NULL);
         assert(info.pd != NULL);
 
+        _info = info;    
         _qp = info.qp;
         _completion_queue = info.completion_queue;
         _protection_domain = info.pd;

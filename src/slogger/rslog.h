@@ -40,10 +40,12 @@ namespace slogger {
             uint64_t local_to_remote_log_address(uint64_t local_address);
             int get_memory_server_index(){return _memory_server_index;}
             int get_id(){return _local_log->get_id();}
+            rdma_info get_rdma_info(){return _info;}
         
         private:
             int _memory_server_index;
             Replicated_Log * _local_log;
+            rdma_info _info;
             ibv_qp * _qp;
             ibv_pd *_protection_domain;
             struct ibv_cq * _completion_queue;
@@ -74,6 +76,14 @@ namespace slogger {
             int poll_batch_read();
             int remote_server_count(){return _rslogs.size();}
             RSlog get_slog(int index){return _rslogs[index];}
+            vector <rdma_info> get_rdma_info(){ 
+                vector <rdma_info> rdma_info_vector;
+                for (int i = 0; i < _rslogs.size(); i++){
+                    rdma_info_vector.push_back(_rslogs[i].get_rdma_info());
+                }
+                return rdma_info_vector;
+            }
+
         
         private:
             vector<RSlog> _rslogs;

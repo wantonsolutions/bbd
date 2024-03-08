@@ -18,6 +18,8 @@ using namespace rdma_helper;
 #define MAX_EXTENTS 512
 #define METADATA_ALLOCATION_SIZE 2097152 // 512 pages, seems to be what the metadata allocator uses.
 #define MAX_ALLOCATIONS 1000000
+#define PRE_ALLOC_SPACE 128
+#define PRE_ALLOC_SIZE 1024
 
 enum malloc_ops {
     mallocx_op,
@@ -53,8 +55,13 @@ class RMalloc : public SLogger {
         void fsm();
         void * my_hooks_alloc(extent_hooks_t *extent_hooks, void *new_addr, size_t size, size_t alignment, bool *zero, bool *commit, unsigned arena_ind);
 
+        vector<void *> _allocations;
+        vector<size_t> _allocation_sizes;
+        vector<ibv_mr *> _mrs;
+
     private:
 
+        void Preallocate_Local_Buffers(int n, int size);
         float calculate_local_memory_usage();
         float calculate_remote_memory_usage();
         void zero_extent_metadata();

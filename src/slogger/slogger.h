@@ -58,6 +58,8 @@ namespace slogger {
             uint32_t _id;
             uint32_t _total_clients;
 
+            vector<rdma_info> get_remote_info() {return _rslogs.get_rdma_info();}
+
 
         private:
 

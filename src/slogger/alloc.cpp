@@ -28,7 +28,9 @@ void * Global_Alloc_Hook(extent_hooks_t *extent_hooks, void *new_addr, size_t si
 extent_hooks_t hooks = {Global_Alloc_Hook,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL};
 
 void RMalloc::fsm() {
+
     ALERT("RMalloc", "FSM");
+    Preallocate_Local_Buffers(PRE_ALLOC_SPACE, PRE_ALLOC_SIZE);
     for (int i=0;i<5;i++) {
         void * ptr =  mallocx(64, MALLOCX_ARENA(2) | MALLOCX_TCACHE_NONE);
         ALERT("RMalloc", "FSM: %p", ptr);
@@ -80,6 +82,19 @@ void RMalloc::deallocx(void *ptr, int flags) {
     return je_dallocx(ptr, flags);
 }
 
+void RMalloc::Preallocate_Local_Buffers(int n, int size) {
+    ALERT("RMalloc", "Preallocating %d buffers of size %d", n, size);
+    vector<rdma_info> rinfos = get_remote_info();
+    ALERT("MALLOC", "TODO currently only using a single memory server, spread it out");
+    rdma_info rinfo = rinfos[0];
+    for (int i=0;i<n;i++) {
+        void * ptr = malloc(size);
+        ibv_mr * mr = rdma_buffer_register(rinfo.pd, ptr, size, MEMORY_PERMISSION);
+        _mrs.push_back(mr);
+        _allocations.push_back(ptr);
+        _allocation_sizes.push_back(size);
+    }
+}
 
 RMalloc::RMalloc(unordered_map<string,string> config) : SLogger(config) {
     ALERT("RMalloc", "Initalizing RMalloc");
@@ -97,6 +112,7 @@ RMalloc::RMalloc(unordered_map<string,string> config) : SLogger(config) {
 	}
     _jemalloc_metadata_current = _jemalloc_metadata_start;
     _jemalloc_metadata_size = memsize;
+
 
     //TODO - This is a hack to get scratch space from the server. We have multiple servers
     //TODO - so we should be splitting up requests across all of them
