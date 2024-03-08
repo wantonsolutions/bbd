@@ -18,6 +18,7 @@
 
 #include "../slogger/slogger.h"
 #include "../slogger/nt.h"
+#include "../slogger/alloc.h"
 
 #include "../corrupter/corrupter.h"
 
@@ -234,7 +235,8 @@ void * slogger_thread_init(void * arg) {
 
     ALERT("RDMA Engine", "Slogger instace %i\n", slogger_arg->id);
     config["id"]=to_string(slogger_arg->id);
-    SLogger * slogger = new SLogger(config);
+    // SLogger * slogger = new SLogger(config);
+    SLogger * slogger = new RMalloc(config);
     // SLogger * slogger = new NT(config);
     string name = config["name"];
 

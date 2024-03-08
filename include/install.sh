@@ -54,7 +54,7 @@ if [[ $JEMALLOC ]]; then
     pushd ${JEMALLOC_DIR}
     if [[ $FORCE ]]; then   rm -rf build;   fi
     autoconf
-    ./configure --with-jemalloc-prefix=je_ --config-cache --disable-cxx
+    ./configure --with-jemalloc-prefix=je_ --with-malloc-conf --config-cache --disable-cxx
     make -j$(nproc)
     #install the library
     echo "Installing jemalloc may require sudo"
