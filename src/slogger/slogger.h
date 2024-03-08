@@ -26,6 +26,7 @@ namespace slogger {
             bool Write_Operation(void* op, int size);
             bool Write_Operations(void ** ops, unsigned int * sizes, unsigned int num_ops);
             void * Next_Operation();
+            void * Peek_Next_Operation();
 
             void Sync_To_Remote_Log();
             void Sync_To_Last_Write();
@@ -44,6 +45,10 @@ namespace slogger {
             bool Update_Remote_Client_Position(uint64_t new_tail);
             void Update_Client_Position(uint64_t new_tail);
             const char * log_id();
+
+            Replicated_Log _replicated_log;
+            RSlog _rslog;
+            RSlogs _rslogs;
 
             Client_Workload_Driver _workload_driver;
             ycsb_workload _workload;
@@ -69,12 +74,6 @@ namespace slogger {
 
             void set_epoch_and_tail_pointer_after_FAA(uint64_t add);
             void set_allocate_function(unordered_map<string, string> config);
-
-
-            Replicated_Log _replicated_log;
-            RSlog _rslog;
-            RSlogs _rslogs;
-
 
             //silly variables
             int _entry_size;

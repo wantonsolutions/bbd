@@ -20,9 +20,65 @@ using namespace std;
 RMalloc * GlobalMalloc = NULL;
 void * Global_Alloc_Hook(extent_hooks_t *extent_hooks, void *new_addr, size_t size,
 		size_t alignment, bool *zero, bool *commit, unsigned arena_ind) {
+            printf("In Global_Alloc_Hook\n");
             assert(GlobalMalloc != NULL);
             return GlobalMalloc->my_hooks_alloc(extent_hooks, new_addr, size, alignment, zero, commit, arena_ind);
         }
+
+extent_hooks_t hooks = {Global_Alloc_Hook,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL};
+
+void RMalloc::fsm() {
+    ALERT("RMalloc", "FSM");
+    for (int i=0;i<5;i++) {
+        void * ptr =  mallocx(64, MALLOCX_ARENA(2) | MALLOCX_TCACHE_NONE);
+        ALERT("RMalloc", "FSM: %p", ptr);
+    }
+    ALERT("RMalloc", "FSM: Done");
+
+
+}
+
+void RMalloc::Apply_Ops() {
+    ALERT("RMalloc", "Applying Ops");
+    assert(GlobalMalloc != NULL);
+    malloc_op_entry *op;
+    malloc_op_entry *peek_op;
+    if (Peek_Next_Operation() == NULL) {
+        return;
+    }
+    printf("Op not null moving onto main loop\n");
+    op = (malloc_op_entry *)Next_Operation();
+    while ((peek_op = (malloc_op_entry *)Peek_Next_Operation()) != NULL) {
+        op = (malloc_op_entry *)Next_Operation();
+        printf("START HERE TOMORROW!!!!");
+        printf("OP %s", op->toString().c_str());
+        if (op->type == mallocx_op) {
+            ALERT("RMalloc", "Applying mallocx");
+
+            je_mallocx(op->size, op->flags);
+        } else if (op->type == deallocx_op) {
+            ALERT("RMalloc", "Applying deallocx");
+            je_dallocx(op->ptr, op->flags);
+        }
+    }
+    printf("Done Applying Returning the last opeation %s\n", op->toString().c_str());
+}
+
+void RMalloc::Execute(malloc_op_entry op) {
+    Write_Operation(&op, sizeof(op));
+    Sync_To_Last_Write();
+    Apply_Ops();
+}
+
+void *RMalloc::mallocx(size_t size, int flags) {
+    Execute({mallocx_op, NULL, size, 0, 0, flags});
+    return je_mallocx(size, flags);
+}
+
+void RMalloc::deallocx(void *ptr, int flags) {
+    Execute({deallocx_op, ptr, 0, 0, 0, flags});
+    return je_dallocx(ptr, flags);
+}
 
 
 RMalloc::RMalloc(unordered_map<string,string> config) : SLogger(config) {
@@ -42,6 +98,17 @@ RMalloc::RMalloc(unordered_map<string,string> config) : SLogger(config) {
     _jemalloc_metadata_current = _jemalloc_metadata_start;
     _jemalloc_metadata_size = memsize;
 
+    //TODO - This is a hack to get scratch space from the server. We have multiple servers
+    //TODO - so we should be splitting up requests across all of them
+    ALERT("TODO", "DO A BETTER JOB OF GETTING REMOTE ALLOC SPACE SET UP");
+    string name = config["name"];
+    slog_config* sc = memcached_get_slog_config(name, 0);
+    _remote_start = sc->scratch_memory_address;
+    _remote_size = sc->scratch_memory_size_bytes;
+    _remote_current = _remote_start;
+
+    ALERT("RMalloc", "Remote Start: [%p,%llu], Remote Size: %lu", _remote_start,_remote_start, _remote_size);
+
     // void * (RMalloc::*new_hooks_alloc)(extent_hooks_t *extent_hooks, void *new_addr, size_t size, size_t alignment, bool *zero, bool *commit, unsigned arena_ind);
 
     //Create a pointer to the alloc hook
@@ -50,7 +117,6 @@ RMalloc::RMalloc(unordered_map<string,string> config) : SLogger(config) {
     // new_hooks_alloc = (void *(*) (extent_hooks_t *extent_hooks, void *new_addr, size_t size, size_t alignment, bool *zero, bool *commit, unsigned arena_ind))&RMalloc::my_hooks_alloc;
     //create a new extent_hooks_t struct using our local function 
     GlobalMalloc = this;
-    extent_hooks_t hooks = {Global_Alloc_Hook,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL};
 
     zero_extent_metadata();
     int threads=1;
@@ -66,14 +132,16 @@ RMalloc::RMalloc(unordered_map<string,string> config) : SLogger(config) {
     }
 
 
-	printf("----------------------------------------------\n");
-    int allocs = 50;
-    test_0_make_n_allocations_then_frees_from_arena(allocs, 0);
-    for (int i=0;i<5;i++)printf("----------------------------------------------\n");
-    test_0_make_n_allocations_then_frees_from_arena(allocs, 0);
 
-    printf("we finished initing the RMALLOC\n");
-    exit(0);
+
+	// printf("----------------------------------------------\n");
+    // int allocs = 50;
+    // test_0_make_n_allocations_then_frees_from_arena(allocs, 0);
+    // for (int i=0;i<5;i++)printf("----------------------------------------------\n");
+    // test_0_make_n_allocations_then_frees_from_arena(allocs, 0);
+
+    // printf("we finished initing the RMALLOC\n");
+    // exit(0);
 }
 
 

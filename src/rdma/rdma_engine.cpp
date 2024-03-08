@@ -257,8 +257,9 @@ void * slogger_thread_init(void * arg) {
 
 void * slogger_fsm_runner(void * args){
     VERBOSE("RDMA Engine","launching threads in a slogger fsm\n");
-    SLogger * slogger = (SLogger *) args;
+    // SLogger * slogger = (SLogger *) args;
     // NT * slogger = (NT *) args;
+    RMalloc * slogger = (RMalloc *) args;
     slogger->fsm();
     pthread_exit(NULL);
 }

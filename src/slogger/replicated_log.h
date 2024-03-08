@@ -40,6 +40,9 @@ namespace slogger {
             void * Next_Locally_Synced_Tail_Pointer();
             void * Next_Operation();
 
+            void * Peek_Next(uint64_t *tail_pointer);
+            void * Peek_Next_Operation();
+
             void * get_log_pointer() {return (void*) this->_log;}
 
             int get_log_size_bytes() {return this->_memory_size;}

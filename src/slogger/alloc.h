@@ -19,10 +19,37 @@ using namespace rdma_helper;
 #define METADATA_ALLOCATION_SIZE 2097152 // 512 pages, seems to be what the metadata allocator uses.
 #define MAX_ALLOCATIONS 1000000
 
+enum malloc_ops {
+    mallocx_op,
+    deallocx_op,
+};
+
+static const char *malloc_ops_str[] = {
+    "mallocx_op",
+    "deallocx_op",
+};
+
+typedef struct __attribute__ ((packed)) malloc_op_entry {
+    enum malloc_ops type;
+    void * ptr;
+    size_t size;
+    size_t alignment;
+    size_t number;
+    int flags;
+    string toString() {
+        return "malloc_op_entry: type: " + string(malloc_ops_str[type]) + " ptr: " + to_string((uint64_t)ptr) + " size: " + to_string(size) + " alignment: " + to_string(alignment) + " number: " + to_string(number) + " flags: " + to_string(flags);
+    }
+} malloc_op_entry;
 
 class RMalloc : public SLogger {
     public:
         RMalloc(unordered_map<string,string> config);
+        void Execute(malloc_op_entry op);
+        void Apply_Ops();
+
+        void *mallocx(size_t size, int flags);
+        void deallocx(void *ptr, int flags);
+
         void fsm();
         void * my_hooks_alloc(extent_hooks_t *extent_hooks, void *new_addr, size_t size, size_t alignment, bool *zero, bool *commit, unsigned arena_ind);
 
@@ -44,9 +71,9 @@ class RMalloc : public SLogger {
         void *_jemalloc_metadata_start;
         void *_jemalloc_metadata_current;
         int _jemalloc_metadata_size;
-        uint64_t _remote_start =              0x7F06350BB010;
-        uint64_t _remote_size =              0x100000000000;
-        uint64_t _remote_current = _remote_start;
+        uint64_t _remote_start;
+        uint64_t _remote_size;
+        uint64_t _remote_current;
 
 };
 

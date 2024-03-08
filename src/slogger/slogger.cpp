@@ -194,6 +194,22 @@ namespace slogger {
         return (void *) em + sizeof(Entry_Metadata);
     }
 
+    void * SLogger::Peek_Next_Operation() {
+        Entry_Metadata * em = (Entry_Metadata*) _replicated_log.Peek_Next_Operation();
+        if (em == NULL) {
+            return NULL;
+        }
+        //TODO here is where we would put controls in the log.
+        //For now we just return the data.
+        //For instance, if we wanted to have contorl log entries with different types we could embed them here.
+        if (em->type == log_entry_types::control) {
+            ALERT("SLOG", "Got a control log entry");
+        }
+
+        //return a pointer to the data of the log entry. Leave it to the application to figure out what's next;
+        return (void *) em + sizeof(Entry_Metadata);
+    }
+
     bool SLogger::Write_Operation(void* op, int size) {
         const int single_entry = 1;
 

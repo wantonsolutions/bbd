@@ -1,6 +1,8 @@
 #!/bin/bash -x
 
 program="slogger"
+sync="false"
+
 
 #check that there is a single arguement
 if [ $# -ne 1 ]; then
@@ -27,8 +29,10 @@ fi
 
 #sync with the build serve
 rsync -a yak-01.sysnet.ucsd.edu:/usr/local/home/ssgrant/bbd/src/bin/ ./bin;
-rsync -a yak-01.sysnet.ucsd.edu:/usr/local/home/ssgrant/bbd/src/configs/ ./configs;
-rsync -a yak-01.sysnet.ucsd.edu:/usr/local/home/ssgrant/bbd/src/workloads/ ./workloads;
+if [ $sync == "true" ]; then
+    rsync -a yak-01.sysnet.ucsd.edu:/usr/local/home/ssgrant/bbd/src/configs/ ./configs;
+    rsync -a yak-01.sysnet.ucsd.edu:/usr/local/home/ssgrant/bbd/src/workloads/ ./workloads;
+fi
 
 ts='taskset -c 1,3,5,7,9,11,13,15,17,19,21,23,25,27,29,31,33,35,37,39,41,43,45,47,49,51,53,55,57,59,61,63,65,67,69,71,73,75,77,79'
 

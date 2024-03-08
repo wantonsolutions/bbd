@@ -163,6 +163,7 @@ namespace slogger {
 
     bool Replicated_Log::Will_Fit_In_Entry(size_t size) {
         if (size + sizeof(Entry_Metadata) > this->_entry_size) {
+            ALERT("WARNING", "Entry size is too big for the log. Log entry size is %d and the entry size is %d", this->_entry_size, size + sizeof(Entry_Metadata));
             return false;
         }
         return true;
@@ -255,11 +256,23 @@ namespace slogger {
     }
 
     void * Replicated_Log::Next(uint64_t *tail_pointer) {
-        Entry_Metadata * em = (Entry_Metadata*) ((uint64_t) this->_log + (*tail_pointer * this->_entry_size));
-        if (em->is_vaild_entry(get_epoch(*tail_pointer))) {
+        void * ret = Peek_Next(tail_pointer);
+        if (ret != NULL) {
             (*tail_pointer)++;
-            return (void*) ((uint64_t) this->_log + (*tail_pointer * this->_entry_size));
         }
-        return NULL;
+        return ret;
+    }
+
+    void * Replicated_Log::Peek_Next(uint64_t *tail_pointer){
+        Entry_Metadata * em = (Entry_Metadata*) ((uint64_t) this->_log + (*tail_pointer * this->_entry_size));
+        void * ret = NULL;
+        if (em->is_vaild_entry(get_epoch(*tail_pointer))) {
+            ret = (void*) ((uint64_t) this->_log + (*tail_pointer * this->_entry_size));
+        }
+        return ret;
+    }
+
+    void * Replicated_Log::Peek_Next_Operation(){
+        return Peek_Next(&this->_operation_tail_pointer);
     }
 }
