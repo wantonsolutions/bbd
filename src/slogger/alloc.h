@@ -52,6 +52,10 @@ class RMalloc : public SLogger {
         void *mallocx(size_t size, int flags);
         void deallocx(void *ptr, int flags);
 
+
+        void write_x_for_n_bytes_to_remote_buffer(int local_index, void* remote, size_t size, uint8_t value);
+        void read_x_for_n_bytes_from_remote_buffer(int local_index, void * remote, size_t size, uint8_t value);
+
         void fsm();
         void * my_hooks_alloc(extent_hooks_t *extent_hooks, void *new_addr, size_t size, size_t alignment, bool *zero, bool *commit, unsigned arena_ind);
 
@@ -81,6 +85,8 @@ class RMalloc : public SLogger {
         uint64_t _remote_start;
         uint64_t _remote_size;
         uint64_t _remote_current;
+
+        slog_config * _slog_config;
 
 };
 

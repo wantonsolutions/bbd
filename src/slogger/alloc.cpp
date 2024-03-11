@@ -27,32 +27,106 @@ void * Global_Alloc_Hook(extent_hooks_t *extent_hooks, void *new_addr, size_t si
 
 extent_hooks_t hooks = {Global_Alloc_Hook,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL};
 
+void RMalloc::write_x_for_n_bytes_to_remote_buffer(int local_index, void* remote, size_t size, uint8_t value) {
+    ALERT("RMalloc", "Writing %d bytes to remote buffer", size);
+
+    assert(local_index < _allocations.size());
+    assert(size <= _allocation_sizes[local_index]);
+    void * local = _allocations[local_index];
+    ibv_mr * mr = _mrs[local_index];
+    int remote_log_index = 0;
+
+    //Write value to the local buffer for size bytes
+    memset(local, value, size);
+    rdma_info ri = get_remote_info()[remote_log_index];
+    int write_x_wrid = 50;
+    rdmaWriteExp(ri.qp,
+        (uint64_t)local,
+        (uint64_t)remote,
+        size,
+        mr->rkey,
+        _slog_config->scratch_memory_key,
+        -1,
+        true,
+        write_x_wrid);
+
+    //Wait for the write to complete
+    RSlog rslog = _rslogs.get_slog(remote_log_index);
+    rslog.poll_one();
+
+}
+
+void RMalloc::read_x_for_n_bytes_from_remote_buffer(int local_index, void * remote, size_t size, uint8_t value){
+    ALERT("RMalloc", "Reading %d bytes from remote buffer", size);
+    assert(local_index < _allocations.size());
+    assert(size <= _allocation_sizes[local_index]);
+    void * local = _allocations[local_index];
+    ibv_mr * mr = _mrs[local_index];
+    int remote_log_index = 0;
+
+    rdma_info ri = get_remote_info()[remote_log_index];
+    int read_x_wrid = 51;
+    rdmaReadExp(ri.qp,
+        (uint64_t)local,
+        (uint64_t)remote,
+        size,
+        mr->rkey,
+        _slog_config->scratch_memory_key,
+        true,
+        read_x_wrid);
+
+    //Wait for the read to complete
+    RSlog rslog = _rslogs.get_slog(remote_log_index);
+    rslog.poll_one();
+
+    //Check that the local buffer has the value
+    ALERT(log_id(), "Checking that the local buffer has the value %d", value);
+    for (int i=0;i<size;i++) {
+        printf("%d ", ((uint8_t *)local)[i]);
+        assert(((uint8_t *)local)[i] == value);
+    }
+    printf("\n");
+
+}
+
+
 void RMalloc::fsm() {
 
     ALERT("RMalloc", "FSM");
     Preallocate_Local_Buffers(PRE_ALLOC_SPACE, PRE_ALLOC_SIZE);
-    for (int i=0;i<5;i++) {
-        void * ptr =  mallocx(64, MALLOCX_ARENA(2) | MALLOCX_TCACHE_NONE);
-        ALERT("RMalloc", "FSM: %p", ptr);
+    // const int itterations = PRE_ALLOC_SPACE;
+    const int itterations = 5;
+    const int alloc_size = 64;
+    void * ptrs[PRE_ALLOC_SPACE];
+    for (int i=0;i<itterations;i++) {
+        ptrs[i] =  mallocx(alloc_size, MALLOCX_ARENA(2) | MALLOCX_TCACHE_NONE);
+        ALERT(log_id(), "Mallocx: %p", ptrs[i]);
+        //Zero out local buffer
+        memset(_allocations[i], 0, alloc_size);
+        write_x_for_n_bytes_to_remote_buffer(i, ptrs[i],alloc_size, i);
+        memset(_allocations[i], 0, alloc_size);
+        read_x_for_n_bytes_from_remote_buffer(i, ptrs[i], alloc_size, i);
     }
-    ALERT("RMalloc", "FSM: Done");
+    ALERT(log_id(), "Done Allocations, begginning free");
+    for (int i=0;i<itterations;i++) {
+        deallocx(ptrs[i], MALLOCX_ARENA(2) | MALLOCX_TCACHE_NONE);
+        ALERT(log_id(), "Deallocx: %p", ptrs[i]);
+    }
 
 
 }
 
 void RMalloc::Apply_Ops() {
-    ALERT("RMalloc", "Applying Ops");
+    // ALERT("RMalloc", "Applying Ops");
     assert(GlobalMalloc != NULL);
     malloc_op_entry *op;
     malloc_op_entry *peek_op;
     if (Peek_Next_Operation() == NULL) {
         return;
     }
-    printf("Op not null moving onto main loop\n");
     op = (malloc_op_entry *)Next_Operation();
     while ((peek_op = (malloc_op_entry *)Peek_Next_Operation()) != NULL) {
         op = (malloc_op_entry *)Next_Operation();
-        printf("START HERE TOMORROW!!!!");
         printf("OP %s", op->toString().c_str());
         if (op->type == mallocx_op) {
             ALERT("RMalloc", "Applying mallocx");
@@ -63,7 +137,7 @@ void RMalloc::Apply_Ops() {
             je_dallocx(op->ptr, op->flags);
         }
     }
-    printf("Done Applying Returning the last opeation %s\n", op->toString().c_str());
+    // printf("Done Applying Returning the last opeation %s\n", op->toString().c_str());
 }
 
 void RMalloc::Execute(malloc_op_entry op) {
@@ -85,6 +159,12 @@ void RMalloc::deallocx(void *ptr, int flags) {
 void RMalloc::Preallocate_Local_Buffers(int n, int size) {
     ALERT("RMalloc", "Preallocating %d buffers of size %d", n, size);
     vector<rdma_info> rinfos = get_remote_info();
+    ALERT("RMalloc",
+    "I don't think that it's the best idea to preallocate local buffers this way. We need to register a lot of memory, and it's not obvious that it's helpful to do it this way"
+    "I think a better way is to reuse jemalloc to set up an rdma mapped region. When a client wants to allocate a remote location they can call a version of malloc that gives them both a remote, and a local pointer to a mapped region"
+    "To do this I need to do basically what I've done so far with je_malloc, except that I should also use a locally mapped region for one of the allocations."
+    "When the caller calls RMALLLOC they will get both a local and a remote pointer back");
+    
     ALERT("MALLOC", "TODO currently only using a single memory server, spread it out");
     rdma_info rinfo = rinfos[0];
     for (int i=0;i<n;i++) {
@@ -118,9 +198,9 @@ RMalloc::RMalloc(unordered_map<string,string> config) : SLogger(config) {
     //TODO - so we should be splitting up requests across all of them
     ALERT("TODO", "DO A BETTER JOB OF GETTING REMOTE ALLOC SPACE SET UP");
     string name = config["name"];
-    slog_config* sc = memcached_get_slog_config(name, 0);
-    _remote_start = sc->scratch_memory_address;
-    _remote_size = sc->scratch_memory_size_bytes;
+    _slog_config = memcached_get_slog_config(name, 0);
+    _remote_start = _slog_config->scratch_memory_address;
+    _remote_size = _slog_config->scratch_memory_size_bytes;
     _remote_current = _remote_start;
 
     ALERT("RMalloc", "Remote Start: [%p,%llu], Remote Size: %lu", _remote_start,_remote_start, _remote_size);
