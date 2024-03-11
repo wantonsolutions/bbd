@@ -210,12 +210,18 @@ namespace slogger {
 
             // memcpy((void*) buf, (void*) (current_pointer + sizeof(Entry_Metadata)), this->_entry_size - sizeof(Entry_Metadata));
             memcpy((void*) buf, (void*) (current_pointer), this->_entry_size);
+            buf[this->_entry_size] = '\0';
             int value = *(int*) (buf + sizeof(Entry_Metadata));
-            ALERT("REPLICATED_LOG (BROKEN)", "entry type %d, epoch %d, value %d", em->type, em->epoch, value);
+            ALERT("REPLICATED_LOG (BROKEN)", "entry type %d, epoch %d, value %s", em->type, em->epoch, value,buf);
             //Copy repeating values to buffer and print as a string
             // buf[this->_entry_size] = '\0';
             // ALERT("REPLICATED_LOG", "[%s]", buf);
             current_pointer += this->_entry_size;
+
+            if (current_pointer > (uint64_t)this->_log + this->_entry_size * 20) {
+                ALERT("REPLICATED_LOG", "HARD LIMIT ON PRINT ALL ENTRIES BECAUSE WE SHOULD NOT BE DEBUUING 20+ entries");
+                break;
+            }
         }
         delete[] buf;
     }
@@ -273,6 +279,7 @@ namespace slogger {
     }
 
     void * Replicated_Log::Peek_Next_Operation(){
+        VERBOSE("Peek Next Operation", "Peeking at next operation %lu", this->_operation_tail_pointer);
         return Peek_Next(&this->_operation_tail_pointer);
     }
 }

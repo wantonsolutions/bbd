@@ -18,6 +18,7 @@ using namespace std;
 
 
 RMalloc * GlobalMalloc = NULL;
+
 void * Global_Alloc_Hook(extent_hooks_t *extent_hooks, void *new_addr, size_t size,
 		size_t alignment, bool *zero, bool *commit, unsigned arena_ind) {
             printf("In Global_Alloc_Hook\n");
@@ -96,10 +97,15 @@ void RMalloc::fsm() {
     Preallocate_Local_Buffers(PRE_ALLOC_SPACE, PRE_ALLOC_SIZE);
     // const int itterations = PRE_ALLOC_SPACE;
     const int itterations = 5;
-    const int alloc_size = 64;
+    const int alloc_size_base = 64;
+    int alloc_size;
+    int base_level_areans = 1;
+    int thread_arena = _id;
     void * ptrs[PRE_ALLOC_SPACE];
+    printf("allocing on thread arena %d\n", thread_arena);
     for (int i=0;i<itterations;i++) {
-        ptrs[i] =  mallocx(alloc_size, MALLOCX_ARENA(2) | MALLOCX_TCACHE_NONE);
+        alloc_size = alloc_size_base + i;
+        ptrs[i] =  mallocx(alloc_size, MALLOCX_ARENA(_thread_to_arena_index[_id]) | MALLOCX_TCACHE_NONE);
         ALERT(log_id(), "Mallocx: %p", ptrs[i]);
         //Zero out local buffer
         memset(_allocations[i], 0, alloc_size);
@@ -109,7 +115,7 @@ void RMalloc::fsm() {
     }
     ALERT(log_id(), "Done Allocations, begginning free");
     for (int i=0;i<itterations;i++) {
-        deallocx(ptrs[i], MALLOCX_ARENA(2) | MALLOCX_TCACHE_NONE);
+        deallocx(ptrs[i], MALLOCX_ARENA(_thread_to_arena_index[_id]) | MALLOCX_TCACHE_NONE);
         ALERT(log_id(), "Deallocx: %p", ptrs[i]);
     }
 
@@ -117,24 +123,32 @@ void RMalloc::fsm() {
 }
 
 void RMalloc::Apply_Ops() {
-    // ALERT("RMalloc", "Applying Ops");
+    ALERT("RMalloc", "Applying Ops");
+    // _replicated_log.Print_All_Entries();
     assert(GlobalMalloc != NULL);
     malloc_op_entry *op;
     malloc_op_entry *peek_op;
-    if (Peek_Next_Operation() == NULL) {
-        return;
-    }
-    op = (malloc_op_entry *)Next_Operation();
+    // if (Peek_Next_Operation() == NULL) {
+    //     return;
+    // }
+    // op = (malloc_op_entry *)Next_Operation();
     while ((peek_op = (malloc_op_entry *)Peek_Next_Operation()) != NULL) {
         op = (malloc_op_entry *)Next_Operation();
-        printf("OP %s", op->toString().c_str());
+        peek_op = (malloc_op_entry *)Peek_Next_Operation();
+        if (peek_op == NULL) {
+            printf("OP %s\nNext op NULL", op->toString().c_str());
+        } else {
+            printf("OP %s\nNext op %s", op->toString().c_str(), peek_op->toString().c_str());
+        }
         if (op->type == mallocx_op) {
             ALERT("RMalloc", "Applying mallocx");
 
-            je_mallocx(op->size, op->flags);
+            // je_mallocx(op->size, op->flags);
+            je_mallocx(op->size, MALLOCX_ARENA(_thread_to_arena_index[_id]) | MALLOCX_TCACHE_NONE);
         } else if (op->type == deallocx_op) {
             ALERT("RMalloc", "Applying deallocx");
-            je_dallocx(op->ptr, op->flags);
+            // je_dallocx(op->ptr, op->flags);
+            je_dallocx(op->ptr, MALLOCX_ARENA(_thread_to_arena_index[_id]) | MALLOCX_TCACHE_NONE);
         }
     }
     // printf("Done Applying Returning the last opeation %s\n", op->toString().c_str());
@@ -213,10 +227,9 @@ RMalloc::RMalloc(unordered_map<string,string> config) : SLogger(config) {
     // new_hooks_alloc = (void *(*) (extent_hooks_t *extent_hooks, void *new_addr, size_t size, size_t alignment, bool *zero, bool *commit, unsigned arena_ind))&RMalloc::my_hooks_alloc;
     //create a new extent_hooks_t struct using our local function 
     GlobalMalloc = this;
-
     zero_extent_metadata();
-    int threads=1;
-    create_n_arenas(threads, &hooks);
+    // int threads=2;
+    create_arena(&hooks);
 
     unsigned n_arenas{0};
     sz = sizeof(n_arenas);
@@ -342,24 +355,23 @@ void * RMalloc::my_hooks_alloc(extent_hooks_t *extent_hooks, void *new_addr, siz
 }
 
 
-void RMalloc::create_n_arenas(int n, extent_hooks_t *new_hooks) {
-	printf("Creating %d arenas\n", n);
-    assert(n <= MAX_EXTENTS);
+void RMalloc::create_arena(extent_hooks_t *new_hooks) {
+	printf("Creating %s arena\n", log_id());
     unsigned arena_ind;
 	size_t sz = sizeof(arena_ind);
 
+
     arena_ind =0;
-    for (int i=0;i<n;i++) {
-        int thread_index = i;
-        arena_ind++;
-        ALERT("RMalloc", "Creating arena %d, on thread %d", arena_ind, thread_index);
-        int ret = je_mallctl("arenas.create", (void *)&arena_ind, &sz, (void *)&new_hooks, sizeof(extent_hooks_t *));
-        _thread_to_arena_index[thread_index] = arena_ind;
-        printf("Thread %d -> Arena %d\n", thread_index, arena_ind);
-        if (ret) {
-            printf("mallctl error creating arena with new hooks\n");
-            exit(1);
-        }
+    int thread_index = _id;
+
+    arena_ind++;
+    ALERT("RMalloc", "Creating arena %d, on thread %d", arena_ind, thread_index);
+    int ret = je_mallctl("arenas.create", (void *)&arena_ind, &sz, (void *)&new_hooks, sizeof(extent_hooks_t *));
+    _thread_to_arena_index[thread_index] = arena_ind;
+    printf("Thread %d -> Arena %d\n", thread_index, arena_ind);
+    if (ret) {
+        printf("mallctl error creating arena with new hooks\n");
+        exit(1);
     }
 }
 

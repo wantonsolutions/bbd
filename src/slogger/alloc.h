@@ -70,7 +70,7 @@ class RMalloc : public SLogger {
         float calculate_remote_memory_usage();
         void zero_extent_metadata();
         void print_alloc_hook_args(void *new_addr, size_t size, size_t alignment, bool *zero, bool *commit, unsigned arena_ind);
-        void create_n_arenas(int n, extent_hooks_t *new_hooks);
+        void create_arena(extent_hooks_t *new_hooks);
         int test_0_make_n_allocations_then_frees_from_arena(int n, int thread);
 
         int _thread_to_arena_index[MAX_EXTENTS];
