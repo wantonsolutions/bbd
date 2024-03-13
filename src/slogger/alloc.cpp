@@ -21,6 +21,8 @@ using namespace std;
 
 
 static RMalloc * GlobalMalloc[128];
+static extent_hooks_t * Original_Hooks[128];
+const int size_2MB = 2097152;
 
 void * Global_Alloc_Hook(extent_hooks_t *extent_hooks, void *new_addr, size_t size,
 		size_t alignment, bool *zero, bool *commit, unsigned arena_ind) {
@@ -99,17 +101,19 @@ void RMalloc::fsm() {
     ALERT("RMalloc", "FSM");
     Preallocate_Local_Buffers(PRE_ALLOC_SPACE, PRE_ALLOC_SIZE);
     // const int itterations = PRE_ALLOC_SPACE;
-    const int itterations = 16;
-    const int alloc_size_base = 64;
+    const int itterations = 100;
+    const int alloc_size_base = 128;
     int alloc_size;
     int base_level_areans = 1;
     int thread_arena = _id;
     void * ptrs[PRE_ALLOC_SPACE];
     // printf("allocing on thread arena %d\n", thread_arena);
-    for (int i=0;i<itterations;i++) {
-        alloc_size = alloc_size_base + i;
-        ptrs[i] =  mallocx(alloc_size, MALLOCX_ARENA(_thread_to_arena_index[_id]) | MALLOCX_TCACHE_NONE);
-        ALERT(log_id(), "Mallocx: %d %p",alloc_size, ptrs[i]);
+    int arena_index = MALLOCX_ARENA(_thread_to_arena_index[_id]) | MALLOCX_TCACHE_NONE;
+    for (int i=0;i<itterations-1;i++) {
+        // alloc_size = alloc_size_base + i;
+        alloc_size = alloc_size_base;
+        ptrs[i] =  mallocx(alloc_size, arena_index);
+        ALERT(log_id(), "Mallocx:  %p %d [arena %d]",ptrs[i], alloc_size,  arena_index);
         //Zero out local buffer
         memset(_allocations[i], 0, alloc_size);
         write_x_for_n_bytes_to_remote_buffer(i, ptrs[i],alloc_size, i);
@@ -117,12 +121,14 @@ void RMalloc::fsm() {
         read_x_for_n_bytes_from_remote_buffer(i, ptrs[i], alloc_size, i);
     }
     // ALERT(log_id(), "Done Allocations, begginning free");
-    for (int i=0;i<itterations;i++) {
-        deallocx(ptrs[i], MALLOCX_ARENA(_thread_to_arena_index[_id]) | MALLOCX_TCACHE_NONE);
-        ALERT(log_id(), "Deallocx: %p size %d", ptrs[i], alloc_size_base + i);
+    for (int i=0;i<itterations-1;i++) {
+        ALERT(log_id(), "Deallocx: %p size %d [arenas %d]", ptrs[i], alloc_size_base + i, arena_index);
+        deallocx(ptrs[i], arena_index);
     }
 
-    ALERT(log_id(),"Done with FSM");
+    ALERT(log_id(),"Done with FSM sleeping...");
+    sleep(5);
+    ALERT(log_id(),"Done sleeping going to exit now %d", rand());
 
 
 }
@@ -137,6 +143,7 @@ void RMalloc::Apply_Ops() {
     //     return;
     // }
     // op = (malloc_op_entry *)Next_Operation();
+    int arena_index = MALLOCX_ARENA(_thread_to_arena_index[_id]) | MALLOCX_TCACHE_NONE;
     while ((peek_op = (malloc_op_entry *)Peek_Next_Operation()) != NULL) {
         op = (malloc_op_entry *)Next_Operation();
         peek_op = (malloc_op_entry *)Peek_Next_Operation();
@@ -152,14 +159,14 @@ void RMalloc::Apply_Ops() {
             // ALERT("RMalloc", "Applying mallocx");
 
             // je_mallocx(op->size, op->flags);
-            void * ptr = je_mallocx(op->size, MALLOCX_ARENA(_thread_to_arena_index[_id]) | MALLOCX_TCACHE_NONE);
-            ALERT(log_id(), "Mallocx: %d %p (apply)", op->size, ptr);
+            void * ptr = je_mallocx(op->size, arena_index);
+            ALERT(log_id(), "Mallocx:  %p %d [arena %d] (apply)",ptr, op->size,  arena_index);
 
         } else if (op->type == deallocx_op) {
             // ALERT("RMalloc", "Applying Other deallocx");
-            ALERT(log_id(), "Deallocx: %p (apply)", op->ptr);
+            ALERT(log_id(), "Deallocx: %p [arena %d] (apply)", op->ptr, arena_index);
             // je_dallocx(op->ptr, op->flags);
-            je_dallocx(op->ptr, MALLOCX_ARENA(_thread_to_arena_index[_id]) | MALLOCX_TCACHE_NONE);
+            je_dallocx(op->ptr, arena_index);
         }
     }
     // printf("Done Applying Returning the last opeation %s\n", op->toString().c_str());
@@ -203,9 +210,6 @@ void RMalloc::Preallocate_Local_Buffers(int n, int size) {
 
 RMalloc::RMalloc(unordered_map<string,string> config) : SLogger(config) {
     ALERT("RMalloc", "Initalizing RMalloc");
-    // _replicated_log = Replicated_Log();
-
-
 	size_t ret, sz;
 	unsigned arena_ind = -1;
 	extent_hooks_t *new_hooks;
@@ -217,7 +221,6 @@ RMalloc::RMalloc(unordered_map<string,string> config) : SLogger(config) {
 	}
     _jemalloc_metadata_current = _jemalloc_metadata_start;
     _jemalloc_metadata_size = memsize;
-
 
     //TODO - This is a hack to get scratch space from the server. We have multiple servers
     //TODO - so we should be splitting up requests across all of them
@@ -241,27 +244,6 @@ RMalloc::RMalloc(unordered_map<string,string> config) : SLogger(config) {
     zero_extent_metadata();
     // int threads=2;
     create_arena(&hooks);
-
-    unsigned n_arenas{0};
-    sz = sizeof(n_arenas);
-    int err = je_mallctl("opt.narenas", (void *)&n_arenas, &sz, nullptr, 0);
-    printf("narenas: %u\n", n_arenas);
-    if (err) {
-        printf("mallctl error getting narenas\n");
-        exit(1);
-    }
-
-
-
-
-	// printf("----------------------------------------------\n");
-    // int allocs = 50;
-    // test_0_make_n_allocations_then_frees_from_arena(allocs, 0);
-    // for (int i=0;i<5;i++)printf("----------------------------------------------\n");
-    // test_0_make_n_allocations_then_frees_from_arena(allocs, 0);
-
-    // printf("we finished initing the RMALLOC\n");
-    // exit(0);
 }
 
 
@@ -283,10 +265,29 @@ float RMalloc::calculate_local_memory_usage() {
     return float((uint64_t)_jemalloc_metadata_current - (uint64_t)_jemalloc_metadata_start) / float(_jemalloc_metadata_size);
 }
 
-template <typename T, typename U>
-static inline T align_up(T val, U alignment) {
-    assert((alignment & (alignment - 1)) == 0);
-    return (val + alignment - 1) & ~(alignment - 1);
+// template <typename T, typename U>
+// static inline T align_up(T val, U alignment) {
+//     assert((alignment & (alignment - 1)) == 0);
+//     T return_val = (val + alignment - 1) & ~(alignment - 1);
+//     assert((uintptr_t)return_val & (alignment - 1));
+//     return return_val;
+// }
+
+// template <typename T, typename U>
+// static inline T align(T val, U alignment) {
+//     //This function aligns the value to the nearest multiple of the alignment
+//     return (val + alignment - 1) & ~(alignment - 1);
+// }
+
+template <typename T>
+inline T align_to_power_of_2(T ptr, size_t alignment) {
+    uintptr_t addr = reinterpret_cast<uintptr_t>(ptr);
+    uintptr_t mask = alignment - 1;
+    if (alignment && (alignment & mask) == 0) {
+        return reinterpret_cast<T>((addr + mask) & ~mask);
+    }
+    // Invalid alignment, return original pointer
+    return ptr;
 }
 
 void RMalloc::print_alloc_hook_args(void *new_addr, size_t size, size_t alignment, bool *zero, bool *commit, unsigned arena_ind) {
@@ -306,15 +307,24 @@ void * RMalloc::my_hooks_alloc(extent_hooks_t *extent_hooks, void *new_addr, siz
     // print_alloc_hook_args(new_addr, size, alignment, zero, commit, arena_ind);    
     ALERT(log_id(), "In my_hooks_alloc: arena %d, size %d", arena_ind, size);
     assert(arena_ind < MAX_EXTENTS);
-    void *ret;
+    void *ret = NULL;
+
+    if (new_addr != NULL) {
+        printf("WARNING: new_addr is not supported in remote allocations\n");
+        return NULL;
+    }
+
+    print_alloc_hook_args(new_addr, size, alignment, zero, commit, arena_ind);
 
     //We assume that all requests for remote memory are not zeroed.  This is not an explicitly safe
     //assumption. However, we need a method for determining if a request is for remote memory.
     //jemalloc makes internal calls to alloc and we need to be able to distinguish between these
     //calls and calls from the user.
-    if (!*zero) {
+    // if (!*zero) {
+    if (size != size_2MB) {
         _remote_allocs[arena_ind]+=1;
-        _remote_current = align_up((uint64_t)_remote_current + size, alignment);
+        // _remote_current = align_up((uint64_t)_remote_current + size, alignment);
+        _remote_current = align_to_power_of_2(_remote_current + size, alignment);
         //Track the amount of memory we have allocated
         ret = (void *)_remote_current;
 
@@ -327,128 +337,97 @@ void * RMalloc::my_hooks_alloc(extent_hooks_t *extent_hooks, void *new_addr, siz
         // }
 
     } else {
-        if (!*commit) {
-            return NULL;
-        }
-        print_alloc_hook_args(new_addr, size, alignment, zero, commit, arena_ind);
+        return Original_Hooks[arena_ind]->alloc(extent_hooks, new_addr, size, alignment, zero, commit, arena_ind);
 
-        //There is strange behavior here, we continue to get allocations of 512 bytes and it's hard
-        //for me to understand why.  Each allocation is 512 pages, and we quickly allocate GB of
-        //memory. I have no intention of allowing JEMalloc to sabotage me so I'm just ignoring these
-        //allocations.  I'm sure that there is a way to prevent these allocations from running. But
-        //as of March 6th 2024 I have not found it - Stew
-        _local_allocs[arena_ind]+=1;
-        #define REASONABLE_NUMBER_OF_LOCAL_ALLOCS 128
-        if (_local_allocs[arena_ind] > REASONABLE_NUMBER_OF_LOCAL_ALLOCS){
-            printf("WARNING: We are making a lot of local allocations, this should not be the case for a remote allocator. Consider debugging\n");
-            printf("WARNING: At the time of writing we are catching allocations of 512 and assuming they are metadata allocations.");
-            printf("This is not a good assumption. We should be able to catch all allocations and forward them to the remote allocator. This is a bug.\n");
-            assert(_local_allocs[arena_ind] <= REASONABLE_NUMBER_OF_LOCAL_ALLOCS);
+        // if (!*commit) {
+        //     return NULL;
+        // }
+
+        // //There is strange behavior here, we continue to get allocations of 512 bytes and it's hard
+        // //for me to understand why.  Each allocation is 512 pages, and we quickly allocate GB of
+        // //memory. I have no intention of allowing JEMalloc to sabotage me so I'm just ignoring these
+        // //allocations.  I'm sure that there is a way to prevent these allocations from running. But
+        // //as of March 6th 2024 I have not found it - Stew
+        // _local_allocs[arena_ind]+=1;
+        // #define REASONABLE_NUMBER_OF_LOCAL_ALLOCS 128
+        // if (_local_allocs[arena_ind] > REASONABLE_NUMBER_OF_LOCAL_ALLOCS){
+        //     printf("WARNING: We are making a lot of local allocations, this should not be the case for a remote allocator. Consider debugging\n");
+        //     printf("WARNING: At the time of writing we are catching allocations of 512 and assuming they are metadata allocations.");
+        //     printf("This is not a good assumption. We should be able to catch all allocations and forward them to the remote allocator. This is a bug.\n");
+        //     assert(_local_allocs[arena_ind] <= REASONABLE_NUMBER_OF_LOCAL_ALLOCS);
             
-        }
-        printf("Local  [%d] %d allocs %d bytes\t fill %2.2f\% \n",  arena_ind, _local_allocs[arena_ind], _locally_allocated_memory[arena_ind], calculate_local_memory_usage());
-        printf("Remote [%d] %d allocs %lu bytes\t fill %2.2f\% \n", arena_ind, _remote_allocs[arena_ind], _remote_allocated_memory[arena_ind], calculate_remote_memory_usage());
-        // printf("Allocating Local. Arena:%d Allocation Count %d\n", arena_ind, local_allocs[arena_ind]);
+        // }
+        // printf("Local  [%d] %d allocs %d bytes\t fill %2.2f\% \n",  arena_ind, _local_allocs[arena_ind], _locally_allocated_memory[arena_ind], calculate_local_memory_usage());
+        // printf("Remote [%d] %d allocs %lu bytes\t fill %2.2f\% \n", arena_ind, _remote_allocs[arena_ind], _remote_allocated_memory[arena_ind], calculate_remote_memory_usage());
+        // // printf("Allocating Local. Arena:%d Allocation Count %d\n", arena_ind, local_allocs[arena_ind]);
 
-        _jemalloc_metadata_current = (char *)align_up((uint64_t)_jemalloc_metadata_current, alignment);
-        ret = _jemalloc_metadata_current;
+        // if (ret >= _jemalloc_metadata_start + _jemalloc_metadata_size) {
+        //     printf("> Not enough memory\n");
+        //     return NULL;
+        // }
 
-        if (ret >= _jemalloc_metadata_start + _jemalloc_metadata_size) {
-            printf("> Not enough memory\n");
-            return NULL;
-        }
+        // // _jemalloc_metadata_current = (char *)align_up((uint64_t)_jemalloc_metadata_current, alignment);
+        // _jemalloc_metadata_current = (char *)align_to_power_of_2(_jemalloc_metadata_current + size, alignment);
+        // ret = _jemalloc_metadata_current;
 
-        if (*zero){
-            memset(ret, size, 0);
-        }
+
+        // if (*zero){
+        //     memset(ret, size, 0);
+        // }
     }
     return ret;
 }
 
 
+//Each thread gets it's own arena. However I need a pointer to the hook for each thread which
+//does not exist untill we finish running.  I need to predict what the index of the next arena
+//will be. I can do this by globally locking, checking how many areans exist, and then setting
+//the global malloc index to the next index. This is a hack, but it's the best I can do for now.
 void RMalloc::create_arena(extent_hooks_t *new_hooks) {
-	printf("Creating %s arena\n", log_id());
-    unsigned arena_ind;
-	size_t sz = sizeof(arena_ind);
-
-
-    arena_ind =0;
-    int thread_index = _id;
-
-    arena_ind++;
-    ALERT("RMalloc", "Creating arena %d, on thread %d", arena_ind, thread_index);
 
     jemalloc_start_mutex.lock();
     ALERT("Create Areana", "We have aquired the arena lock");
 
+    //Get the number of current arenas.
     unsigned n_arenas{0};
-    sz = sizeof(n_arenas);
+    size_t sz = sizeof(n_arenas);
     int err = je_mallctl("arenas.narenas", (void *)&n_arenas, &sz, nullptr, 0);
     ALERT("Create Arena", "There are currently n arenas: %u\n", n_arenas);
 
+    //Set the global alloc hook for this thread
     GlobalMalloc[n_arenas]=this;
-    int ret = je_mallctl("arenas.create", (void *)&arena_ind, &sz, (void *)&new_hooks, sizeof(extent_hooks_t *));
-    assert(n_arenas == arena_ind);
-    _thread_to_arena_index[_id] = arena_ind;
+    _thread_to_arena_index[_id] = n_arenas;
 
-    printf("Thread %d -> Arena %d\n", _id, arena_ind);
+    //Actually create the areana using the new hook.
+    // int ret = je_mallctl("arenas.create", (void *)&n_arenas, &sz, (void *)&new_hooks, sizeof(extent_hooks_t *));
+    int ret = je_mallctl("arenas.create", (void *)&n_arenas, &sz, NULL, 0);
     if (ret) {
         printf("mallctl error creating arena with new hooks\n");
         exit(1);
     }
+
+    assert(n_arenas == _thread_to_arena_index[_id]);
+
+    //At this point we have created the arena. We now need to go and get the original hook
+    extent_hooks_t *original_hooks;
+    sz = sizeof(extent_hooks_t *);
+    string hook_name = "arena." + to_string(n_arenas) + ".extent_hooks";
+    printf("Hook name: %s\n", hook_name.c_str());
+    err = je_mallctl(hook_name.c_str(), (void *)&original_hooks, &sz, NULL, 0);
+    if (err) {
+        printf("mallctl error getting original hooks\n");
+        exit(1);
+    }
+    assert(original_hooks);
+    Original_Hooks[n_arenas] = original_hooks;
+
+    ALERT("Create Arena", "Original hooks: %p New hook %p", original_hooks, new_hooks);
+    err = je_mallctl(hook_name.c_str(), NULL, 0, (void *)&new_hooks, sizeof(extent_hooks_t *));
+    if (err) {
+        printf("mallctl error setting new hooks\n");
+        exit(1);
+    }
+
+
     jemalloc_start_mutex.unlock();
 }
-
-int RMalloc::test_0_make_n_allocations_then_frees_from_arena(int n, int thread){
-    assert(n <= MAX_ALLOCATIONS);
-    void *allocs[MAX_ALLOCATIONS];
-
-    int arena = _thread_to_arena_index[thread];
-    printf("Allocating on thread %d from arena %d\n", thread, arena);
-    for (int i=0;i<n;i++) {
-        allocs[i] = je_mallocx(1024, MALLOCX_ARENA(arena) | MALLOCX_TCACHE_NONE);
-        if (!allocs[i]) {
-            printf("mallocx error\n");
-            exit(1);
-        }
-    }
-    for (int i=0;i<n;i++) {
-        je_dallocx(allocs[i], MALLOCX_ARENA(arena));
-    }
-}
-
-// int main(int argc, char *argv[])
-// {
-// 	size_t ret, sz;
-// 	unsigned arena_ind = -1;
-// 	extent_hooks_t *new_hooks;
-// 	size_t hooks_len, memsize = 4096 * 4096 * 64;
-// 	pre_alloc = mmap(NULL, memsize, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
-// 	if (!pre_alloc) {
-// 		perror("Could not pre-allocate memory");
-// 		exit(1);
-// 	}
-// 	pre_alloc_end = pre_alloc + memsize;
-// 	new_hooks = &hooks;
-
-//     zero_extent_metadata();
-//     int threads=1;
-//     create_n_arenas(threads, new_hooks);
-
-//     unsigned n_arenas{0};
-//     sz = sizeof(n_arenas);
-//     int err = je_mallctl("opt.narenas", (void *)&n_arenas, &sz, nullptr, 0);
-//     printf("narenas: %u\n", n_arenas);
-//     if (err) {
-//         printf("mallctl error getting narenas\n");
-//         exit(1);
-//     }
-
-
-// 	printf("----------------------------------------------\n");
-//     int allocs = MAX_ALLOCATIONS;
-//     test_0_make_n_allocations_then_frees_from_arena(allocs, 0);
-//     for (int i=0;i<5;i++)printf("----------------------------------------------\n");
-//     test_0_make_n_allocations_then_frees_from_arena(allocs, 0);
-//     return 0;
-// }
