@@ -8,10 +8,11 @@ const int BUF_SIZE = 1024;
 static char buf[BUF_SIZE];
 
 bool write(void *op, int size){
-	memset(buf, 0, BUF_SIZE * sizeof(buf[0]));
-	strcpy(buf, op);
-	printf("size %d\n", size);
-	printf("bytes received:%s\n", buf);
+	memset(buf, 0, BUF_SIZE);
+	strncpy(buf, op, size);
+	buf[size] = '\0';
+	printf("C: Bytes received Size:%d\n", size);
+	printf("C: Bytes received:%s\n", buf);
 	return true;
 }
 
@@ -20,3 +21,7 @@ void* read(){
 	return buf;
 }
 
+void* null(){	
+	//memset(buf, 1, BUF_SIZE * sizeof(buf[0]));
+	return NULL;
+}
