@@ -162,8 +162,10 @@ def register_class_method(class_instance, method_name):
 	# getattr(class_instance, method_name)(1,2)
 
 
-CLASS_NAME = Add
-METHOD_NAME = 'add'
+from queue import Queue
+
+CLASS_NAME = Queue
+METHOD_NAME = 'put'
 
 
 class_dict = CLASS_NAME.__dict__
@@ -192,9 +194,10 @@ print('---Finished Registering---\n\n')
 
 
 print('----- Running new add -----')
-res = instance.add(5,10)
+res = instance.put(85)
 
 print(res)
+print(instance.get())
 print('----- End Running New Add -----')
 
 # stime = time.time()
