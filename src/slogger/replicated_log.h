@@ -29,6 +29,9 @@ namespace slogger {
             Replicated_Log();
             Replicated_Log(unsigned int memory_size, unsigned int entry_size, unsigned int total_clients, unsigned int client_id, unsigned int bits_per_client_position);
             // ~Replicated_Log() {ALERT("REPLICATED_LOG", "deleting replicated log");}
+
+
+
             void Append_Log_Entry(void * data, size_t size);
             bool Can_Append(int entries);
             void Print_All_Entries();
@@ -75,7 +78,7 @@ namespace slogger {
             void * get_client_positions_pointer() {return (void*) this->_client_positions;}
             int get_client_positions_size_bytes() {return this->_client_positions_size_bytes;}
             void update_client_position(uint64_t tail_pointer);
-            int set_client_id(int id) {this->_client_id = id;}
+            void set_client_id(int id) {this->_client_id = id;}
             int get_id() {return this->_client_id;}
 
             uint64_t get_min_client_index();

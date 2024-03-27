@@ -18,7 +18,7 @@ using namespace rdma_helper;
 #define MAX_EXTENTS 512
 #define METADATA_ALLOCATION_SIZE 2097152 // 512 pages, seems to be what the metadata allocator uses.
 #define MAX_ALLOCATIONS 1000000
-#define PRE_ALLOC_SPACE 128
+#define PRE_ALLOC_SPACE 4096 * 32
 #define PRE_ALLOC_SIZE 1024
 
 enum malloc_ops {

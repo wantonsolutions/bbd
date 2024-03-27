@@ -33,6 +33,12 @@ CUCKOO_CPP := $(wildcard $(CUCKOO_DIR)/*.cpp)
 SLOGGER_CPP := $(wildcard $(SLOGGER_DIR)/*.cpp)
 CORRUPTER_CPP := $(wildcard $(CORRUPTER_DIR)/*.cpp)
 
+
+# LOCAL_STUB_OBJ = obj/$(SLOGGER_DIR)/local_stub_logger.o obj/$(SLOGGER_DIR)/replicated_log.o obj/$(SLIB_DIR)/util.o
+LOCAL_STUB_OBJ = obj/$(SLOGGER_DIR)/replicated_log.o obj/$(SLIB_DIR)/util.o
+
+
+
 bins := $(wildcard $(ENTRY_POINT_DIR)/*.cpp)
 bins := $(patsubst $(ENTRY_POINT_DIR)/%.cpp, %, $(bins))
 
@@ -69,6 +75,16 @@ virtual_rdma_test: $(VIRTUAL_RDMA_OBJ)
 	$(CC) $(CFLAGS) $(INCLUDES) $(VIRTUAL_RDMA_OBJ) -o test_virtual_rdma $(LIBRARIES)
 	mv test_virtual_rdma test/
 
+#create a static shared library from slogger/local_stub_logger.cpp
+
+local: $(LOCAL_STUB_OBJ)
+	$(info we are making a local stub for linking with other programs)
+	mkdir -p lib
+	$(CC) -fPIC -c $(SLOGGER_DIR)/local_stub_logger.cpp -o obj/$(SLOGGER_DIR)/local_stub_logger.o
+	$(CC) -shared -o lib/liblocal_stub_logger.so obj/$(SLOGGER_DIR)/local_stub_logger.o $(LOCAL_STUB_OBJ)
+	sudo cp ./lib/liblocal_stub_logger.so /usr/local/lib/
+
+
 
 
 
@@ -81,6 +97,7 @@ clean:
 	rm -rf *.o *.so
 	rm -rf obj
 	rm -rf bin
+	rm -rf lib
 
 
 .PHONY: all
