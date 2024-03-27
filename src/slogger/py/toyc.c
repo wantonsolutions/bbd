@@ -4,7 +4,7 @@
 #include <stdbool.h>
 #include <string.h>
 //#include <stdstr.h>
-const int BUF_SIZE = 1024; 
+#define BUF_SIZE 1024
 char buf[BUF_SIZE];
 
 bool write(void *op, int size){
