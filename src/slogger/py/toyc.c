@@ -9,10 +9,10 @@ static char buf[BUF_SIZE];
 
 bool write(void *op, int size){
 	memset(buf, 0, BUF_SIZE);
-	strncpy(buf, op, size);
+	memcpy(buf, op, size);
 	buf[size] = '\0';
-	printf("C: Bytes received Size:%d\n", size);
-	printf("C: Bytes received:%s\n", buf);
+	//printf("C: Bytes received Size:%d\n", size);
+	//printf("C: Bytes received:%s\n", buf);
 	return true;
 }
 

@@ -3,7 +3,7 @@ import pickle
 import time
 from functools import partial
 
-so_file = "my_functions.so"
+so_file = "../../lib/liblocal_stub_logger.so"
 MY_FUNCTIONS = CDLL(so_file)
 # print(type(my_functions))
 
@@ -11,15 +11,15 @@ MY_FUNCTIONS = CDLL(so_file)
 
 def take_bytes_and_dump(my_bytes):
 	global MY_FUNCTIONS
-	print("Python: sending type({}), data({})".format(type(my_bytes), my_bytes.hex()))
-	print()
+	# print("Python: sending type({}), data({})".format(type(my_bytes), my_bytes.hex()))
+	# print()
 	my_write_function = MY_FUNCTIONS.write
 	# print(my_write_function)
 
 	my_write_function.argtypes = c_void_p, c_int
 	my_write_function.restype = c_bool
 	ret = my_write_function(my_bytes, len(my_bytes))
-	print()
+	# print()
 	return len(my_bytes)
 
 def read_dumped_bytes(my_bytes_size):
@@ -31,12 +31,12 @@ def read_dumped_bytes(my_bytes_size):
 	# print(b.contents)
 	# print(b.contents[0])
 	# print(b.contents[0].hex())
-	print('Python: bytes returned:', end = '')
+	# print('Python: bytes returned:', end = '')
 	retrieved_payload = []
 	for i in range(my_bytes_size):
-		print(b.contents[i].hex(), end='')
+		# print(b.contents[i].hex(), end='')
 		retrieved_payload.append(b.contents[i])
-	print()
+	# print()
 	return b''.join(retrieved_payload)
 
 # print(MY_FUNCTIONS.null())
@@ -114,10 +114,16 @@ def call_class_method_given_name_wrapper(bbd_class_instance = None, bbd_method_n
 	# print(class_instance)
 
 	payload_with_method = pickle.dumps((bbd_method_name, args, kwargs), 0)
+	#print(payload_with_method.hex())
+	marshal.loads(payload_with_method)
+	#print(payload_with_method.hex())
+	#print(type(payload_with_method))
 	
 	my_bytes_size = take_bytes_and_dump(payload_with_method)
+	#print(my_bytes_size)
 	
 	retrieved_payload = read_dumped_bytes(my_bytes_size)
+	#print(retrieved_payload.hex())
 
 	method_retrieved, args, kwargs = pickle.loads(retrieved_payload)
 
@@ -125,11 +131,11 @@ def call_class_method_given_name_wrapper(bbd_class_instance = None, bbd_method_n
 
 	ret = method_get(*args, **kwargs)
 
-	if ret != None:
-		print("class instance: {}, ret of exec: {}".format(bbd_class_instance, ret))
-	else:
-		print("class instance: {}".format(bbd_class_instance, ret))
-
+	# if ret != None:
+	# 	print("class instance: {}, ret of exec: {}".format(bbd_class_instance, ret))
+	# else:
+	# 	print("class instance: {}".format(bbd_class_instance, ret))
+	pass
 	return ret
 
 
@@ -161,7 +167,7 @@ def register_class_method(class_instance, method_name):
 	setattr(class_instance, method_name, p)
 	# getattr(class_instance, method_name)(1,2)
 
-
+import marshal
 from queue import Queue
 
 CLASS_NAME = Queue
@@ -187,6 +193,13 @@ print(
 
 instance = CLASS_NAME()
 
+stime = time.time()
+for i in range(0, 100000):
+	instance.put(i)
+etime = time.time()
+print(etime - stime)
+
+instance = CLASS_NAME()
 
 register_class_method(instance, METHOD_NAME)
 print()
@@ -194,14 +207,13 @@ print('---Finished Registering---\n\n')
 
 
 print('----- Running new add -----')
-res = instance.put(85)
+stime = time.time()
+for i in range(1, 100000):
+	instance.put(i)
+etime = time.time()
+print(etime - stime)
 
-print(res)
+# print(res)
 print(instance.get())
 print('----- End Running New Add -----')
 
-# stime = time.time()
-# for i in range(0, 1):
-# 	call_class_method_given_name(instance, METHOD_NAME, (1,6))
-# etime = time.time()
-# print()
