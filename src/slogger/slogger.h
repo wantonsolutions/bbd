@@ -7,6 +7,7 @@
 #include "../rdma/rdma_common.h"
 #include "rslog.h"
 #include "replicated_log.h"
+#include "logger.h"
 
 using namespace state_machines;
 
@@ -17,7 +18,7 @@ using namespace state_machines;
 namespace slogger {
 
 
-    class SLogger : public State_Machine {
+    class SLogger : public logger_interface, public State_Machine {
         public:
             SLogger(){};
             SLogger(unordered_map<string, string> config);
@@ -27,9 +28,9 @@ namespace slogger {
             bool Write_Operations(void ** ops, unsigned int * sizes, unsigned int num_ops);
             void * Next_Operation();
             void * Peek_Next_Operation();
+            void Sync_To_Last_Write();
 
             void Sync_To_Remote_Log();
-            void Sync_To_Last_Write();
 
 
 

@@ -24,14 +24,196 @@ static RMalloc * GlobalMalloc[128];
 static extent_hooks_t * Original_Hooks[128];
 const int size_2MB = 2097152;
 
+
+uint64_t global_remote_current = 4096;
+uint64_t global_remote_start = 4096;
+uint64_t global_remote_size = 10000000;
+
+
+uint64_t thread_memory_offset = 0x000010000000;
+//                              0x7f22ede2de00
+
+void * static_alloc(extent_hooks_t *extent_hooks, void *new_addr, size_t size,
+		size_t alignment, bool *zero, bool *commit, unsigned arena_ind)
+{
+
+    ALERT("STATIC HOOK", "IN THE STATIC HOOK");
+
+    // print_alloc_hook_args(new_addr, size, alignment, zero, commit, arena_ind);    
+    // ALERT(log_id(), "In my_hooks_alloc: arena %d, size %d", arena_ind, size);
+    assert(arena_ind < MAX_EXTENTS);
+    void *ret = NULL;
+
+    if (new_addr != NULL) {
+        printf("WARNING: new_addr is not supported in remote allocations\n");
+        return NULL;
+    }
+
+    // print_alloc_hook_args(new_addr, size, alignment, zero, commit, arena_ind);
+
+    //We assume that all requests for remote memory are not zeroed.  This is not an explicitly safe
+    //assumption. However, we need a method for determining if a request is for remote memory.
+    //jemalloc makes internal calls to alloc and we need to be able to distinguish between these
+    //calls and calls from the user.
+    // if (!*zero) {
+    if (size != size_2MB) {
+        // _remote_current = align_up((uint64_t)_remote_current + size, alignment);
+        // global_remote_current = align_to_power_of_2(global_remote_current, alignment);
+        //Track the amount of memory we have allocated
+        ret = (void *)global_remote_current;
+
+        if (global_remote_current + size >= global_remote_start + global_remote_size) {
+            printf("💀DEATH💀 Not enough remote memory failing %s:%s\n",__FILE__,__LINE__);
+            exit(0);
+        }
+
+        global_remote_current += size;
+        //     printf("WARNING: Commit is not supported in remote allocations\n");
+        // }
+        *zero = true;
+        *commit = true;
+        //Assert allignment
+
+        assert((uintptr_t)ret % alignment == 0);
+        void *old_ret = ret;
+        ret = mmap(old_ret, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
+        if (old_ret != ret) {
+            printf("mmap failed: %s\n", strerror(errno));
+            exit(1);
+        }
+        if (ret == MAP_FAILED) {
+            printf("mmap failed: %s\n", strerror(errno));
+            exit(1);
+        }
+
+        return ret;
+
+    } else {
+        return Original_Hooks[arena_ind]->alloc(extent_hooks, new_addr, size, alignment, zero, commit, arena_ind);
+    }
+}
+
+
 void * Global_Alloc_Hook(extent_hooks_t *extent_hooks, void *new_addr, size_t size,
 		size_t alignment, bool *zero, bool *commit, unsigned arena_ind) {
             printf("In Global_Alloc_Hook\n");
             assert(GlobalMalloc[arena_ind] != NULL);
             return GlobalMalloc[arena_ind]->my_hooks_alloc(extent_hooks, new_addr, size, alignment, zero, commit, arena_ind);
+            // return static_alloc(extent_hooks, new_addr, size, alignment, zero, commit, arena_ind);
         }
 
-extent_hooks_t hooks = {Global_Alloc_Hook,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL};
+// extent_hooks_t hooks = {Global_Alloc_Hook,NULL,NULL,NULL,NULL,NULL,NULL,NULL,NULL};
+static bool custom_extent_dalloc(extent_hooks_t *extent_hooks,
+                        void *addr,
+                        size_t size,
+                        bool committed,
+                        unsigned arena_ind)
+{
+    //False implies that we have successfully deallocated the memory
+    //True imples that we want to keep the memory and reuse it later so it will be automaically retained.
+    if (munmap(addr, size) != 0) {
+		fprintf(stderr, "munmap failed: %p %ld\n", addr, size);
+		return true;
+	}
+    return false;
+
+}
+
+static bool custom_extent_commit(extent_hooks_t *extent_hooks,
+                        void *addr,
+                        size_t size,
+                        size_t offset,
+                        size_t length,
+                        unsigned arena_ind)
+{
+    /* do nothing - report success */
+    return false;
+}
+
+static bool custom_extent_decommit(extent_hooks_t *extent_hooks,
+                          void *addr,
+                          size_t size,
+                          size_t offset,
+                          size_t length,
+                          unsigned arena_ind)
+{
+    /* do nothing - report failure (opt-out) */
+    return true;
+}
+
+static bool custom_extent_purge(extent_hooks_t *extent_hooks,
+                       void *addr,
+                       size_t size,
+                       size_t offset,
+                       size_t length,
+                       unsigned arena_ind)
+{
+    /* do nothing - report failure (opt-out) */
+    return true;
+}
+
+static bool custom_extent_split(extent_hooks_t *extent_hooks,
+                       void *addr,
+                       size_t size,
+                       size_t size_a,
+                       size_t size_b,
+                       bool committed,
+                       unsigned arena_ind)
+{
+    /* do nothing - report success */
+    return true;
+}
+
+static bool custom_extent_merge(extent_hooks_t *extent_hooks,
+                       void *addr_a,
+                       size_t size_a,
+                       void *addr_b,
+                       size_t size_b,
+                       bool committed,
+                       unsigned arena_ind)
+{
+    /* do nothing - report success */
+    return true;
+}
+
+static void custom_extent_destroy(extent_hooks_t *extent_hooks,
+                         void *addr,
+                         size_t size,
+                         bool committed,
+                         unsigned arena_ind)
+{
+    if (munmap(addr, size) == -1) {
+        std::cerr << "munmap failed!";
+    }
+}
+
+// static extent_hooks_t hooks = {
+//     .alloc = Global_Alloc_Hook,
+//     .dalloc = custom_extent_dalloc,
+//     .destroy = custom_extent_destroy,
+//     .commit = custom_extent_commit,
+//     .decommit = custom_extent_decommit,
+//     .purge_lazy = custom_extent_purge,
+//     .purge_forced = NULL,
+//     .split = custom_extent_split,
+//     .merge = custom_extent_merge,
+// };
+
+static extent_hooks_t hooks = {
+    .alloc = Global_Alloc_Hook,
+    .dalloc = custom_extent_dalloc,
+    .destroy = custom_extent_destroy,
+    .commit = custom_extent_commit,
+    .decommit = custom_extent_decommit,
+    .purge_lazy = custom_extent_purge,
+    .purge_forced = NULL,
+    .split = custom_extent_split,
+    .merge = custom_extent_merge,
+};
+
+
+
+
 
 void RMalloc::write_x_for_n_bytes_to_remote_buffer(int local_index, void* remote, size_t size, uint8_t value) {
     // ALERT("RMalloc", "Writing %d bytes to remote buffer", size);
@@ -101,33 +283,47 @@ void RMalloc::fsm() {
     ALERT("RMalloc", "FSM");
     Preallocate_Local_Buffers(PRE_ALLOC_SPACE, PRE_ALLOC_SIZE);
     // const int itterations = PRE_ALLOC_SPACE;
-    const int itterations = 100;
+    const int itterations = PRE_ALLOC_SIZE-1;
     const int alloc_size_base = 128;
     int alloc_size;
     int base_level_areans = 1;
     int thread_arena = _id;
     void * ptrs[PRE_ALLOC_SPACE];
+    bool test_by_writing_and_reading = true;
     // printf("allocing on thread arena %d\n", thread_arena);
     int arena_index = MALLOCX_ARENA(_thread_to_arena_index[_id]) | MALLOCX_TCACHE_NONE;
+    // int arena_index = MALLOCX_ARENA(_thread_to_arena_index[_id]);
+
+    for (int itt=0;itt<16;itt++){
+        ALERT(log_id(), "Itteration %d\n", itt);
     for (int i=0;i<itterations-1;i++) {
         // alloc_size = alloc_size_base + i;
         alloc_size = alloc_size_base;
         ptrs[i] =  mallocx(alloc_size, arena_index);
-        ALERT(log_id(), "Mallocx:  %p %d [arena %d]",ptrs[i], alloc_size,  arena_index);
+        assert(ptrs[i] != NULL);
+        ALERT(log_id(), "Mallocx:  %p %d [arena %d] (%d)",ptrs[i], alloc_size,  arena_index,i);
+
         //Zero out local buffer
-        memset(_allocations[i], 0, alloc_size);
-        write_x_for_n_bytes_to_remote_buffer(i, ptrs[i],alloc_size, i);
-        memset(_allocations[i], 0, alloc_size);
-        read_x_for_n_bytes_from_remote_buffer(i, ptrs[i], alloc_size, i);
+        usleep(1000);
+
+        if(test_by_writing_and_reading){
+            memset(_allocations[i], 0, alloc_size);
+            write_x_for_n_bytes_to_remote_buffer(i, ptrs[i],alloc_size, i);
+            memset(_allocations[i], 0, alloc_size);
+            read_x_for_n_bytes_from_remote_buffer(i, ptrs[i], alloc_size, i);
+        }
     }
+        // je_malloc_stats_print(NULL, NULL, NULL);
     // ALERT(log_id(), "Done Allocations, begginning free");
     for (int i=0;i<itterations-1;i++) {
         ALERT(log_id(), "Deallocx: %p size %d [arenas %d]", ptrs[i], alloc_size_base + i, arena_index);
         deallocx(ptrs[i], arena_index);
     }
+    }
+    // je_malloc_stats_print(NULL, NULL, NULL);
 
     ALERT(log_id(),"Done with FSM sleeping...");
-    sleep(5);
+    sleep(60);
     ALERT(log_id(),"Done sleeping going to exit now %d", rand());
 
 
@@ -137,29 +333,23 @@ void RMalloc::Apply_Ops() {
     // ALERT("RMalloc", "Applying Ops");
     // _replicated_log.Print_All_Entries();
     // assert(GlobalMalloc != NULL);
+    int arena_index = MALLOCX_ARENA(_thread_to_arena_index[_id]) | MALLOCX_TCACHE_NONE;
     malloc_op_entry *op;
     malloc_op_entry *peek_op;
-    // if (Peek_Next_Operation() == NULL) {
-    //     return;
-    // }
-    // op = (malloc_op_entry *)Next_Operation();
-    int arena_index = MALLOCX_ARENA(_thread_to_arena_index[_id]) | MALLOCX_TCACHE_NONE;
+
+    //If we enter apply ops with the next operation equal to null we are done.
+    assert(Peek_Next_Operation() != NULL);
+    op = (malloc_op_entry *)Next_Operation();
+
+    // int arena_index = MALLOCX_ARENA(_thread_to_arena_index[_id]);
     while ((peek_op = (malloc_op_entry *)Peek_Next_Operation()) != NULL) {
-        op = (malloc_op_entry *)Next_Operation();
-        peek_op = (malloc_op_entry *)Peek_Next_Operation();
-        if (peek_op == NULL) {
-            break;
-        }
-        // if (peek_op == NULL) {
-        //     printf("OP %s\nNext op NULL", op->toString().c_str());
-        // } else {
-        //     printf("OP %s\nNext op %s", op->toString().c_str(), peek_op->toString().c_str());
-        // }
+
         if (op->type == mallocx_op) {
             // ALERT("RMalloc", "Applying mallocx");
 
             // je_mallocx(op->size, op->flags);
             void * ptr = je_mallocx(op->size, arena_index);
+            assert(ptr != NULL);
             ALERT(log_id(), "Mallocx:  %p %d [arena %d] (apply)",ptr, op->size,  arena_index);
 
         } else if (op->type == deallocx_op) {
@@ -168,6 +358,8 @@ void RMalloc::Apply_Ops() {
             // je_dallocx(op->ptr, op->flags);
             je_dallocx(op->ptr, arena_index);
         }
+        //Get the next operation
+        op = (malloc_op_entry *)Next_Operation();
     }
     // printf("Done Applying Returning the last opeation %s\n", op->toString().c_str());
 }
@@ -180,10 +372,12 @@ void RMalloc::Execute(malloc_op_entry op) {
 
 void *RMalloc::mallocx(size_t size, int flags) {
     Execute({mallocx_op, NULL, size, 0, 0, flags});
-    return je_mallocx(size, flags);
+    void * ret = je_mallocx(size, flags);
+    return ret - (thread_memory_offset * _id);
 }
 
 void RMalloc::deallocx(void *ptr, int flags) {
+    ptr = ptr + (thread_memory_offset * _id);
     Execute({deallocx_op, ptr, 0, 0, 0, flags});
     return je_dallocx(ptr, flags);
 }
@@ -230,6 +424,11 @@ RMalloc::RMalloc(unordered_map<string,string> config) : SLogger(config) {
     _remote_start = _slog_config->scratch_memory_address;
     _remote_size = _slog_config->scratch_memory_size_bytes;
     _remote_current = _remote_start;
+
+
+    //If this fails we could always keep modifying thread memory offest by two
+    assert(_remote_size < thread_memory_offset);
+
 
     ALERT("RMalloc", "Remote Start: [%p,%llu], Remote Size: %lu", _remote_start,_remote_start, _remote_size);
 
@@ -316,6 +515,8 @@ void * RMalloc::my_hooks_alloc(extent_hooks_t *extent_hooks, void *new_addr, siz
 
     print_alloc_hook_args(new_addr, size, alignment, zero, commit, arena_ind);
 
+    ALERT("RMALLOC", "Remote Current = %p", _remote_current);
+
     //We assume that all requests for remote memory are not zeroed.  This is not an explicitly safe
     //assumption. However, we need a method for determining if a request is for remote memory.
     //jemalloc makes internal calls to alloc and we need to be able to distinguish between these
@@ -324,19 +525,41 @@ void * RMalloc::my_hooks_alloc(extent_hooks_t *extent_hooks, void *new_addr, siz
     if (size != size_2MB) {
         _remote_allocs[arena_ind]+=1;
         // _remote_current = align_up((uint64_t)_remote_current + size, alignment);
-        _remote_current = align_to_power_of_2(_remote_current + size, alignment);
+        _remote_current = align_to_power_of_2(_remote_current, alignment);
         //Track the amount of memory we have allocated
         ret = (void *)_remote_current;
 
-        if (_remote_current >= _remote_start + _remote_size) {
+        if (_remote_current + size >= _remote_start + _remote_size) {
             printf("💀DEATH💀 Not enough remote memory failing %s:%s\n",__FILE__,__LINE__);
             exit(0);
         }
-        // if (*commit){
+
+        ret = ret + (thread_memory_offset * _id);
+
+        void *old_ret = ret;
+        ret = mmap(old_ret, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_FIXED, -1, 0);
+        if (ret == MAP_FAILED) {
+            printf("mmap failed: %s\n", strerror(errno));
+            exit(1);
+        }
+        if (old_ret != ret) {
+            printf("mmap failed: %s\n", strerror(errno));
+            exit(1);
+        }
+
+        //Assert that the memory is aligned
+        assert((uintptr_t)ret % alignment == 0);
+
+        // ALERT("RMALLOC", "We have %f (percent) of global memory left",(float)((_remote_start - _remote_current) / _remote_size));
+        _remote_current += size;
         //     printf("WARNING: Commit is not supported in remote allocations\n");
         // }
+        *zero = true;
+        *commit = true;
+        return ret;
 
     } else {
+        ALERT(log_id(), "In the original alloc hook");
         return Original_Hooks[arena_ind]->alloc(extent_hooks, new_addr, size, alignment, zero, commit, arena_ind);
 
         // if (!*commit) {
@@ -375,7 +598,6 @@ void * RMalloc::my_hooks_alloc(extent_hooks_t *extent_hooks, void *new_addr, siz
         //     memset(ret, size, 0);
         // }
     }
-    return ret;
 }
 
 
@@ -405,8 +627,17 @@ void RMalloc::create_arena(extent_hooks_t *new_hooks) {
         printf("mallctl error creating arena with new hooks\n");
         exit(1);
     }
-
     assert(n_arenas == _thread_to_arena_index[_id]);
+
+    // //Set the retain grow limit
+    string retain_grow_limit_command = "arena." + to_string(n_arenas) + ".retain_grow_limit";
+    const size_t retain_grow_limit = size_2MB; //2MB
+    err = je_mallctl(retain_grow_limit_command.c_str(), NULL, 0, (void *)&retain_grow_limit, sizeof(size_t));
+    if (err) {
+        printf("mallctl error setting retain grow limit\n");
+        exit(1);
+    }
+
 
     //At this point we have created the arena. We now need to go and get the original hook
     extent_hooks_t *original_hooks;
@@ -427,7 +658,5 @@ void RMalloc::create_arena(extent_hooks_t *new_hooks) {
         printf("mallctl error setting new hooks\n");
         exit(1);
     }
-
-
     jemalloc_start_mutex.unlock();
 }

@@ -10,8 +10,6 @@
 #include <stdint.h>
 using namespace rdma_helper;
 
-char no_op_buffer[NOOP_BUFFER_SIZE];
-
 
 namespace slogger {
 
@@ -122,7 +120,6 @@ namespace slogger {
         //Step 1 we are going to allocate some memory for the remote log
         //The assumption is that the local log tail pointer is at the end of the log.
         //For the first step we are going to get the current value of the tail pointer
-        #define MAX_BATCH_SIZE 256
 
         int ints[MAX_BATCH_SIZE];
         unsigned int sizes[MAX_BATCH_SIZE];
@@ -153,7 +150,6 @@ namespace slogger {
 
         uint64_t current_tail_value = _replicated_log.get_tail_pointer();
         _rslog.FAA_Alocate(entries);
-        
         _rslog.poll_one();
         assert(current_tail_value <= _replicated_log.get_tail_pointer());
 

@@ -9,7 +9,7 @@ namespace slogger {
     void Replicated_Log::allocate_client_positions(unsigned int total_clients, unsigned int bits_per_entry) {
         assert(bits_per_entry > 0);
         assert(total_clients > 0);
-        assert(bits_per_entry < 64);
+        assert(bits_per_entry <= 64);
         assert(IsPowerOfTwo(bits_per_entry) + 1);
         int bits = (bits_per_entry + 1);
         int total_bits = bits * total_clients;
@@ -155,10 +155,7 @@ namespace slogger {
                 return false;
             }
         }
-
-
         return true;
-
     }
 
     bool Replicated_Log::Will_Fit_In_Entry(size_t size) {
