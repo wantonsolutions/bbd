@@ -115,7 +115,7 @@ def call_class_method_given_name_wrapper(bbd_class_instance = None, bbd_method_n
 
 	payload_with_method = pickle.dumps((bbd_method_name, args, kwargs), 0)
 	#print(payload_with_method.hex())
-	marshal.loads(payload_with_method)
+	# pickle.loads(payload_with_method)
 	#print(payload_with_method.hex())
 	#print(type(payload_with_method))
 	
