@@ -5,7 +5,7 @@
 #include <string.h>
 //#include <stdstr.h>
 const int BUF_SIZE = 1024; 
-static char buf[BUF_SIZE];
+char buf[BUF_SIZE];
 
 bool write(void *op, int size){
 	memset(buf, 0, BUF_SIZE);
