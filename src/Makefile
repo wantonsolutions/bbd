@@ -98,6 +98,7 @@ clean:
 	rm -rf obj
 	rm -rf bin
 	rm -rf lib
+	sudo rm /usr/local/lib/liblocal_stub_logger.so
 
 
 .PHONY: all
