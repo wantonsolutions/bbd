@@ -62,9 +62,12 @@ namespace slogger {
 
     // //Send out a request for client positions along with the fetch and add
     bool Local_Stub_Logger::alloc_log_entries(unsigned int entries) {
-        uint64_t current_tail_value = _replicated_log.get_tail_pointer();
-        current_tail_value += entries;
-        _replicated_log.set_tail_pointer(current_tail_value);
+        INFO(log_id(), "Not Allocating %d log entries this is unnessisary for local", entries);
+
+        // uint64_t current_tail_value = _replicated_log.get_tail_pointer();
+        // current_tail_value += entries;
+        // _replicated_log.set_tail_pointer(current_tail_value);
+        return true;
     }
 
 
@@ -146,14 +149,13 @@ namespace slogger {
         //TODO assert somehow that we have allocated
         uint64_t local_log_tail_address = (uint64_t) _replicated_log.get_reference_to_tail_pointer_entry();
 
-        if (_id == 1) {
-            INFO(log_id(), "Writing log entry to %lu on 1", local_log_tail_address);
-        }
-
+        INFO(log_id(), "Writing log entry to tail address -> %lu", local_log_tail_address);
         for (int i=0; i<num_entries; i++) {
             unsigned int in_size = sizes[i];
             assert(_replicated_log.Will_Fit_In_Entry(in_size));
         }
+
+        INFO(log_id(), "Current tail pointer is %lu", _replicated_log.get_tail_pointer());
 
         //Make the local change
         //TODO batch

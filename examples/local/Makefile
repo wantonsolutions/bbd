@@ -3,9 +3,12 @@ CC := g++ # define the C/C++ compiler to use
 # LOCAL_STUB_LOGGER := ../../src/lib
 # INCLUDES := -I$(LOCAL_STUB_LOGGER)
 # LIBRARIES := -L$(LOCAL_STUB_LOGGER) -llocal_stub_logger
-all: local
+all: local_example
 #compile local.cpp
-local: local.cpp
+current=$(pwd)
+
+local_example: local.cpp
+	cd ../../src && $(MAKE) local
 	$(CC) $(CFLAGS) -o local local.cpp -llocal_stub_logger
 
 clean:
